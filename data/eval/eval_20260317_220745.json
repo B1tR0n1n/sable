@@ -1,0 +1,295 @@
+{
+  "config": {
+    "count": 10,
+    "templates": [
+      "small_office"
+    ],
+    "difficulty": "medium",
+    "seed": 42,
+    "endpoint": "http://127.0.0.1:8080",
+    "system_prompt": "You are SABLE, a cognitive engine for infrastructure operations and failure analysis.\n\nYou will receive a topology description and observable symptoms from a failure event. Your task is to:\n1. Identify the most likely root cause\n2. Trace the propagation path\n3. Recommend immediate remediation steps\n\nBe concise. No more than 300 words. Focus on accuracy over verbosity.\nDo not hallucinate components that are not in the topology.\nIf information is insufficient, say so."
+  },
+  "summary": {
+    "total": 10,
+    "scored": 10,
+    "errors": 0,
+    "avg_composite": 0.515
+  },
+  "results": [
+    {
+      "scenario_index": 0,
+      "template": "small_office",
+      "seed": 42,
+      "node_count": 11,
+      "cascade_steps": 1,
+      "injected_failures": [
+        "dns-01"
+      ],
+      "scores": {
+        "root_cause": 0.0,
+        "propagation_coverage": 0.0,
+        "hallucination_rate": 0.0,
+        "hallucinated_ids": [],
+        "conciseness": 1.0,
+        "word_count": 243,
+        "has_remediation": 1.0,
+        "composite": 0.5
+      },
+      "llm": {
+        "prompt_tokens": 3238,
+        "completion_tokens": 1461,
+        "elapsed_seconds": 8.74,
+        "tokens_per_second": 167.1
+      },
+      "response": "**Root\u2011cause**  \nThe only component in a non\u2011healthy state is **dns\u201101** (degraded at tick\u202f0 and tick\u202f2). All other nodes report healthy metrics, so the failure originates from the DNS service itself \u2013 most likely resource exhaustion (CPU, memory, or I/O) or an internal processing bottleneck that is not reflected in the supplied metrics.\n\n**Propagation path**  \n- **dns\u201101** is hard\u2011hosted on **srv\u2011phys\u201101** (HOSTING_DEPENDENCY).  \n- It is a soft dependency for **dhcp\u201101**, **dc\u201101**, **mon\u201101**, **srv\u2011phys\u201101**, and **fw\u201101** (DNS_DEPENDENCY).  \n- Because the dependency is soft, these components continue to function but are operating with a degraded upstream service, which can later cause authentication, lease, or monitoring failures if the condition persists.\n\n**Remediation steps** (immediate, ordered)\n\n1. **Isolate and restart the DNS service** on *dns\u201101* (e.g., `systemctl restart named` or equivalent).  \n2. **Check host resources** on *dns\u201101* and *srv\u2011phys\u201101* (CPU, RAM, disk I/O, network queues). If utilization is high, consider re\u2011allocating resources or moving DNS to a less\u2011loaded host.  \n3. **Validate network path** from all dependent nodes to *dns\u201101* (ping/trace, verify no firewall rule changes).  \n4. **Review DNS query logs** for spikes, malformed queries, or amplification attacks that could cause sustained load.  \n5. **Enable monitoring alerts** on DNS response time and error rates to catch future degradations early.  \n\nIf the problem recurs after a restart, investigate deeper: possible memory leaks, insufficient cache size, or upstream network congestion (e.g., WAN utilization spikes). Until the DNS service stabilizes, dependent services should be watched for increased latency or failures."
+    },
+    {
+      "scenario_index": 1,
+      "template": "small_office",
+      "seed": 43,
+      "node_count": 11,
+      "cascade_steps": 5,
+      "injected_failures": [
+        "srv-phys-01"
+      ],
+      "scores": {
+        "root_cause": 0.0,
+        "propagation_coverage": 0.0,
+        "hallucination_rate": 0.0,
+        "hallucinated_ids": [],
+        "conciseness": 1.0,
+        "word_count": 249,
+        "has_remediation": 0.6666666666666666,
+        "composite": 0.45
+      },
+      "llm": {
+        "prompt_tokens": 2519,
+        "completion_tokens": 802,
+        "elapsed_seconds": 4.85,
+        "tokens_per_second": 165.2
+      },
+      "response": "**Root\u2011cause assessment**  \n- All listed components report **healthy** state at both tick\u202f0 and tick\u202f2 with no alerts.  \n- Metrics (CPU, throughput, latency, packet\u2011loss, etc.) remain within normal ranges for every node.  \n- Consequently, **no concrete failure symptom** is present in the data you supplied, so a definitive root\u2011cause cannot be identified.\n\n**Propagation path (if a failure were to occur)**  \nThe topology shows tight coupling through the firewall (fw\u201101) and the WAN link (wan\u201101):  \n\n1. **fw\u201101** \u2192 sw\u2011core\u201101 (hard) \u2192 all access switches \u2192 servers (srv\u2011phys\u201101, dc\u201101, dns\u201101, dhcp\u201101).  \n2. **igw\u201101** \u2192 fw\u201101 (hard) \u2192 same downstream chain.  \n3. **wan\u201101** \u2192 igw\u201101 (hard) \u2192 fw\u201101 \u2192 downstream.  \n\nThus, any degradation in the WAN or firewall would cascade to the core switch, access switches, and ultimately to DHCP/DNS/DC services via the hard dependencies.\n\n**Remediation recommendation**  \n- **Confirm that no hidden fault exists**: Verify that the observed \u201chealthy\u201d status is not a reporting artifact (e.g., polling interval, thresholds).  \n- **Enable proactive health checks** on the critical hard\u2011dependency links (fw\u201101\u2194sw\u2011core\u201101, igw\u201101\u2194fw\u201101, wan\u201101\u2194igw\u201101).  \n- **Increase alert granularity** (e.g., watch for gradual CPU/throughput drift, session\u2011count spikes, or rising latency) before a failure manifests.  \n- **Document the dependency chain** and ensure that any planned change (firmware upgrade, rule\u2011set modification, WAN bandwidth adjustment) is tested against the full cascade path.  \n\n**Conclusion** \u2013 With the current data set, the system appears intact; the root cause remains indeterminate. Continue real\u2011time monitoring of the highlighted dependency links and establish baseline thresholds to detect the earliest signs of degradation."
+    },
+    {
+      "scenario_index": 2,
+      "template": "small_office",
+      "seed": 44,
+      "node_count": 11,
+      "cascade_steps": 9,
+      "injected_failures": [
+        "srv-phys-01",
+        "sw-core-01"
+      ],
+      "scores": {
+        "root_cause": 0.0,
+        "propagation_coverage": 0.0,
+        "hallucination_rate": 0.0,
+        "hallucinated_ids": [],
+        "conciseness": 1.0,
+        "word_count": 231,
+        "has_remediation": 1.0,
+        "composite": 0.5
+      },
+      "llm": {
+        "prompt_tokens": 3434,
+        "completion_tokens": 1270,
+        "elapsed_seconds": 7.63,
+        "tokens_per_second": 166.5
+      },
+      "response": "**Root cause**  \n- **sw\u2011core\u201101** is in **CRITICAL\u202ffailed** state.  \n- It is the only hard\u2011dependency for the **firewall (fw\u201101)**, and the sole upstream switch for **sw\u2011acc\u201101/02**, **srv\u2011phys\u201101**, **dhcp\u201101**, **dns\u201101**, **dc\u201101**, and the **monitoring server (mon\u201101)**.  \n- When sw\u2011core\u201101 fails, every component that relies on it loses its network path, so the monitoring system cannot reach them \u2192 the flood of \u201cunreachable by monitoring\u201d alerts.\n\n**Propagation path**  \n1. **sw\u2011core\u201101** failure \u2192 loss of connectivity to **fw\u201101** (hard\u2011path).  \n2. **fw\u201101** can no longer forward traffic to the **Internet gateway (igw\u201101)** or apply NAT, but the WAN link itself stays healthy.  \n3. The failure also breaks the path to **sw\u2011acc\u201101/02**, **srv\u2011phys\u201101**, **dhcp\u201101**, **dns\u201101**, **dc\u201101**, and **mon\u201101**.  \n4. Those nodes consequently appear \u201cunreachable by monitoring,\u201d generating the observed alerts across the topology.\n\n**Immediate remediation**  \n1. **Isolate** sw\u2011core\u201101 (disable its uplinks or put the port in err\u2011disable) to prevent further instability.  \n2. **Power\u2011cycle / reboot** the switch; if it does not come up, replace the hardware.  \n3. **Verify** uplink status, spanning\u2011tree convergence, and interface errors after restart.  \n4. **Check logs** for crash signatures (ASIC/fan/thermal) that may have triggered the failure.  \n5. Once sw\u2011core\u201101 is restored, confirm connectivity to all dependent components and clear the \u201cunreachable by monitoring\u201d alerts.  \n6. **Enable redundancy** (e.g., LACP or VRRP) on uplinks to prevent single\u2011point failure recurrence.\n\n*No other component shows a failure state; the cascade originates from the failed sw\u2011core\u201101.*"
+    },
+    {
+      "scenario_index": 3,
+      "template": "small_office",
+      "seed": 45,
+      "node_count": 11,
+      "cascade_steps": 7,
+      "injected_failures": [
+        "fw-01",
+        "srv-phys-01"
+      ],
+      "scores": {
+        "root_cause": 0.5,
+        "propagation_coverage": 0.71,
+        "hallucination_rate": 0.0,
+        "hallucinated_ids": [],
+        "conciseness": 1.0,
+        "word_count": 301,
+        "has_remediation": 1.0,
+        "composite": 0.792
+      },
+      "llm": {
+        "prompt_tokens": 2612,
+        "completion_tokens": 1594,
+        "elapsed_seconds": 9.66,
+        "tokens_per_second": 165.0
+      },
+      "response": "**Root\u2011cause**  \n`srv-phys-01` is the only component in *degraded* state (CPU\u202f\u2248\u202f30\u202f%, Memory\u202f\u2248\u202f46\u202f%, Disk\u202f\u2248\u202f46\u202f% utilization, plus two \u201chigh\u2011resource\u2011utilization\u201d alerts). All other nodes report healthy metrics. The degradation is therefore the initiating fault.\n\n**Propagation path**  \n- `srv-phys-01` hosts or depends on several critical services:  \n  - **DNS** (`dns-01`) \u2013 `dns-01 \u2192 srv-phys-01` (HOSTING_DEPENDENCY, HARD)  \n  - **DHCP** (`dhcp-01`) \u2013 `dhcp-01 \u2192 srv-phys-01` (HOSTING_DEPENDENCY, HARD)  \n  - **Domain Controller** (`dc-01`) \u2013 `dc-01 \u2192 srv-phys-01` (HOSTING_DEPENDENCY, HARD)  \n  - **Monitoring** (`mon-01`) \u2013 `mon-01 \u2192 srv-phys-01` (HOSTING_DEPENDENCY, HARD)  \n- Because these services run on `srv-phys-01`, their stability is tightly coupled to its resource health.  \n- `srv-phys-01` also connects to `sw-acc-01` and `sw-acc-02` (NETWORK_PATH, HARD); any performance drop can affect switch traffic shaping and VLAN provisioning.  \n- The degradation propagates upstream to the **core switch** (`sw-core-01`) and downstream to the **access switches** (`sw-acc-01`, `sw-acc-02`) only if the host\u2019s network stack or QoS processes become saturated, but no alerts have surfaced on those devices yet.\n\n**Remediation (immediate)**  \n1. **Isolate the host** \u2013 stop non\u2011essential workloads (e.g., move DNS/DHCP/DCs off `srv-phys-01` or scale out).  \n2. **Check for runaway processes** \u2013 inspect CPU\u2011/memory\u2011intensive services (e.g., `named`, `dhcpd`, replication agents).  \n3. **Clear disk back\u2011log** \u2013 if disk utilization is sustained >45\u202f%, delete old logs or expand storage.  \n4. **Rebalance load** \u2013 consider adding a second physical server or clustering the hosted services to reduce per\u2011node demand.  \n5. **Validate network path** \u2013 confirm that the `srv-phys-01 \u2194 sw-acc-01` link remains error\u2011free; if errors appear, reseat the NIC or adjust MTU.  \n6. **Monitor post\u2011fix** \u2013 watch `srv-phys-01` metrics and dependent services for a full tick cycle (\u2248\u202f2\u202fticks) to ensure the degradation does not recur.\n\n*If after these steps the host remains degraded, consider replacing the hardware or migrating all hosted services to a more capable node.*"
+    },
+    {
+      "scenario_index": 4,
+      "template": "small_office",
+      "seed": 46,
+      "node_count": 11,
+      "cascade_steps": 1,
+      "injected_failures": [
+        "dns-01"
+      ],
+      "scores": {
+        "root_cause": 0.0,
+        "propagation_coverage": 0.0,
+        "hallucination_rate": 0.0,
+        "hallucinated_ids": [],
+        "conciseness": 1.0,
+        "word_count": 291,
+        "has_remediation": 1.0,
+        "composite": 0.5
+      },
+      "llm": {
+        "prompt_tokens": 3241,
+        "completion_tokens": 1160,
+        "elapsed_seconds": 7.15,
+        "tokens_per_second": 162.3
+      },
+      "response": "**Root cause**  \nThe only component in alert state is **dns\u201101** (degraded). Its metrics show a modest rise in response time (0.86\u202f\u2192\u202f0.98\u202fms) and a slight drop in cache size and query rate, triggering a \u201cperformance degraded\u201d warning. No network, CPU, or link failures are reported for any other node, indicating the problem originates inside the DNS service itself (e.g., cache pressure, zone\u2011file I/O, or upstream query load).\n\n**Propagation path**  \n- **dns\u201101** is a hard dependency for **srv\u2011phys\u201101**, **dhcp\u201101**, **dc\u201101**, and **mon\u201101** (hosting / DNS / authentication dependencies).  \n- It also supplies name resolution to **fw\u201101**, **igw\u201101**, **wan\u201101**, and the access switches (via `dns\u201101 \u2192 sw\u2011acc\u201101`).  \n- Consequently, any interruption or continued slowdown could affect DHCP lease processing, domain\u2011controller authentication, and monitoring agents that rely on DNS queries.\n\n**Immediate remediation**  \n1. **Restart the DNS service** on **dns\u201101** (or perform a graceful reload) to clear any stuck cache or stalled query workers.  \n2. **Flush the DNS cache** (`rndc flush`) to eliminate corrupted entries.  \n3. **Verify disk I/O and memory** on the server (ensure the cache directory has sufficient free space and that no swapping is occurring).  \n4. **Check logs** for repeated time\u2011outs or NXDOMAIN storms that could be over\u2011loading the resolver.  \n5. **Confirm connectivity** to upstream resolvers / root servers (ping/trace) to rule out network latency affecting response time.  \n6. **Monitor** the DNS metrics for the next few ticks; if response time climbs >\u202f1\u202fms or error rates rise, escalate to a full service restart or scale\u2011out (e.g., add a secondary DNS replica).  \n\nThese steps restore DNS performance, prevent downstream failures, and bring the environment back to a healthy state. If the problem recurs, investigate upstream query volume (e.g., DHCP or DC request bursts) that may be stressing the resolver."
+    },
+    {
+      "scenario_index": 5,
+      "template": "small_office",
+      "seed": 47,
+      "node_count": 11,
+      "cascade_steps": 6,
+      "injected_failures": [
+        "srv-phys-01",
+        "dns-01"
+      ],
+      "scores": {
+        "root_cause": 0.0,
+        "propagation_coverage": 0.0,
+        "hallucination_rate": 0.0,
+        "hallucinated_ids": [],
+        "conciseness": 0.74,
+        "word_count": 378,
+        "has_remediation": 1.0,
+        "composite": 0.461
+      },
+      "llm": {
+        "prompt_tokens": 2849,
+        "completion_tokens": 1828,
+        "elapsed_seconds": 10.99,
+        "tokens_per_second": 166.3
+      },
+      "response": "**Root\u2011cause hypothesis**  \nThe only components reporting a degraded state are **srv\u2011phys\u201101** and **dns\u201101**. All other devices are healthy at both tick\u202f0 and tick\u202f2. The dependency graph shows a **hard HOSTING_DEPENDENCY** from **dns\u201101 \u2192 srv\u2011phys\u201101** (dns\u201101 depends on srv\u2011phys\u201101 for hosting). In addition, **srv\u2011phys\u201101** has hard dependencies on **sw\u2011acc\u201101**, **dns\u201101**, **dc\u201101**, **dhcp\u201101**, and **mon\u201101**. The most parsimonious explanation is that **srv\u2011phys\u201101 is experiencing resource exhaustion** (CPU, memory, I/O) that is causing its own health to drop and, through the hosting dependency, degrading the DNS service that runs on it.\n\n**Propagation path**  \n\n1. **srv\u2011phys\u201101** \u2192 high CPU/memory/disk utilization \u2192 health = *degraded* (ticks\u202f0\u20112).  \n2. **dns\u201101** depends on srv\u2011phys\u201101 for hosting \u2192 its metrics worsen (query\u2011rate stable, response\u2011time rises slightly) \u2192 health = *degraded* (ticks\u202f0\u20112).  \n3. Because **dns\u201101** is also a dependency for **dhcp\u201101**, **dc\u201101**, and **mon\u201101**, those services could eventually be impacted, but at the observed ticks they remain healthy, likely due to caching or redundant paths.\n\n**Immediate remediation steps**  \n\n| Step | Action |\n|------|--------|\n| 1 | **Isolate srv\u2011phys\u201101** \u2013 stop non\u2011essential workloads (e.g., scheduled jobs, backup processes) to bring CPU, memory, and disk utilization below 30\u202f%. |\n| 2 | **Check for runaway processes** \u2013 inspect top\u2011CPU/memory consumers; restart or re\u2011schedule offending services. |\n| 3 | **Verify NIC/VLAN configuration** \u2013 ensure no broadcast storm or loop on the access switch that could be saturating the NIC (look for excessive collisions or dropped packets). |\n| 4 | **If resources remain constrained**, migrate VMs/containers off srv\u2011phys\u201101 or add capacity (CPU, RAM, storage). |\n| 5 | **Validate DNS service** \u2013 after srv\u2011phys\u201101 stabilizes, confirm that dns\u201101 metrics return to *healthy* and that dependent services (dhcp, dc, mon) stay healthy. |\n| 6 | **Update monitoring thresholds** \u2013 adjust alerts to catch early resource\u2011utilization trends before they cause \u201cdegraded\u201d states. |\n\n**Why this fits the data**  \n- No alerts on switches, firewall, or WAN links, ruling out network\u2011path failures.  \n- Only srv\u2011phys\u201101 shows resource\u2011utilization warnings; dns\u201101\u2019s degradation aligns with its hosting dependency on that server.  \n- All dependencies converge on srv\u2011phys\u201101, making it the single point of failure that propagates to dns\u201101.  \n\nAddressing the resource exhaustion on **srv\u2011phys\u201101** should restore both its own health and the health of the DNS service it hosts."
+    },
+    {
+      "scenario_index": 6,
+      "template": "small_office",
+      "seed": 48,
+      "node_count": 11,
+      "cascade_steps": 1,
+      "injected_failures": [
+        "dc-01",
+        "dc-01"
+      ],
+      "scores": {
+        "root_cause": 0.0,
+        "propagation_coverage": 0.0,
+        "hallucination_rate": 0.0,
+        "hallucinated_ids": [],
+        "conciseness": 1.0,
+        "word_count": 295,
+        "has_remediation": 1.0,
+        "composite": 0.5
+      },
+      "llm": {
+        "prompt_tokens": 3236,
+        "completion_tokens": 958,
+        "elapsed_seconds": 6.05,
+        "tokens_per_second": 158.3
+      },
+      "response": "**Root Cause**  \nThe only component in *degraded* state is **dc\u201101** (Domain Controller). Its metrics show a warning:  \n- Replication status \u2193 (0.8689 \u2192 0.9018)  \n- LDAP response time \u2191 (4.2\u202fms \u2192 4.3\u202fms)  \n- Authentication rate \u2191 (170 \u2192 184\u202freq/s)  \n- FSMO role weight \u2191 (0.0049 \u2192 0.0097)  \n\nThese indicate increasing load or a partial failure of the DC\u2019s core services (AD/LDAP, replication, authentication). No other node reports anomalies, so the failure originates at the DC itself.\n\n**Propagation Path**  \nDependencies that could be impacted by a DC slowdown:  \n\n1. **srv\u2011phys\u201101** \u2013 relies on dc\u201101 for authentication (soft).  \n2. **dns\u201101** \u2013 queries dc\u201101 for DNS (soft).  \n3. **dhcp\u201101** \u2013 may need DC for client authentication (soft).  \n4. **mon\u201101** \u2013 consumes authentication/monitoring data from dc\u201101 (soft).  \n5. **sw\u2011acc\u201101 / sw\u2011acc\u201102** \u2013 network access may be affected if auth fails.  \n\nBecause all downstream components still report *healthy* metrics, the impact has not yet cascaded to cause observable outages; it remains a localized DC degradation.\n\n**Immediate Remediation**  \n\n1. **Check DC health** \u2013 review Windows Event Logs for AD, DNS, and Kerberos errors.  \n2. **Validate replication** \u2013 run `repadmin /replsum` and `dcdiag /test:replications`.  \n3. **Free resources** \u2013 verify CPU, memory, and disk I/O on dc\u201101; add capacity or relocate VM if resource\u2011starved.  \n4. **Restart critical services** \u2013 if safe, restart Netlogon and DNS server services to clear transient stalls.  \n5. **Monitor LDAP/auth metrics** \u2013 watch for continued rise in LDAP response time or replication lag.  \n6. **If degradation persists**, consider a controlled fail\u2011over to a healthy DC and perform a root\u2011cause analysis (e.g., patch missing, anti\u2011virus scan, storage latency).  \n\nAfter the DC returns to *healthy* state, re\u2011validate that dependent services (auth, DNS, DHCP) resume normal operation. This targeted fix resolves the failure source and prevents potential downstream outages."
+    },
+    {
+      "scenario_index": 7,
+      "template": "small_office",
+      "seed": 49,
+      "node_count": 11,
+      "cascade_steps": 1,
+      "injected_failures": [
+        "mon-01"
+      ],
+      "scores": {
+        "root_cause": 0.0,
+        "propagation_coverage": 0.0,
+        "hallucination_rate": 0.0,
+        "hallucinated_ids": [],
+        "conciseness": 1.0,
+        "word_count": 262,
+        "has_remediation": 1.0,
+        "composite": 0.5
+      },
+      "llm": {
+        "prompt_tokens": 2980,
+        "completion_tokens": 1075,
+        "elapsed_seconds": 6.8,
+        "tokens_per_second": 158.2
+      },
+      "response": "**Root cause**  \nThe only component reporting a fault is **mon\u201101** (status\u202f=\u202fdegraded, warning about performance). All other nodes remain healthy, indicating the failure originates within the monitoring server itself \u2013 most likely resource exhaustion (high metric\u2011ingest rate, rising storage use, growing alert count) caused by the sheer volume of telemetry it receives from the many dependent nodes.\n\n**Propagation path**  \n- Soft monitoring dependencies exist from **fw\u201101, igw\u201101, wan\u201101, sw\u2011core\u201101, sw\u2011acc\u201101, sw\u2011acc\u201102, dns\u201101, dhcp\u201101, dc\u201101, srv\u2011phys\u201101** back to **mon\u201101**.  \n- When mon\u201101\u2019s ingest capacity is saturated, the data it collects becomes stale or delayed, which can cause downstream health\u2011checks or automated responses to mis\u2011report, but in this snapshot those downstream components still appear \u201chealthy.\u201d  \n- Thus the degradation does not cascade further at tick\u202f2; it is confined to the monitoring plane.\n\n**Remediation steps (immediate)**  \n1. **Restart / reload the monitoring agent** on mon\u201101 to clear any stuck processes.  \n2. **Scale storage** \u2013 increase the partition used for metric retention if utilization is approaching the reported 0.42\u202f(42\u202f%).  \n3. **Throttle inbound metric streams** \u2013 temporarily reduce scrape intervals or enable aggregation on upstream devices to lower ingest rate below the current ~9.5\u202fk metrics/sec.  \n4. **Verify resource usage** \u2013 check CPU, memory, and I/O on mon\u201101; if any metric spikes, consider adding a second monitoring instance or redistributing load across additional collectors.  \n5. **Validate alert thresholds** \u2013 adjust warning levels to avoid false positives while the root cause is addressed.\n\n*If the problem persists after these actions, investigate possible network\u2011level loops or mis\u2011configured dependencies that could be amplifying traffic to mon\u201101.*"
+    },
+    {
+      "scenario_index": 8,
+      "template": "small_office",
+      "seed": 50,
+      "node_count": 11,
+      "cascade_steps": 7,
+      "injected_failures": [
+        "dc-01",
+        "sw-acc-01"
+      ],
+      "scores": {
+        "root_cause": 0.0,
+        "propagation_coverage": 0.0,
+        "hallucination_rate": 0.0,
+        "hallucinated_ids": [],
+        "conciseness": 1.0,
+        "word_count": 294,
+        "has_remediation": 0.6666666666666666,
+        "composite": 0.45
+      },
+      "llm": {
+        "prompt_tokens": 2382,
+        "completion_tokens": 1120,
+        "elapsed_seconds": 6.95,
+        "tokens_per_second": 161.2
+      },
+      "response": "**Root\u2011cause**  \nThe only component reporting a non\u2011healthy state is **dc\u201101** (Domain Controller). Its metrics show a degraded LDAP response (~5\u202fms), replication status >\u202f1, and a negative FSMO\u2011role indicator \u2013 classic signs of an overloaded or partially unhealthy AD service. No network or hardware alerts appear on any other node, indicating the problem originates on the DC itself rather than a downstream link failure.\n\n**Propagation path**  \ndc\u201101 is a critical dependency for several services:\n\n1. **Authentication** \u2013 many downstream components (srv\u2011phys\u201101, dhcp\u201101, mon\u201101, etc.) rely on dc\u201101 for user/group validation.  \n2. **DNS hosting** \u2013 dns\u201101 depends on dc\u201101 (DNS_DEPENDENCY).  \n3. **Hosting** \u2013 srv\u2011phys\u201101 and dhcp\u201101 host services on dc\u201101.  \n4. **Monitoring** \u2013 dc\u201101 pushes metrics to mon\u201101; a degraded DC can cause monitoring gaps.\n\nBecause these dependencies are marked **HARD** or **SOFT** network/DNS links, any slowdown or failure at dc\u201101 can stall or degrade the dependent services, even though their own health checks still report \u201chealthy\u201d at tick\u202f0/2.\n\n**Immediate remediation**  \n\n1. **Validate DC resources** \u2013 check CPU, memory, disk I/O, and free space on dc\u201101.  \n2. **Inspect replication** \u2013 run `repadmin /replsum` and `dcdiag` to locate replication partners with errors; force a replication restart if needed.  \n3. **Review LDAP/AD logs** \u2013 look for event\u2011ID 1649/2087 indicating LDAP time\u2011outs or authentication throttling.  \n4. **Temporarily redistribute load** \u2013 if a secondary DC exists, promote it or shift authentication traffic to it.  \n5. **Restart critical services** \u2013 on dc\u201101, restart the Netlogon and KDC services to clear transient state.  \n6. **Monitor downstream impact** \u2013 after remediation, watch srv\u2011phys\u201101, dhcp\u201101, dns\u201101, and mon\u201101 for any emerging alerts that may indicate lingering dependency failures.\n\nIf the DC remains degraded after these steps, consider fail\u2011over to a healthy DC and schedule a deeper capacity\u2011planning review to prevent recurrence."
+    },
+    {
+      "scenario_index": 9,
+      "template": "small_office",
+      "seed": 51,
+      "node_count": 11,
+      "cascade_steps": 4,
+      "injected_failures": [
+        "sw-core-01"
+      ],
+      "scores": {
+        "root_cause": 0.0,
+        "propagation_coverage": 0.0,
+        "hallucination_rate": 0.0,
+        "hallucinated_ids": [],
+        "conciseness": 1.0,
+        "word_count": 278,
+        "has_remediation": 1.0,
+        "composite": 0.5
+      },
+      "llm": {
+        "prompt_tokens": 2601,
+        "completion_tokens": 1207,
+        "elapsed_seconds": 7.47,
+        "tokens_per_second": 161.5
+      },
+      "response": "**Root Cause**  \nThe only component in a non\u2011healthy state is **sw\u2011core\u201101**, which shows persistent \u201cdegraded\u201d status and CPU\u2011related alerts at both tick\u202f0 and tick\u202f2. All other nodes remain healthy, indicating the anomaly originates on the core switch itself (e.g., runaway process, configuration error, or hardware interrupt storm) rather than a downstream failure.\n\n**Propagation Path**  \n- **sw\u2011core\u201101** is a hard dependency for:  \n  - **fw\u201101** (firewall) \u2013 if the core remains degraded, firewall throughput may eventually dip.  \n  - **sw\u2011acc\u201101/02** (access switches) \u2013 could cause loss of connectivity for edge devices.  \n  - **srv\u2011phys\u201101**, **dc\u201101**, **mon\u201101** \u2013 potential loss of host services, authentication, and monitoring.  \n- Because these downstream elements are still reporting healthy metrics, the degradation has not yet cascaded; it is currently confined to the core switch\u2019s own resource exhaustion.\n\n**Immediate Remediation**  \n1. **Isolate & Inspect** \u2013 SSH into *sw\u2011core\u201101* and run `top/htop` or `ps` to identify the process consuming CPU.  \n2. **Check Logs** \u2013 Look for recent configuration changes, storm\u2011control events, or control\u2011plane errors (`/var/log/syslog`, `journalctl`).  \n3. **Graceful Restart** \u2013 If a specific service is at fault, restart it; otherwise, perform a controlled reload of the switch\u2019s control plane (e.g., `reload` or `write memory` followed by a reboot).  \n4. **Validate Uplinks** \u2013 Confirm that the three uplinks reported (`uplink_count: 3.53/3.71`) are up and not flapping; a faulty uplink could generate excessive control traffic.  \n5. **Monitor Post\u2011Action** \u2013 Re\u2011sample metrics at the next tick; ensure CPU drops below the alert threshold (\u22480.15) and that dependent services remain healthy.  \n\nIf the issue recurs, consider adding redundancy (e.g., secondary core switch) or scaling CPU resources, and investigate any recent rule or VLAN changes that may have overloaded the control plane."
+    }
+  ]
+}

@@ -1,0 +1,7276 @@
+{
+  "scenario_id": "9527ce9b-2825-4dc0-b303-1b0c69364efb",
+  "metadata": {
+    "node_count": 84,
+    "edge_count": 294,
+    "failure_categories": [
+      "DEPENDENCY_CHAIN"
+    ],
+    "difficulty": "medium",
+    "total_ticks": 4,
+    "total_state_changes": 9,
+    "generated_at": "2026-03-18T01:50:03.956415+00:00"
+  },
+  "topology": {
+    "nodes": [
+      {
+        "id": "fw-01",
+        "type": "FIREWALL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "throughput": 5209.1402,
+          "session_count": 42875.1613,
+          "max_sessions": 93250.8796,
+          "cpu_util": 0.2292,
+          "rule_count": 214.1883
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "fw-02",
+        "type": "FIREWALL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "throughput": 5265.0492,
+          "session_count": 55882.6935,
+          "max_sessions": 87608.165,
+          "cpu_util": 0.2441,
+          "rule_count": 171.7878
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "rtr-01",
+        "type": "ROUTER",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "route_table_size": 457.7957,
+          "throughput": 5008.0329,
+          "cpu_util": 0.1287,
+          "bgp_neighbor_count": 3.6386
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "rtr-02",
+        "type": "ROUTER",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "route_table_size": 522.4827,
+          "throughput": 5067.4122,
+          "cpu_util": 0.1374,
+          "bgp_neighbor_count": 4.1071
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "igw-01",
+        "type": "INTERNET_GATEWAY",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "throughput": 2185.6583,
+          "nat_session_count": 17038.9926,
+          "max_sessions": 54587.2888,
+          "public_ip_count": 4.2378
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "wan-01",
+        "type": "WAN_LINK",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "bandwidth": 952.0752,
+          "latency_ms": 8.9664,
+          "jitter_ms": 1.1372,
+          "packet_loss_pct": 0.0095,
+          "utilization_pct": 0.2633
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "wan-02",
+        "type": "WAN_LINK",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "bandwidth": 879.0149,
+          "latency_ms": 11.0425,
+          "jitter_ms": 1.0311,
+          "packet_loss_pct": 0.0109,
+          "utilization_pct": 0.3207
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-core-01",
+        "type": "CORE_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 48.5217,
+          "throughput": 11419.3473,
+          "cpu_util": 0.1445,
+          "memory_util": 0.3047,
+          "uplink_count": 4.3953
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-core-02",
+        "type": "CORE_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 49.7067,
+          "throughput": 11085.1207,
+          "cpu_util": 0.1535,
+          "memory_util": 0.3184,
+          "uplink_count": 3.455
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-01",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 22.0409,
+          "throughput": 936.8164,
+          "cpu_util": 0.0874,
+          "vlan_count": 4.5992,
+          "poe_budget": 325.7112
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-02",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 22.4014,
+          "throughput": 1040.7053,
+          "cpu_util": 0.0959,
+          "vlan_count": 4.8053,
+          "poe_budget": 337.7553
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-03",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 22.3222,
+          "throughput": 1130.9964,
+          "cpu_util": 0.1044,
+          "vlan_count": 5.1637,
+          "poe_budget": 333.4964
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-04",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 25.6497,
+          "throughput": 899.0207,
+          "cpu_util": 0.0964,
+          "vlan_count": 5.7343,
+          "poe_budget": 385.54
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-05",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 24.41,
+          "throughput": 1055.3843,
+          "cpu_util": 0.1103,
+          "vlan_count": 5.414,
+          "poe_budget": 339.9243
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-06",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 20.6311,
+          "throughput": 944.6359,
+          "cpu_util": 0.093,
+          "vlan_count": 4.5665,
+          "poe_budget": 419.163
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-07",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 26.7098,
+          "throughput": 944.4034,
+          "cpu_util": 0.1047,
+          "vlan_count": 4.8434,
+          "poe_budget": 416.0148
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-08",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 23.7037,
+          "throughput": 929.464,
+          "cpu_util": 0.0924,
+          "vlan_count": 5.0921,
+          "poe_budget": 343.6643
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-09",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 24.609,
+          "throughput": 1119.3469,
+          "cpu_util": 0.097,
+          "vlan_count": 4.579,
+          "poe_budget": 425.2267
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-10",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 24.0686,
+          "throughput": 877.2728,
+          "cpu_util": 0.0864,
+          "vlan_count": 4.4145,
+          "poe_budget": 384.1465
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-11",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 26.103,
+          "throughput": 976.648,
+          "cpu_util": 0.0869,
+          "vlan_count": 4.8224,
+          "poe_budget": 425.0695
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-12",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 24.2096,
+          "throughput": 1141.3235,
+          "cpu_util": 0.1108,
+          "vlan_count": 4.2672,
+          "poe_budget": 394.5001
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-13",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 25.3083,
+          "throughput": 1011.0911,
+          "cpu_util": 0.093,
+          "vlan_count": 5.2114,
+          "poe_budget": 326.8823
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-14",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 23.5303,
+          "throughput": 986.1171,
+          "cpu_util": 0.1136,
+          "vlan_count": 5.5638,
+          "poe_budget": 343.7362
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-15",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 24.0042,
+          "throughput": 903.5956,
+          "cpu_util": 0.1124,
+          "vlan_count": 5.5558,
+          "poe_budget": 347.6274
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-16",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 25.0004,
+          "throughput": 1032.6911,
+          "cpu_util": 0.0896,
+          "vlan_count": 5.3938,
+          "poe_budget": 374.3711
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-17",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 26.0061,
+          "throughput": 1009.1061,
+          "cpu_util": 0.085,
+          "vlan_count": 4.7362,
+          "poe_budget": 316.6619
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-18",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 27.0895,
+          "throughput": 1113.6166,
+          "cpu_util": 0.1099,
+          "vlan_count": 4.7113,
+          "poe_budget": 320.9297
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-19",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 26.7217,
+          "throughput": 1134.0848,
+          "cpu_util": 0.0876,
+          "vlan_count": 4.979,
+          "poe_budget": 322.1826
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "sw-acc-20",
+        "type": "ACCESS_SWITCH",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "port_count": 25.8763,
+          "throughput": 1079.7503,
+          "cpu_util": 0.0889,
+          "vlan_count": 4.9629,
+          "poe_budget": 375.5282
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-phys-01",
+        "type": "SERVER_PHYSICAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 14.8723,
+          "cpu_util": 0.3335,
+          "memory_total": 62.5242,
+          "memory_util": 0.3654,
+          "disk_iops": 5058.9441,
+          "disk_util": 0.5345,
+          "nic_count": 1.8207
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-phys-02",
+        "type": "SERVER_PHYSICAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 15.5152,
+          "cpu_util": 0.3155,
+          "memory_total": 61.5697,
+          "memory_util": 0.448,
+          "disk_iops": 4927.2292,
+          "disk_util": 0.4622,
+          "nic_count": 1.7384
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-phys-03",
+        "type": "SERVER_PHYSICAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 16.4239,
+          "cpu_util": 0.2757,
+          "memory_total": 58.6282,
+          "memory_util": 0.3485,
+          "disk_iops": 5196.6544,
+          "disk_util": 0.4593,
+          "nic_count": 2.2433
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-phys-04",
+        "type": "SERVER_PHYSICAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 13.9401,
+          "cpu_util": 0.2764,
+          "memory_total": 67.2444,
+          "memory_util": 0.3657,
+          "disk_iops": 4448.4678,
+          "disk_util": 0.5653,
+          "nic_count": 2.0426
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-phys-05",
+        "type": "SERVER_PHYSICAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 14.7664,
+          "cpu_util": 0.2976,
+          "memory_total": 62.2156,
+          "memory_util": 0.3513,
+          "disk_iops": 5238.4741,
+          "disk_util": 0.4781,
+          "nic_count": 1.9467
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-phys-06",
+        "type": "SERVER_PHYSICAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 16.8321,
+          "cpu_util": 0.3436,
+          "memory_total": 56.2896,
+          "memory_util": 0.3883,
+          "disk_iops": 4758.9539,
+          "disk_util": 0.5543,
+          "nic_count": 1.8492
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-phys-07",
+        "type": "SERVER_PHYSICAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 16.1742,
+          "cpu_util": 0.2676,
+          "memory_total": 57.923,
+          "memory_util": 0.3955,
+          "disk_iops": 5561.7289,
+          "disk_util": 0.4363,
+          "nic_count": 2.1848
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-phys-08",
+        "type": "SERVER_PHYSICAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 14.07,
+          "cpu_util": 0.3137,
+          "memory_total": 64.7793,
+          "memory_util": 0.3418,
+          "disk_iops": 4389.8942,
+          "disk_util": 0.538,
+          "nic_count": 1.8418
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-phys-09",
+        "type": "SERVER_PHYSICAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 15.9311,
+          "cpu_util": 0.2742,
+          "memory_total": 62.1,
+          "memory_util": 0.347,
+          "disk_iops": 4818.4597,
+          "disk_util": 0.5728,
+          "nic_count": 1.8591
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-phys-10",
+        "type": "SERVER_PHYSICAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 14.9692,
+          "cpu_util": 0.3177,
+          "memory_total": 68.4257,
+          "memory_util": 0.434,
+          "disk_iops": 5242.807,
+          "disk_util": 0.498,
+          "nic_count": 1.8139
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "hv-01",
+        "type": "HYPERVISOR",
+        "state": "failed",
+        "health": 0.0,
+        "properties": {
+          "vm_count": 11.4061,
+          "cpu_overcommit_ratio": 4.095,
+          "memory_overcommit_ratio": 1.519,
+          "cpu_util": 0.4835,
+          "memory_util": 0.5203
+        },
+        "initial_state": "failed",
+        "initial_health": 0.0
+      },
+      {
+        "id": "hv-02",
+        "type": "HYPERVISOR",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "vm_count": 10.2525,
+          "cpu_overcommit_ratio": 4.0034,
+          "memory_overcommit_ratio": 1.6587,
+          "cpu_util": 0.4038,
+          "memory_util": 0.6829
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "hv-03",
+        "type": "HYPERVISOR",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "vm_count": 8.7403,
+          "cpu_overcommit_ratio": 3.623,
+          "memory_overcommit_ratio": 1.5428,
+          "cpu_util": 0.4737,
+          "memory_util": 0.5523
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "hv-04",
+        "type": "HYPERVISOR",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "vm_count": 8.8597,
+          "cpu_overcommit_ratio": 4.4683,
+          "memory_overcommit_ratio": 1.3858,
+          "cpu_util": 0.4628,
+          "memory_util": 0.6215
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "hv-05",
+        "type": "HYPERVISOR",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "vm_count": 9.7577,
+          "cpu_overcommit_ratio": 4.1004,
+          "memory_overcommit_ratio": 1.5103,
+          "cpu_util": 0.5087,
+          "memory_util": 0.5468
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-01",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 4.2594,
+          "cpu_util": 0.3226,
+          "memory_total": 15.4998,
+          "memory_util": 0.5258,
+          "disk_iops": 939.9991,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-02",
+        "type": "SERVER_VIRTUAL",
+        "state": "failed",
+        "health": 0.0,
+        "properties": {
+          "cpu_cores": 4.5148,
+          "cpu_util": 0.3958,
+          "memory_total": 13.6447,
+          "memory_util": 0.5182,
+          "disk_iops": 1018.8981,
+          "host_id": 0
+        },
+        "initial_state": "failed",
+        "initial_health": 0.0
+      },
+      {
+        "id": "srv-vm-03",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 3.4879,
+          "cpu_util": 0.3199,
+          "memory_total": 14.873,
+          "memory_util": 0.565,
+          "disk_iops": 1114.2593,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-04",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 3.8434,
+          "cpu_util": 0.3141,
+          "memory_total": 17.602,
+          "memory_util": 0.5305,
+          "disk_iops": 1033.5033,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-05",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 3.4094,
+          "cpu_util": 0.3833,
+          "memory_total": 15.037,
+          "memory_util": 0.5245,
+          "disk_iops": 1131.679,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-06",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 3.7174,
+          "cpu_util": 0.3909,
+          "memory_total": 17.1636,
+          "memory_util": 0.4483,
+          "disk_iops": 934.5269,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-07",
+        "type": "SERVER_VIRTUAL",
+        "state": "failed",
+        "health": 0.0,
+        "properties": {
+          "cpu_cores": 4.2611,
+          "cpu_util": 0.3189,
+          "memory_total": 16.6443,
+          "memory_util": 0.4646,
+          "disk_iops": 996.5596,
+          "host_id": 0
+        },
+        "initial_state": "failed",
+        "initial_health": 0.0
+      },
+      {
+        "id": "srv-vm-08",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 3.5108,
+          "cpu_util": 0.342,
+          "memory_total": 14.9281,
+          "memory_util": 0.4255,
+          "disk_iops": 1081.3358,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-09",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 3.5939,
+          "cpu_util": 0.3439,
+          "memory_total": 16.9872,
+          "memory_util": 0.5091,
+          "disk_iops": 883.5622,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-10",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 4.0547,
+          "cpu_util": 0.3851,
+          "memory_total": 16.396,
+          "memory_util": 0.4472,
+          "disk_iops": 888.2337,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-11",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 3.8376,
+          "cpu_util": 0.3955,
+          "memory_total": 18.2665,
+          "memory_util": 0.431,
+          "disk_iops": 957.3428,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-12",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 4.2003,
+          "cpu_util": 0.3346,
+          "memory_total": 16.2874,
+          "memory_util": 0.5562,
+          "disk_iops": 1142.1511,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-13",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 4.5109,
+          "cpu_util": 0.3224,
+          "memory_total": 14.38,
+          "memory_util": 0.545,
+          "disk_iops": 903.1157,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-14",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 3.4297,
+          "cpu_util": 0.3748,
+          "memory_total": 15.1945,
+          "memory_util": 0.5646,
+          "disk_iops": 1090.6705,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-15",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 3.7202,
+          "cpu_util": 0.3802,
+          "memory_total": 14.1189,
+          "memory_util": 0.5558,
+          "disk_iops": 1107.578,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-16",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 3.6395,
+          "cpu_util": 0.3939,
+          "memory_total": 15.2784,
+          "memory_util": 0.5481,
+          "disk_iops": 1111.3969,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-17",
+        "type": "SERVER_VIRTUAL",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cpu_cores": 3.4284,
+          "cpu_util": 0.3178,
+          "memory_total": 15.1757,
+          "memory_util": 0.5547,
+          "disk_iops": 1140.0667,
+          "host_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "srv-vm-18",
+        "type": "SERVER_VIRTUAL",
+        "state": "failed",
+        "health": 0.0,
+        "properties": {
+          "cpu_cores": 3.8214,
+          "cpu_util": 0.351,
+          "memory_total": 16.8617,
+          "memory_util": 0.5515,
+          "disk_iops": 949.345,
+          "host_id": 0
+        },
+        "initial_state": "failed",
+        "initial_health": 0.0
+      },
+      {
+        "id": "srv-vm-19",
+        "type": "SERVER_VIRTUAL",
+        "state": "failed",
+        "health": 0.0,
+        "properties": {
+          "cpu_cores": 3.5384,
+          "cpu_util": 0.3994,
+          "memory_total": 14.4571,
+          "memory_util": 0.5694,
+          "disk_iops": 929.6399,
+          "host_id": 0
+        },
+        "initial_state": "failed",
+        "initial_health": 0.0
+      },
+      {
+        "id": "srv-vm-20",
+        "type": "SERVER_VIRTUAL",
+        "state": "failed",
+        "health": 0.0,
+        "properties": {
+          "cpu_cores": 4.1159,
+          "cpu_util": 0.3338,
+          "memory_total": 17.3749,
+          "memory_util": 0.4905,
+          "disk_iops": 1145.2708,
+          "host_id": 0
+        },
+        "initial_state": "failed",
+        "initial_health": 0.0
+      },
+      {
+        "id": "stor-arr-01",
+        "type": "STORAGE_ARRAY",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "total_capacity": 48277.9315,
+          "used_capacity": 30689.2924,
+          "iops": 46320.8376,
+          "latency_ms": 2.1253,
+          "raid_level": 5.103,
+          "disk_count": 27.0641
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "stor-tgt-01",
+        "type": "STORAGE_TARGET",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "protocol": 1.0369,
+          "throughput": 1049.0162,
+          "session_count": 44.3694,
+          "latency_ms": 3.36,
+          "parent_array_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "stor-tgt-02",
+        "type": "STORAGE_TARGET",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "protocol": 1.0021,
+          "throughput": 1050.0679,
+          "session_count": 47.3927,
+          "latency_ms": 3.1775,
+          "parent_array_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "stor-arr-02",
+        "type": "STORAGE_ARRAY",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "total_capacity": 50576.78,
+          "used_capacity": 31974.87,
+          "iops": 53629.2512,
+          "latency_ms": 2.1024,
+          "raid_level": 5.7556,
+          "disk_count": 20.9038
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "stor-tgt-03",
+        "type": "STORAGE_TARGET",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "protocol": 0.8882,
+          "throughput": 976.1339,
+          "session_count": 56.6055,
+          "latency_ms": 3.1596,
+          "parent_array_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "stor-tgt-04",
+        "type": "STORAGE_TARGET",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "protocol": 1.1208,
+          "throughput": 1034.6545,
+          "session_count": 47.0142,
+          "latency_ms": 3.0431,
+          "parent_array_id": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "dns-01",
+        "type": "DNS_SERVER",
+        "state": "failed",
+        "health": 0.0,
+        "properties": {
+          "query_rate": 1085.7276,
+          "cache_size": 51599.9236,
+          "zone_count": 9.4667,
+          "response_time_ms": 0.9825
+        },
+        "initial_state": "failed",
+        "initial_health": 0.0
+      },
+      {
+        "id": "dns-02",
+        "type": "DNS_SERVER",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "query_rate": 1052.6882,
+          "cache_size": 50167.61,
+          "zone_count": 10.8812,
+          "response_time_ms": 1.1379
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "dhcp-01",
+        "type": "DHCP_SERVER",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "scope_utilization": 0.6425,
+          "lease_count": 523.8276,
+          "max_leases": 935.1359
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "dc-01",
+        "type": "DOMAIN_CONTROLLER",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "replication_status": 1.0492,
+          "ldap_response_ms": 5.1789,
+          "authentication_rate": 175.6032,
+          "fsmo_roles": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "dc-02",
+        "type": "DOMAIN_CONTROLLER",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "replication_status": 1.1356,
+          "ldap_response_ms": 4.6023,
+          "authentication_rate": 188.6252,
+          "fsmo_roles": 0
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "ca-01",
+        "type": "CERTIFICATE_AUTHORITY",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "cert_count": 545.9844,
+          "crl_size": 89.4206,
+          "ocsp_response_time": 1.7277
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "mon-01",
+        "type": "MONITORING_SERVER",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "agent_count": 91.6145,
+          "metric_ingest_rate": 10333.8219,
+          "alert_count": 5.4027,
+          "storage_util": 0.3946
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "lb-01",
+        "type": "LOAD_BALANCER",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "active_connections": 4325.3276,
+          "backend_count": 7.3981,
+          "throughput": 5522.5045,
+          "health_check_interval": 9.8694
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "lb-02",
+        "type": "LOAD_BALANCER",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "active_connections": 5452.1249,
+          "backend_count": 8.4022,
+          "throughput": 5731.8387,
+          "health_check_interval": 10.2864
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "app-01",
+        "type": "APPLICATION_SERVICE",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "response_time_ms": 54.7251,
+          "request_rate": 558.803,
+          "error_rate": 0.0098,
+          "instance_count": 2.2441,
+          "health_endpoint": 0.9838
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "app-02",
+        "type": "APPLICATION_SERVICE",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "response_time_ms": 49.251,
+          "request_rate": 537.7665,
+          "error_rate": 0.011,
+          "instance_count": 1.8664,
+          "health_endpoint": 1.0833
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "app-03",
+        "type": "APPLICATION_SERVICE",
+        "state": "failed",
+        "health": 0.0,
+        "properties": {
+          "response_time_ms": 46.619,
+          "request_rate": 436.6225,
+          "error_rate": 0.0094,
+          "instance_count": 1.863,
+          "health_endpoint": 0.9459
+        },
+        "initial_state": "failed",
+        "initial_health": 0.0
+      },
+      {
+        "id": "app-04",
+        "type": "APPLICATION_SERVICE",
+        "state": "healthy",
+        "health": 1.0,
+        "properties": {
+          "response_time_ms": 44.5756,
+          "request_rate": 459.6892,
+          "error_rate": 0.0106,
+          "instance_count": 2.1239,
+          "health_endpoint": 0.8693
+        },
+        "initial_state": "healthy",
+        "initial_health": 1.0
+      },
+      {
+        "id": "app-05",
+        "type": "APPLICATION_SERVICE",
+        "state": "failed",
+        "health": 0.0,
+        "properties": {
+          "response_time_ms": 50.6392,
+          "request_rate": 487.3661,
+          "error_rate": 0.0091,
+          "instance_count": 1.9521,
+          "health_endpoint": 1.1215
+        },
+        "initial_state": "failed",
+        "initial_health": 0.0
+      }
+    ],
+    "edges": [
+      {
+        "source_id": "fw-01",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "fw-01",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "fw-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "fw-02",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "fw-02",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "fw-02",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "rtr-01",
+        "target_id": "fw-01",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "rtr-01",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "rtr-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "rtr-02",
+        "target_id": "fw-02",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "rtr-02",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "rtr-02",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "igw-01",
+        "target_id": "rtr-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "igw-01",
+        "target_id": "rtr-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "igw-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "wan-01",
+        "target_id": "igw-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "wan-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "wan-02",
+        "target_id": "igw-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "wan-02",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-core-01",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-core-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-core-02",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-core-02",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-01",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-01",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-02",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-02",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-02",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-03",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-03",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-03",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-04",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-04",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-04",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-05",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-05",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-05",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-06",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-06",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-06",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-07",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-07",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-08",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-08",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-09",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-09",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-09",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-10",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-10",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-11",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-11",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-11",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-12",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-12",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-12",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-13",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-13",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-13",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-14",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-14",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-14",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-15",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-15",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-15",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-16",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-16",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-16",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-17",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-17",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-17",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-18",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-18",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-18",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-19",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-19",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-19",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-20",
+        "target_id": "sw-core-01",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-20",
+        "target_id": "sw-core-02",
+        "type": "NETWORK_PATH",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "sw-acc-20",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-01",
+        "target_id": "sw-acc-10",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-01",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-01",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-02",
+        "target_id": "sw-acc-01",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-02",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-02",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-02",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-03",
+        "target_id": "sw-acc-11",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-03",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-03",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-03",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-04",
+        "target_id": "sw-acc-16",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-04",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-04",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-04",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-05",
+        "target_id": "sw-acc-02",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-05",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-05",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-05",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-06",
+        "target_id": "sw-acc-07",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-06",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-06",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-06",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-07",
+        "target_id": "sw-acc-18",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-07",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-07",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-07",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-08",
+        "target_id": "sw-acc-14",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-08",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-08",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-08",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-09",
+        "target_id": "sw-acc-15",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-09",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-09",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-09",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-10",
+        "target_id": "sw-acc-07",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-10",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-phys-10",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-01",
+        "target_id": "srv-phys-01",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-01",
+        "target_id": "stor-arr-01",
+        "type": "STORAGE_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-01",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-01",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-02",
+        "target_id": "srv-phys-02",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-02",
+        "target_id": "stor-arr-02",
+        "type": "STORAGE_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-02",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-02",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-03",
+        "target_id": "srv-phys-03",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-03",
+        "target_id": "stor-arr-02",
+        "type": "STORAGE_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-03",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-03",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-03",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-04",
+        "target_id": "srv-phys-04",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-04",
+        "target_id": "stor-arr-01",
+        "type": "STORAGE_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-04",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-04",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-04",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-05",
+        "target_id": "srv-phys-05",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-05",
+        "target_id": "stor-arr-02",
+        "type": "STORAGE_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-05",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-05",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "hv-05",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-01",
+        "target_id": "hv-03",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-01",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-01",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-02",
+        "target_id": "hv-01",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-02",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-02",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-02",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-03",
+        "target_id": "hv-02",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-03",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-03",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-03",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-04",
+        "target_id": "hv-05",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-04",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-04",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-04",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-05",
+        "target_id": "hv-02",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-05",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-05",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-05",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-06",
+        "target_id": "hv-02",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-06",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-06",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-06",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-07",
+        "target_id": "hv-01",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-07",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-07",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-07",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-08",
+        "target_id": "hv-03",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-08",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-08",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-08",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-09",
+        "target_id": "hv-02",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-09",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-09",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-09",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-10",
+        "target_id": "hv-03",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-10",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-10",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-10",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-11",
+        "target_id": "hv-02",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-11",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-11",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-11",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-12",
+        "target_id": "hv-02",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-12",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-12",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-12",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-13",
+        "target_id": "hv-04",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-13",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-13",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-13",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-14",
+        "target_id": "hv-02",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-14",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-14",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-14",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-15",
+        "target_id": "hv-02",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-15",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-15",
+        "target_id": "dc-01",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-15",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-16",
+        "target_id": "hv-02",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-16",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-16",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-16",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-17",
+        "target_id": "hv-03",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-17",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-17",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-17",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-18",
+        "target_id": "hv-01",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-18",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-18",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-18",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-19",
+        "target_id": "hv-01",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-19",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-19",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-19",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-20",
+        "target_id": "hv-01",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-20",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-20",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "srv-vm-20",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-arr-01",
+        "target_id": "sw-acc-11",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-arr-01",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-arr-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-tgt-01",
+        "target_id": "stor-arr-01",
+        "type": "STORAGE_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-tgt-01",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-tgt-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-tgt-02",
+        "target_id": "stor-arr-01",
+        "type": "STORAGE_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-tgt-02",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-tgt-02",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-arr-02",
+        "target_id": "sw-acc-18",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-arr-02",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-arr-02",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-tgt-03",
+        "target_id": "stor-arr-02",
+        "type": "STORAGE_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-tgt-03",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-tgt-03",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-tgt-04",
+        "target_id": "stor-arr-02",
+        "type": "STORAGE_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-tgt-04",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "stor-tgt-04",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dns-01",
+        "target_id": "srv-vm-19",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dns-01",
+        "target_id": "sw-acc-07",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dns-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dns-02",
+        "target_id": "srv-vm-13",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dns-02",
+        "target_id": "sw-acc-16",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dhcp-01",
+        "target_id": "srv-vm-13",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dhcp-01",
+        "target_id": "sw-acc-08",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dhcp-01",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dhcp-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dc-01",
+        "target_id": "srv-vm-05",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dc-01",
+        "target_id": "sw-acc-01",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dc-01",
+        "target_id": "dc-02",
+        "type": "REPLICATION_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dc-01",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dc-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dc-02",
+        "target_id": "srv-vm-04",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dc-02",
+        "target_id": "sw-acc-14",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "dc-02",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "ca-01",
+        "target_id": "srv-vm-08",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "ca-01",
+        "target_id": "sw-acc-06",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "ca-01",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "ca-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "mon-01",
+        "target_id": "srv-vm-17",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "mon-01",
+        "target_id": "sw-acc-15",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "mon-01",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "lb-01",
+        "target_id": "sw-acc-15",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "lb-01",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "lb-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "lb-02",
+        "target_id": "sw-acc-20",
+        "type": "NETWORK_PATH",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "lb-02",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "lb-02",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-01",
+        "target_id": "srv-vm-06",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-01",
+        "target_id": "lb-02",
+        "type": "SERVICE_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-01",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-01",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-01",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-02",
+        "target_id": "srv-vm-16",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-02",
+        "target_id": "lb-01",
+        "type": "SERVICE_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-02",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-02",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-02",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-03",
+        "target_id": "srv-vm-18",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-03",
+        "target_id": "lb-01",
+        "type": "SERVICE_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-03",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-03",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-03",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-04",
+        "target_id": "srv-vm-14",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-04",
+        "target_id": "lb-02",
+        "type": "SERVICE_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-04",
+        "target_id": "dns-02",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-04",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-04",
+        "target_id": "mon-01",
+        "type": "MONITORING_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-05",
+        "target_id": "srv-vm-19",
+        "type": "HOSTING_DEPENDENCY",
+        "criticality": "HARD",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-05",
+        "target_id": "lb-01",
+        "type": "SERVICE_DEPENDENCY",
+        "criticality": "SOFT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-05",
+        "target_id": "dns-01",
+        "type": "DNS_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      },
+      {
+        "source_id": "app-05",
+        "target_id": "dc-02",
+        "type": "AUTHENTICATION_DEPENDENCY",
+        "criticality": "REDUNDANT",
+        "bandwidth_sensitivity": false,
+        "latency_sensitivity": 0.0
+      }
+    ]
+  },
+  "ground_truth": {
+    "failure_injections": [
+      {
+        "tick": 0,
+        "component_id": "hv-01",
+        "failure_mode": "hardware_failure",
+        "parameters": {},
+        "category": "DEPENDENCY_CHAIN"
+      }
+    ],
+    "cascade_trace": [
+      {
+        "tick": 0,
+        "component_id": "hv-01",
+        "previous_state": "healthy",
+        "new_state": "failed",
+        "previous_health": 1.0,
+        "new_health": 0.0,
+        "cause": "injected_failure",
+        "cause_component": null
+      },
+      {
+        "tick": 1,
+        "component_id": "srv-vm-02",
+        "previous_state": "healthy",
+        "new_state": "failed",
+        "previous_health": 1.0,
+        "new_health": 0.0,
+        "cause": "host_failure",
+        "cause_component": "hv-01"
+      },
+      {
+        "tick": 1,
+        "component_id": "srv-vm-07",
+        "previous_state": "healthy",
+        "new_state": "failed",
+        "previous_health": 1.0,
+        "new_health": 0.0,
+        "cause": "host_failure",
+        "cause_component": "hv-01"
+      },
+      {
+        "tick": 1,
+        "component_id": "srv-vm-18",
+        "previous_state": "healthy",
+        "new_state": "failed",
+        "previous_health": 1.0,
+        "new_health": 0.0,
+        "cause": "host_failure",
+        "cause_component": "hv-01"
+      },
+      {
+        "tick": 1,
+        "component_id": "srv-vm-19",
+        "previous_state": "healthy",
+        "new_state": "failed",
+        "previous_health": 1.0,
+        "new_health": 0.0,
+        "cause": "host_failure",
+        "cause_component": "hv-01"
+      },
+      {
+        "tick": 1,
+        "component_id": "srv-vm-20",
+        "previous_state": "healthy",
+        "new_state": "failed",
+        "previous_health": 1.0,
+        "new_health": 0.0,
+        "cause": "host_failure",
+        "cause_component": "hv-01"
+      },
+      {
+        "tick": 2,
+        "component_id": "app-03",
+        "previous_state": "healthy",
+        "new_state": "failed",
+        "previous_health": 1.0,
+        "new_health": 0.0,
+        "cause": "host_failure",
+        "cause_component": "srv-vm-18"
+      },
+      {
+        "tick": 2,
+        "component_id": "dns-01",
+        "previous_state": "healthy",
+        "new_state": "failed",
+        "previous_health": 1.0,
+        "new_health": 0.0,
+        "cause": "host_failure",
+        "cause_component": "srv-vm-19"
+      },
+      {
+        "tick": 2,
+        "component_id": "app-05",
+        "previous_state": "healthy",
+        "new_state": "failed",
+        "previous_health": 1.0,
+        "new_health": 0.0,
+        "cause": "host_failure",
+        "cause_component": "srv-vm-19"
+      }
+    ],
+    "final_state": {
+      "fw-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "fw-02": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "rtr-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "rtr-02": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "igw-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "wan-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "wan-02": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-core-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-core-02": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-02": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-03": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-04": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-05": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-06": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-07": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-08": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-09": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-10": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-11": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-12": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-13": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-14": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-15": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-16": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-17": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-18": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-19": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "sw-acc-20": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-phys-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-phys-02": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-phys-03": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-phys-04": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-phys-05": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-phys-06": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-phys-07": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-phys-08": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-phys-09": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-phys-10": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "hv-01": {
+        "state": "failed",
+        "health": 0.0
+      },
+      "hv-02": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "hv-03": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "hv-04": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "hv-05": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-02": {
+        "state": "failed",
+        "health": 0.0
+      },
+      "srv-vm-03": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-04": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-05": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-06": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-07": {
+        "state": "failed",
+        "health": 0.0
+      },
+      "srv-vm-08": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-09": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-10": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-11": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-12": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-13": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-14": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-15": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-16": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-17": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "srv-vm-18": {
+        "state": "failed",
+        "health": 0.0
+      },
+      "srv-vm-19": {
+        "state": "failed",
+        "health": 0.0
+      },
+      "srv-vm-20": {
+        "state": "failed",
+        "health": 0.0
+      },
+      "stor-arr-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "stor-tgt-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "stor-tgt-02": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "stor-arr-02": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "stor-tgt-03": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "stor-tgt-04": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "dns-01": {
+        "state": "failed",
+        "health": 0.0
+      },
+      "dns-02": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "dhcp-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "dc-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "dc-02": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "ca-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "mon-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "lb-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "lb-02": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "app-01": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "app-02": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "app-03": {
+        "state": "failed",
+        "health": 0.0
+      },
+      "app-04": {
+        "state": "healthy",
+        "health": 1.0
+      },
+      "app-05": {
+        "state": "failed",
+        "health": 0.0
+      }
+    }
+  },
+  "operator_view": {
+    "observable_components": [
+      "fw-01",
+      "fw-02",
+      "rtr-01",
+      "rtr-02",
+      "igw-01",
+      "wan-01",
+      "wan-02",
+      "sw-core-01",
+      "sw-core-02",
+      "sw-acc-01",
+      "sw-acc-02",
+      "sw-acc-03",
+      "sw-acc-04",
+      "sw-acc-05",
+      "sw-acc-06",
+      "sw-acc-08",
+      "sw-acc-09",
+      "sw-acc-10",
+      "sw-acc-11",
+      "sw-acc-12",
+      "sw-acc-13",
+      "sw-acc-14",
+      "sw-acc-15",
+      "sw-acc-17",
+      "sw-acc-18",
+      "sw-acc-19",
+      "sw-acc-20",
+      "srv-phys-02",
+      "srv-phys-03",
+      "srv-phys-04",
+      "srv-phys-05",
+      "srv-phys-06",
+      "srv-phys-07",
+      "srv-phys-08",
+      "srv-phys-09",
+      "srv-phys-10",
+      "hv-01",
+      "hv-02",
+      "hv-03",
+      "hv-04",
+      "hv-05",
+      "srv-vm-02",
+      "srv-vm-03",
+      "srv-vm-04",
+      "srv-vm-05",
+      "srv-vm-06",
+      "srv-vm-07",
+      "srv-vm-09",
+      "srv-vm-10",
+      "srv-vm-11",
+      "srv-vm-12",
+      "srv-vm-13",
+      "srv-vm-14",
+      "srv-vm-15",
+      "srv-vm-16",
+      "srv-vm-17",
+      "srv-vm-18",
+      "stor-arr-01",
+      "stor-tgt-01",
+      "stor-tgt-02",
+      "stor-tgt-03",
+      "stor-tgt-04",
+      "dns-01",
+      "dns-02",
+      "dhcp-01",
+      "dc-01",
+      "ca-01",
+      "mon-01",
+      "lb-01",
+      "app-01",
+      "app-02",
+      "app-03",
+      "app-04",
+      "app-05"
+    ],
+    "unobservable_components": [
+      "sw-acc-07",
+      "sw-acc-16",
+      "srv-phys-01",
+      "srv-vm-01",
+      "srv-vm-08",
+      "srv-vm-19",
+      "srv-vm-20",
+      "stor-arr-02",
+      "dc-02",
+      "lb-02"
+    ],
+    "observations": [
+      {
+        "tick": 0,
+        "component_id": "fw-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "throughput": 5280.4255,
+          "session_count": 40707.9413,
+          "max_sessions": 97462.9534,
+          "cpu_util": 0.2483,
+          "rule_count": 227.3281
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "fw-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "throughput": 5257.1762,
+          "session_count": 61339.9205,
+          "max_sessions": 86036.1401,
+          "cpu_util": 0.3238,
+          "rule_count": 172.7766
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "rtr-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "route_table_size": 445.9784,
+          "throughput": 4725.4677,
+          "cpu_util": 0.1211,
+          "bgp_neighbor_count": 3.8975
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "rtr-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "route_table_size": 543.8098,
+          "throughput": 5241.9551,
+          "cpu_util": 0.0186,
+          "bgp_neighbor_count": 4.2531
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "igw-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "throughput": 2246.4035,
+          "nat_session_count": 16570.4831,
+          "max_sessions": 52874.9282,
+          "public_ip_count": 4.2373
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "wan-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "bandwidth": 1034.1858,
+          "latency_ms": 8.4934,
+          "jitter_ms": 1.1129,
+          "packet_loss_pct": 0.0776,
+          "utilization_pct": 0.241
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "wan-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "bandwidth": 863.0058,
+          "latency_ms": 11.0965,
+          "jitter_ms": 0.9671,
+          "packet_loss_pct": 0.0219,
+          "utilization_pct": 0.2602
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-core-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 50.6693,
+          "throughput": 11421.1634,
+          "cpu_util": 0.2587,
+          "memory_util": 0.3187,
+          "uplink_count": 4.6954
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-core-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 46.4677,
+          "throughput": 11017.4242,
+          "cpu_util": 0.1697,
+          "memory_util": 0.4057,
+          "uplink_count": 3.1646
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 23.1326,
+          "throughput": 964.5159,
+          "cpu_util": 0.1641,
+          "vlan_count": 4.763,
+          "poe_budget": 326.5592
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 21.8171,
+          "throughput": 975.7559,
+          "cpu_util": 0.1057,
+          "vlan_count": 4.7592,
+          "poe_budget": 371.8731
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 21.6402,
+          "throughput": 1149.1145,
+          "cpu_util": 0.0259,
+          "vlan_count": 5.0616,
+          "poe_budget": 337.851
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 26.7064,
+          "throughput": 964.1144,
+          "cpu_util": 0.0942,
+          "vlan_count": 5.414,
+          "poe_budget": 394.366
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-05",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 25.041,
+          "throughput": 1081.3287,
+          "cpu_util": 0.0753,
+          "vlan_count": 5.7208,
+          "poe_budget": 341.4182
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-06",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 21.353,
+          "throughput": 1004.8127,
+          "cpu_util": 0.1235,
+          "vlan_count": 4.6319,
+          "poe_budget": 464.2816
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-08",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 23.9925,
+          "throughput": 915.7096,
+          "cpu_util": 0.098,
+          "vlan_count": 5.4696,
+          "poe_budget": 345.7042
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-09",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 25.2481,
+          "throughput": 1186.2688,
+          "cpu_util": 0.0714,
+          "vlan_count": 4.1837,
+          "poe_budget": 431.5928
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-10",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 24.3451,
+          "throughput": 850.6033,
+          "cpu_util": 0.13,
+          "vlan_count": 4.5486,
+          "poe_budget": 365.0354
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-11",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 26.7794,
+          "throughput": 967.0717,
+          "cpu_util": 0.0127,
+          "vlan_count": 4.9316,
+          "poe_budget": 424.1085
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-12",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 23.3074,
+          "throughput": 1171.166,
+          "cpu_util": 0.1352,
+          "vlan_count": 4.144,
+          "poe_budget": 402.397
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-13",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 26.5928,
+          "throughput": 975.0626,
+          "cpu_util": 0.112,
+          "vlan_count": 5.2121,
+          "poe_budget": 363.9182
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-14",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 21.3393,
+          "throughput": 1020.3987,
+          "cpu_util": 0.0983,
+          "vlan_count": 5.5359,
+          "poe_budget": 376.4184
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-15",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 23.9939,
+          "throughput": 1004.8409,
+          "cpu_util": 0.0903,
+          "vlan_count": 5.6532,
+          "poe_budget": 339.0958
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-17",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 25.108,
+          "throughput": 1012.2587,
+          "cpu_util": 0.0709,
+          "vlan_count": 4.7842,
+          "poe_budget": 283.3328
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-18",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 29.8018,
+          "throughput": 1104.3181,
+          "cpu_util": 0.197,
+          "vlan_count": 4.4741,
+          "poe_budget": 325.6239
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-19",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 30.9503,
+          "throughput": 1084.7675,
+          "cpu_util": 0.0128,
+          "vlan_count": 4.8429,
+          "poe_budget": 329.794
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "sw-acc-20",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 26.7734,
+          "throughput": 1149.414,
+          "cpu_util": 0.076,
+          "vlan_count": 4.5653,
+          "poe_budget": 367.3599
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-phys-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 16.4773,
+          "cpu_util": 0.3388,
+          "memory_total": 55.5453,
+          "memory_util": 0.4462,
+          "disk_iops": 5271.6839,
+          "disk_util": 0.5685,
+          "nic_count": 1.7872
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-phys-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 16.6779,
+          "cpu_util": 0.2137,
+          "memory_total": 56.1563,
+          "memory_util": 0.3508,
+          "disk_iops": 5327.4016,
+          "disk_util": 0.4883,
+          "nic_count": 2.1897
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-phys-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 13.1372,
+          "cpu_util": 0.2375,
+          "memory_total": 63.3544,
+          "memory_util": 0.3979,
+          "disk_iops": 3934.1624,
+          "disk_util": 0.5486,
+          "nic_count": 2.0885
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-phys-05",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 15.8901,
+          "cpu_util": 0.3012,
+          "memory_total": 65.3304,
+          "memory_util": 0.3313,
+          "disk_iops": 5043.497,
+          "disk_util": 0.4444,
+          "nic_count": 2.0954
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-phys-06",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 17.6688,
+          "cpu_util": 0.368,
+          "memory_total": 65.6626,
+          "memory_util": 0.3867,
+          "disk_iops": 4906.5647,
+          "disk_util": 0.5697,
+          "nic_count": 1.8287
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-phys-07",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 18.0473,
+          "cpu_util": 0.3429,
+          "memory_total": 53.8699,
+          "memory_util": 0.3755,
+          "disk_iops": 5680.8435,
+          "disk_util": 0.4755,
+          "nic_count": 2.0375
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-phys-08",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 12.4832,
+          "cpu_util": 0.2184,
+          "memory_total": 64.549,
+          "memory_util": 0.3366,
+          "disk_iops": 4465.668,
+          "disk_util": 0.4995,
+          "nic_count": 1.7291
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-phys-09",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 14.3196,
+          "cpu_util": 0.2907,
+          "memory_total": 63.249,
+          "memory_util": 0.3966,
+          "disk_iops": 5008.9806,
+          "disk_util": 0.5633,
+          "nic_count": 1.9845
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-phys-10",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 14.8671,
+          "cpu_util": 0.2847,
+          "memory_total": 66.6447,
+          "memory_util": 0.4048,
+          "disk_iops": 4675.08,
+          "disk_util": 0.5058,
+          "nic_count": 1.8366
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "hv-01",
+        "observed_state": "failed",
+        "metrics": {
+          "vm_count": 11.1995,
+          "cpu_overcommit_ratio": 3.9488,
+          "memory_overcommit_ratio": 1.5472,
+          "cpu_util": 0.5693,
+          "memory_util": 0.5222
+        },
+        "alerts": [
+          "CRITICAL: hv-01 is failed"
+        ]
+      },
+      {
+        "tick": 0,
+        "component_id": "hv-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "vm_count": 9.9923,
+          "cpu_overcommit_ratio": 3.885,
+          "memory_overcommit_ratio": 1.6529,
+          "cpu_util": 0.3406,
+          "memory_util": 0.6766
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "hv-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "vm_count": 8.767,
+          "cpu_overcommit_ratio": 3.9572,
+          "memory_overcommit_ratio": 1.6156,
+          "cpu_util": 0.5254,
+          "memory_util": 0.5167
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "hv-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "vm_count": 9.1565,
+          "cpu_overcommit_ratio": 4.2137,
+          "memory_overcommit_ratio": 1.4074,
+          "cpu_util": 0.4837,
+          "memory_util": 0.5832
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "hv-05",
+        "observed_state": "healthy",
+        "metrics": {
+          "vm_count": 10.7332,
+          "cpu_overcommit_ratio": 4.2167,
+          "memory_overcommit_ratio": 1.3666,
+          "cpu_util": 0.5363,
+          "memory_util": 0.5264
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 4.5151,
+          "cpu_util": 0.4191,
+          "memory_total": 13.9111,
+          "memory_util": 0.4162,
+          "disk_iops": 959.8876,
+          "host_id": 0.0386
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.7148,
+          "cpu_util": 0.4151,
+          "memory_total": 16.2139,
+          "memory_util": 0.4622,
+          "disk_iops": 1157.1294,
+          "host_id": -0.0958
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 4.1535,
+          "cpu_util": 0.3268,
+          "memory_total": 16.5977,
+          "memory_util": 0.631,
+          "disk_iops": 1066.7806,
+          "host_id": -0.0946
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-05",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.4594,
+          "cpu_util": 0.3467,
+          "memory_total": 15.1207,
+          "memory_util": 0.5012,
+          "disk_iops": 1209.3967,
+          "host_id": -0.0712
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-06",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.7764,
+          "cpu_util": 0.4816,
+          "memory_total": 16.4539,
+          "memory_util": 0.4588,
+          "disk_iops": 943.9657,
+          "host_id": -0.0345
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-07",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 4.3991,
+          "cpu_util": 0.3238,
+          "memory_total": 15.8589,
+          "memory_util": 0.5527,
+          "disk_iops": 1036.0042,
+          "host_id": -0.0084
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-09",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.4795,
+          "cpu_util": 0.3047,
+          "memory_total": 18.0327,
+          "memory_util": 0.5018,
+          "disk_iops": 903.8593,
+          "host_id": -0.0092
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-10",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 4.1797,
+          "cpu_util": 0.3793,
+          "memory_total": 17.0222,
+          "memory_util": 0.438,
+          "disk_iops": 925.0771,
+          "host_id": 0.0336
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-11",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.8152,
+          "cpu_util": 0.3525,
+          "memory_total": 17.4079,
+          "memory_util": 0.394,
+          "disk_iops": 910.2182,
+          "host_id": 0.0433
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-12",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 4.1905,
+          "cpu_util": 0.4131,
+          "memory_total": 18.1436,
+          "memory_util": 0.5574,
+          "disk_iops": 1053.7476,
+          "host_id": -0.0191
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-13",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 4.4939,
+          "cpu_util": 0.248,
+          "memory_total": 14.1999,
+          "memory_util": 0.5593,
+          "disk_iops": 882.3699,
+          "host_id": -0.0384
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-14",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.2996,
+          "cpu_util": 0.4641,
+          "memory_total": 15.0732,
+          "memory_util": 0.5231,
+          "disk_iops": 1070.335,
+          "host_id": 0.0477
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-15",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.5928,
+          "cpu_util": 0.4043,
+          "memory_total": 14.6327,
+          "memory_util": 0.5933,
+          "disk_iops": 1185.0916,
+          "host_id": -0.0275
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-16",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.8456,
+          "cpu_util": 0.3543,
+          "memory_total": 14.9755,
+          "memory_util": 0.6079,
+          "disk_iops": 1157.0962,
+          "host_id": 0.0001
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-17",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.2242,
+          "cpu_util": 0.3459,
+          "memory_total": 14.6974,
+          "memory_util": 0.5085,
+          "disk_iops": 1103.1209,
+          "host_id": 0.0123
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "srv-vm-18",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.4161,
+          "cpu_util": 0.369,
+          "memory_total": 17.0083,
+          "memory_util": 0.5223,
+          "disk_iops": 998.5651,
+          "host_id": 0.0306
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "stor-arr-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "total_capacity": 46814.4243,
+          "used_capacity": 29661.1756,
+          "iops": 47930.8375,
+          "latency_ms": 1.9642,
+          "raid_level": 5.0181,
+          "disk_count": 26.2102
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "stor-tgt-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "protocol": 1.0405,
+          "throughput": 1060.09,
+          "session_count": 44.451,
+          "latency_ms": 3.5507,
+          "parent_array_id": 0.0114
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "stor-tgt-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "protocol": 0.9863,
+          "throughput": 986.4939,
+          "session_count": 49.1032,
+          "latency_ms": 3.2614,
+          "parent_array_id": 0.0725
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "stor-tgt-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "protocol": 0.8508,
+          "throughput": 977.4233,
+          "session_count": 56.4394,
+          "latency_ms": 3.1458,
+          "parent_array_id": 0.0005
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "stor-tgt-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "protocol": 1.0247,
+          "throughput": 1077.3332,
+          "session_count": 48.5497,
+          "latency_ms": 3.2151,
+          "parent_array_id": 0.1125
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "dns-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "query_rate": 1068.412,
+          "cache_size": 51506.6743,
+          "zone_count": 9.4713,
+          "response_time_ms": 1.0796
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "dns-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "query_rate": 961.5665,
+          "cache_size": 51386.1009,
+          "zone_count": 10.081,
+          "response_time_ms": 0.991
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "dhcp-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "scope_utilization": 0.5415,
+          "lease_count": 487.6372,
+          "max_leases": 985.1201
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "dc-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "replication_status": 1.0036,
+          "ldap_response_ms": 5.12,
+          "authentication_rate": 165.3874,
+          "fsmo_roles": 0.0305
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "ca-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "cert_count": 515.9017,
+          "crl_size": 95.3119,
+          "ocsp_response_time": 1.6419
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "mon-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "agent_count": 88.111,
+          "metric_ingest_rate": 10397.2411,
+          "alert_count": 5.4094,
+          "storage_util": 0.4658
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "lb-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "active_connections": 4351.3676,
+          "backend_count": 6.9513,
+          "throughput": 5367.7818,
+          "health_check_interval": 9.5867
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "app-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "response_time_ms": 56.709,
+          "request_rate": 569.5262,
+          "error_rate": 0.0038,
+          "instance_count": 2.3417,
+          "health_endpoint": 0.9574
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "app-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "response_time_ms": 48.9155,
+          "request_rate": 542.6268,
+          "error_rate": 0.0874,
+          "instance_count": 1.8572,
+          "health_endpoint": 1.0643
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "app-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "response_time_ms": 44.1812,
+          "request_rate": 451.5998,
+          "error_rate": -0.02,
+          "instance_count": 1.895,
+          "health_endpoint": 0.8508
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "app-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "response_time_ms": 46.9006,
+          "request_rate": 429.0753,
+          "error_rate": -0.0283,
+          "instance_count": 2.2363,
+          "health_endpoint": 0.8026
+        },
+        "alerts": []
+      },
+      {
+        "tick": 0,
+        "component_id": "app-05",
+        "observed_state": "healthy",
+        "metrics": {
+          "response_time_ms": 50.438,
+          "request_rate": 489.1756,
+          "error_rate": -0.0408,
+          "instance_count": 2.0832,
+          "health_endpoint": 1.2055
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "fw-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "throughput": 4695.6186,
+          "session_count": 39768.8767,
+          "max_sessions": 97019.2978,
+          "cpu_util": 0.164,
+          "rule_count": 210.0262
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "fw-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "throughput": 5299.1541,
+          "session_count": 57815.8158,
+          "max_sessions": 86630.2275,
+          "cpu_util": 0.2489,
+          "rule_count": 165.1161
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "rtr-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "route_table_size": 487.3776,
+          "throughput": 4884.0055,
+          "cpu_util": 0.1457,
+          "bgp_neighbor_count": 3.5455
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "rtr-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "route_table_size": 525.2603,
+          "throughput": 5024.8046,
+          "cpu_util": 0.1293,
+          "bgp_neighbor_count": 3.8989
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "igw-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "throughput": 2272.6926,
+          "nat_session_count": 18243.6855,
+          "max_sessions": 55250.9286,
+          "public_ip_count": 4.393
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "wan-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "bandwidth": 991.9704,
+          "latency_ms": 9.3824,
+          "jitter_ms": 1.1544,
+          "packet_loss_pct": 0.0201,
+          "utilization_pct": 0.3065
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "wan-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "bandwidth": 882.0401,
+          "latency_ms": 10.5048,
+          "jitter_ms": 1.0323,
+          "packet_loss_pct": -0.0835,
+          "utilization_pct": 0.3204
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-core-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 49.5246,
+          "throughput": 12125.052,
+          "cpu_util": 0.1521,
+          "memory_util": 0.3511,
+          "uplink_count": 4.3952
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-core-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 47.163,
+          "throughput": 10302.855,
+          "cpu_util": 0.105,
+          "memory_util": 0.2501,
+          "uplink_count": 3.5645
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 21.8121,
+          "throughput": 963.5304,
+          "cpu_util": 0.0911,
+          "vlan_count": 4.8393,
+          "poe_budget": 342.977
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 21.6786,
+          "throughput": 1026.4312,
+          "cpu_util": 0.0693,
+          "vlan_count": 4.4158,
+          "poe_budget": 349.1582
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 23.649,
+          "throughput": 1130.6329,
+          "cpu_util": 0.0797,
+          "vlan_count": 5.4454,
+          "poe_budget": 294.3946
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 25.8773,
+          "throughput": 905.4615,
+          "cpu_util": 0.0679,
+          "vlan_count": 6.1333,
+          "poe_budget": 404.2529
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-05",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 24.0913,
+          "throughput": 1050.8094,
+          "cpu_util": 0.0909,
+          "vlan_count": 5.2754,
+          "poe_budget": 317.6899
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-06",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 22.0546,
+          "throughput": 993.1902,
+          "cpu_util": 0.1329,
+          "vlan_count": 4.3166,
+          "poe_budget": 462.7737
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-08",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 26.0506,
+          "throughput": 938.2036,
+          "cpu_util": 0.0472,
+          "vlan_count": 4.8715,
+          "poe_budget": 350.8563
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-09",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 23.4856,
+          "throughput": 1117.4322,
+          "cpu_util": 0.1514,
+          "vlan_count": 4.234,
+          "poe_budget": 467.8712
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-10",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 25.954,
+          "throughput": 823.0097,
+          "cpu_util": 0.0157,
+          "vlan_count": 4.3519,
+          "poe_budget": 364.341
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-11",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 25.7588,
+          "throughput": 850.6025,
+          "cpu_util": 0.0755,
+          "vlan_count": 5.2571,
+          "poe_budget": 401.338
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-12",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 23.8791,
+          "throughput": 1056.3172,
+          "cpu_util": 0.1427,
+          "vlan_count": 4.2191,
+          "poe_budget": 432.7811
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-13",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 25.57,
+          "throughput": 992.2757,
+          "cpu_util": 0.1205,
+          "vlan_count": 5.0795,
+          "poe_budget": 304.9925
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-14",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 23.8855,
+          "throughput": 977.495,
+          "cpu_util": 0.1219,
+          "vlan_count": 5.6682,
+          "poe_budget": 334.9654
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-15",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 24.5102,
+          "throughput": 982.1043,
+          "cpu_util": 0.057,
+          "vlan_count": 6.0384,
+          "poe_budget": 343.4071
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-17",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 25.0093,
+          "throughput": 1131.5723,
+          "cpu_util": 0.0928,
+          "vlan_count": 5.0607,
+          "poe_budget": 329.6069
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-18",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 24.8132,
+          "throughput": 1120.3439,
+          "cpu_util": 0.0836,
+          "vlan_count": 4.3952,
+          "poe_budget": 292.5
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-19",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 26.8584,
+          "throughput": 1167.5546,
+          "cpu_util": 0.1071,
+          "vlan_count": 4.9029,
+          "poe_budget": 309.3192
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "sw-acc-20",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 24.5995,
+          "throughput": 1049.7786,
+          "cpu_util": 0.0372,
+          "vlan_count": 4.9125,
+          "poe_budget": 375.0985
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-phys-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 14.8201,
+          "cpu_util": 0.3039,
+          "memory_total": 59.2291,
+          "memory_util": 0.4478,
+          "disk_iops": 5052.1561,
+          "disk_util": 0.4711,
+          "nic_count": 1.7794
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-phys-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 15.0673,
+          "cpu_util": 0.2568,
+          "memory_total": 59.4394,
+          "memory_util": 0.3806,
+          "disk_iops": 4781.4408,
+          "disk_util": 0.4673,
+          "nic_count": 2.3786
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-phys-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 13.8156,
+          "cpu_util": 0.2717,
+          "memory_total": 68.7589,
+          "memory_util": 0.3781,
+          "disk_iops": 4598.5229,
+          "disk_util": 0.5689,
+          "nic_count": 2.0582
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-phys-05",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 14.1887,
+          "cpu_util": 0.2891,
+          "memory_total": 66.1138,
+          "memory_util": 0.3411,
+          "disk_iops": 5194.3231,
+          "disk_util": 0.4535,
+          "nic_count": 2.0233
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-phys-06",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 16.1128,
+          "cpu_util": 0.3891,
+          "memory_total": 53.6525,
+          "memory_util": 0.3354,
+          "disk_iops": 4807.9567,
+          "disk_util": 0.5608,
+          "nic_count": 1.8767
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-phys-07",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 17.0335,
+          "cpu_util": 0.247,
+          "memory_total": 59.206,
+          "memory_util": 0.35,
+          "disk_iops": 5911.8867,
+          "disk_util": 0.4679,
+          "nic_count": 2.2434
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-phys-08",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 14.2022,
+          "cpu_util": 0.2744,
+          "memory_total": 63.719,
+          "memory_util": 0.3669,
+          "disk_iops": 4385.6834,
+          "disk_util": 0.5442,
+          "nic_count": 1.7166
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-phys-09",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 16.0754,
+          "cpu_util": 0.2396,
+          "memory_total": 58.7362,
+          "memory_util": 0.3393,
+          "disk_iops": 4371.1852,
+          "disk_util": 0.6077,
+          "nic_count": 1.9383
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-phys-10",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 14.9292,
+          "cpu_util": 0.268,
+          "memory_total": 65.1913,
+          "memory_util": 0.4264,
+          "disk_iops": 4607.4486,
+          "disk_util": 0.507,
+          "nic_count": 1.8742
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "hv-01",
+        "observed_state": "failed",
+        "metrics": {
+          "vm_count": 11.2282,
+          "cpu_overcommit_ratio": 3.9938,
+          "memory_overcommit_ratio": 1.5328,
+          "cpu_util": 0.501,
+          "memory_util": 0.575
+        },
+        "alerts": [
+          "CRITICAL: hv-01 is failed"
+        ]
+      },
+      {
+        "tick": 2,
+        "component_id": "hv-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "vm_count": 10.2619,
+          "cpu_overcommit_ratio": 3.8653,
+          "memory_overcommit_ratio": 1.6204,
+          "cpu_util": 0.4129,
+          "memory_util": 0.7607
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "hv-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "vm_count": 8.6003,
+          "cpu_overcommit_ratio": 3.4323,
+          "memory_overcommit_ratio": 1.4757,
+          "cpu_util": 0.3689,
+          "memory_util": 0.5688
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "hv-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "vm_count": 8.2567,
+          "cpu_overcommit_ratio": 4.1927,
+          "memory_overcommit_ratio": 1.2489,
+          "cpu_util": 0.4069,
+          "memory_util": 0.6499
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "hv-05",
+        "observed_state": "healthy",
+        "metrics": {
+          "vm_count": 9.1179,
+          "cpu_overcommit_ratio": 3.7417,
+          "memory_overcommit_ratio": 1.5238,
+          "cpu_util": 0.4916,
+          "memory_util": 0.5684
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 4.682,
+          "cpu_util": 0.3954,
+          "memory_total": 12.7593,
+          "memory_util": 0.512,
+          "disk_iops": 1044.3838,
+          "host_id": -0.0291
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.2372,
+          "cpu_util": 0.375,
+          "memory_total": 14.5642,
+          "memory_util": 0.5445,
+          "disk_iops": 1115.1486,
+          "host_id": 0.0515
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.8941,
+          "cpu_util": 0.2974,
+          "memory_total": 18.2023,
+          "memory_util": 0.6379,
+          "disk_iops": 1105.2174,
+          "host_id": 0.0336
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-05",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.2181,
+          "cpu_util": 0.5709,
+          "memory_total": 14.1358,
+          "memory_util": 0.5059,
+          "disk_iops": 1092.0765,
+          "host_id": 0.0813
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-06",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.7955,
+          "cpu_util": 0.3195,
+          "memory_total": 17.3932,
+          "memory_util": 0.4756,
+          "disk_iops": 919.6454,
+          "host_id": -0.061
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-07",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 4.1066,
+          "cpu_util": 0.2971,
+          "memory_total": 16.6632,
+          "memory_util": 0.4386,
+          "disk_iops": 1033.1941,
+          "host_id": -0.0475
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-09",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.2828,
+          "cpu_util": 0.3069,
+          "memory_total": 18.1329,
+          "memory_util": 0.4804,
+          "disk_iops": 986.9747,
+          "host_id": 0.0246
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-10",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.8186,
+          "cpu_util": 0.3434,
+          "memory_total": 16.5955,
+          "memory_util": 0.3883,
+          "disk_iops": 993.6927,
+          "host_id": -0.0495
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-11",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.9683,
+          "cpu_util": 0.4685,
+          "memory_total": 18.1668,
+          "memory_util": 0.3812,
+          "disk_iops": 944.2719,
+          "host_id": 0.0181
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-12",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 4.3842,
+          "cpu_util": 0.3374,
+          "memory_total": 15.1471,
+          "memory_util": 0.5583,
+          "disk_iops": 1103.6973,
+          "host_id": -0.1092
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-13",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 4.3536,
+          "cpu_util": 0.2508,
+          "memory_total": 14.8019,
+          "memory_util": 0.6422,
+          "disk_iops": 987.0492,
+          "host_id": -0.0287
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-14",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.3495,
+          "cpu_util": 0.4092,
+          "memory_total": 16.0008,
+          "memory_util": 0.5437,
+          "disk_iops": 1082.8921,
+          "host_id": 0.1103
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-15",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.7002,
+          "cpu_util": 0.3559,
+          "memory_total": 14.2036,
+          "memory_util": 0.5848,
+          "disk_iops": 1051.0006,
+          "host_id": -0.0124
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-16",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.4273,
+          "cpu_util": 0.38,
+          "memory_total": 16.7122,
+          "memory_util": 0.5852,
+          "disk_iops": 1106.2543,
+          "host_id": -0.0467
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-17",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.375,
+          "cpu_util": 0.3703,
+          "memory_total": 14.7495,
+          "memory_util": 0.6272,
+          "disk_iops": 1061.7648,
+          "host_id": -0.0145
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "srv-vm-18",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 4.1544,
+          "cpu_util": 0.2506,
+          "memory_total": 17.8636,
+          "memory_util": 0.4589,
+          "disk_iops": 945.0692,
+          "host_id": -0.0086
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "stor-arr-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "total_capacity": 50267.6907,
+          "used_capacity": 25848.7576,
+          "iops": 41879.1098,
+          "latency_ms": 2.0652,
+          "raid_level": 5.1124,
+          "disk_count": 25.8554
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "stor-tgt-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "protocol": 1.0254,
+          "throughput": 986.8005,
+          "session_count": 43.4792,
+          "latency_ms": 3.2177,
+          "parent_array_id": 0.0122
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "stor-tgt-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "protocol": 1.0312,
+          "throughput": 1125.3016,
+          "session_count": 45.8372,
+          "latency_ms": 3.127,
+          "parent_array_id": 0.0024
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "stor-tgt-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "protocol": 0.8735,
+          "throughput": 973.5964,
+          "session_count": 52.1841,
+          "latency_ms": 3.2183,
+          "parent_array_id": -0.0458
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "stor-tgt-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "protocol": 1.0672,
+          "throughput": 952.4964,
+          "session_count": 49.7434,
+          "latency_ms": 3.0217,
+          "parent_array_id": 0.0575
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "dns-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "query_rate": 1100.5099,
+          "cache_size": 47205.2589,
+          "zone_count": 8.9537,
+          "response_time_ms": 1.0204
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "dns-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "query_rate": 1012.3869,
+          "cache_size": 47432.6122,
+          "zone_count": 10.7836,
+          "response_time_ms": 1.1278
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "dhcp-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "scope_utilization": 0.5919,
+          "lease_count": 515.2854,
+          "max_leases": 912.7631
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "dc-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "replication_status": 0.9133,
+          "ldap_response_ms": 5.3091,
+          "authentication_rate": 168.4792,
+          "fsmo_roles": 0.0652
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "ca-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "cert_count": 514.5869,
+          "crl_size": 82.3582,
+          "ocsp_response_time": 1.8303
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "mon-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "agent_count": 84.3538,
+          "metric_ingest_rate": 10005.1163,
+          "alert_count": 5.5641,
+          "storage_util": 0.3781
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "lb-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "active_connections": 3967.3047,
+          "backend_count": 7.4677,
+          "throughput": 5468.847,
+          "health_check_interval": 10.5029
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "app-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "response_time_ms": 56.3358,
+          "request_rate": 643.6213,
+          "error_rate": -0.0725,
+          "instance_count": 2.2417,
+          "health_endpoint": 0.9305
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "app-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "response_time_ms": 52.0946,
+          "request_rate": 559.8643,
+          "error_rate": 0.0487,
+          "instance_count": 1.7939,
+          "health_endpoint": 1.0429
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "app-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "response_time_ms": 41.8879,
+          "request_rate": 473.9428,
+          "error_rate": 0.0348,
+          "instance_count": 1.8387,
+          "health_endpoint": 0.9926
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "app-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "response_time_ms": 46.2492,
+          "request_rate": 482.1051,
+          "error_rate": -0.0706,
+          "instance_count": 2.0481,
+          "health_endpoint": 0.8791
+        },
+        "alerts": []
+      },
+      {
+        "tick": 2,
+        "component_id": "app-05",
+        "observed_state": "healthy",
+        "metrics": {
+          "response_time_ms": 51.5391,
+          "request_rate": 510.6923,
+          "error_rate": -0.0413,
+          "instance_count": 1.9645,
+          "health_endpoint": 1.2452
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "fw-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "throughput": 5389.3561,
+          "session_count": 44741.4375,
+          "max_sessions": 93161.4181,
+          "cpu_util": 0.2676,
+          "rule_count": 233.508
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "fw-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "throughput": 5293.123,
+          "session_count": 59302.654,
+          "max_sessions": 83774.6972,
+          "cpu_util": 0.2736,
+          "rule_count": 179.5545
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "rtr-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "route_table_size": 440.5825,
+          "throughput": 5283.005,
+          "cpu_util": 0.0949,
+          "bgp_neighbor_count": 3.4921
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "rtr-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "route_table_size": 522.4516,
+          "throughput": 5556.9216,
+          "cpu_util": 0.1529,
+          "bgp_neighbor_count": 4.2993
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "igw-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "throughput": 2105.6853,
+          "nat_session_count": 17105.0165,
+          "max_sessions": 51376.0377,
+          "public_ip_count": 4.1168
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "wan-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "bandwidth": 991.8548,
+          "latency_ms": 8.9492,
+          "jitter_ms": 1.2197,
+          "packet_loss_pct": -0.0006,
+          "utilization_pct": 0.2534
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "wan-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "bandwidth": 935.126,
+          "latency_ms": 10.6844,
+          "jitter_ms": 0.9527,
+          "packet_loss_pct": 0.076,
+          "utilization_pct": 0.3414
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-core-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 43.2688,
+          "throughput": 11444.7721,
+          "cpu_util": 0.1243,
+          "memory_util": 0.3919,
+          "uplink_count": 4.2351
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-core-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 48.2633,
+          "throughput": 10580.5255,
+          "cpu_util": 0.1008,
+          "memory_util": 0.2834,
+          "uplink_count": 3.2069
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 20.9045,
+          "throughput": 861.5626,
+          "cpu_util": 0.0125,
+          "vlan_count": 4.2405,
+          "poe_budget": 317.2238
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 21.6356,
+          "throughput": 976.8856,
+          "cpu_util": 0.1198,
+          "vlan_count": 4.7937,
+          "poe_budget": 330.4602
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 21.8044,
+          "throughput": 1221.0735,
+          "cpu_util": 0.1164,
+          "vlan_count": 5.2864,
+          "poe_budget": 290.3746
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 24.8113,
+          "throughput": 801.4317,
+          "cpu_util": 0.0751,
+          "vlan_count": 5.8413,
+          "poe_budget": 372.5416
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-05",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 25.043,
+          "throughput": 1001.4146,
+          "cpu_util": 0.1391,
+          "vlan_count": 4.9934,
+          "poe_budget": 335.4766
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-06",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 21.0642,
+          "throughput": 969.9484,
+          "cpu_util": 0.0866,
+          "vlan_count": 5.0094,
+          "poe_budget": 410.4775
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-08",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 23.1692,
+          "throughput": 801.2209,
+          "cpu_util": 0.1808,
+          "vlan_count": 4.9982,
+          "poe_budget": 323.4566
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-09",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 26.2343,
+          "throughput": 1188.4949,
+          "cpu_util": 0.1024,
+          "vlan_count": 4.2505,
+          "poe_budget": 434.1347
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-10",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 23.3208,
+          "throughput": 825.9185,
+          "cpu_util": 0.1386,
+          "vlan_count": 3.9438,
+          "poe_budget": 395.0402
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-11",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 26.7025,
+          "throughput": 1076.8038,
+          "cpu_util": 0.1032,
+          "vlan_count": 4.3261,
+          "poe_budget": 407.299
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-12",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 24.2879,
+          "throughput": 1161.6142,
+          "cpu_util": 0.1598,
+          "vlan_count": 3.8491,
+          "poe_budget": 387.9918
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-13",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 26.5356,
+          "throughput": 1089.1458,
+          "cpu_util": 0.1861,
+          "vlan_count": 5.1097,
+          "poe_budget": 344.8217
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-14",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 25.5442,
+          "throughput": 1045.1889,
+          "cpu_util": 0.1498,
+          "vlan_count": 5.7941,
+          "poe_budget": 330.1606
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-15",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 22.2672,
+          "throughput": 948.0005,
+          "cpu_util": 0.095,
+          "vlan_count": 5.548,
+          "poe_budget": 337.5685
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-17",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 25.4952,
+          "throughput": 1020.8495,
+          "cpu_util": 0.0339,
+          "vlan_count": 4.7524,
+          "poe_budget": 320.5577
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-18",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 26.9847,
+          "throughput": 1072.2107,
+          "cpu_util": 0.1492,
+          "vlan_count": 5.1524,
+          "poe_budget": 311.2819
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-19",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 28.371,
+          "throughput": 1184.5098,
+          "cpu_util": -0.0451,
+          "vlan_count": 4.7895,
+          "poe_budget": 311.9398
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "sw-acc-20",
+        "observed_state": "healthy",
+        "metrics": {
+          "port_count": 26.8878,
+          "throughput": 1089.9263,
+          "cpu_util": 0.1126,
+          "vlan_count": 5.1208,
+          "poe_budget": 358.6498
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-phys-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 14.9361,
+          "cpu_util": 0.2544,
+          "memory_total": 61.0455,
+          "memory_util": 0.442,
+          "disk_iops": 4969.4076,
+          "disk_util": 0.4258,
+          "nic_count": 1.8172
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-phys-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 17.177,
+          "cpu_util": 0.353,
+          "memory_total": 60.7133,
+          "memory_util": 0.3578,
+          "disk_iops": 5371.3721,
+          "disk_util": 0.4898,
+          "nic_count": 2.1702
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-phys-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 14.8388,
+          "cpu_util": 0.3623,
+          "memory_total": 73.8914,
+          "memory_util": 0.3675,
+          "disk_iops": 4520.5931,
+          "disk_util": 0.5861,
+          "nic_count": 2.0423
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-phys-05",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 15.2236,
+          "cpu_util": 0.2915,
+          "memory_total": 61.6128,
+          "memory_util": 0.4392,
+          "disk_iops": 5281.617,
+          "disk_util": 0.4815,
+          "nic_count": 2.0326
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-phys-06",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 16.9586,
+          "cpu_util": 0.3582,
+          "memory_total": 56.1107,
+          "memory_util": 0.3273,
+          "disk_iops": 4751.5843,
+          "disk_util": 0.4975,
+          "nic_count": 1.8686
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-phys-07",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 15.2188,
+          "cpu_util": 0.3134,
+          "memory_total": 60.0929,
+          "memory_util": 0.4095,
+          "disk_iops": 5533.883,
+          "disk_util": 0.4571,
+          "nic_count": 1.9701
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-phys-08",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 13.2984,
+          "cpu_util": 0.3063,
+          "memory_total": 65.8976,
+          "memory_util": 0.3378,
+          "disk_iops": 4169.3876,
+          "disk_util": 0.5447,
+          "nic_count": 1.8
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-phys-09",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 15.0799,
+          "cpu_util": 0.2907,
+          "memory_total": 61.448,
+          "memory_util": 0.4068,
+          "disk_iops": 4978.8017,
+          "disk_util": 0.6095,
+          "nic_count": 1.889
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-phys-10",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 14.3366,
+          "cpu_util": 0.2709,
+          "memory_total": 63.3924,
+          "memory_util": 0.578,
+          "disk_iops": 4959.841,
+          "disk_util": 0.4875,
+          "nic_count": 1.7812
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "hv-01",
+        "observed_state": "failed",
+        "metrics": {
+          "vm_count": 11.2458,
+          "cpu_overcommit_ratio": 3.9754,
+          "memory_overcommit_ratio": 1.3771,
+          "cpu_util": 0.4336,
+          "memory_util": 0.4508
+        },
+        "alerts": [
+          "CRITICAL: hv-01 is failed"
+        ]
+      },
+      {
+        "tick": 4,
+        "component_id": "hv-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "vm_count": 10.1875,
+          "cpu_overcommit_ratio": 3.8664,
+          "memory_overcommit_ratio": 1.6017,
+          "cpu_util": 0.4146,
+          "memory_util": 0.6538
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "hv-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "vm_count": 9.1476,
+          "cpu_overcommit_ratio": 3.553,
+          "memory_overcommit_ratio": 1.5602,
+          "cpu_util": 0.4074,
+          "memory_util": 0.5851
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "hv-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "vm_count": 8.6802,
+          "cpu_overcommit_ratio": 4.5596,
+          "memory_overcommit_ratio": 1.4087,
+          "cpu_util": 0.4541,
+          "memory_util": 0.6324
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "hv-05",
+        "observed_state": "healthy",
+        "metrics": {
+          "vm_count": 9.5697,
+          "cpu_overcommit_ratio": 4.3764,
+          "memory_overcommit_ratio": 1.5809,
+          "cpu_util": 0.5328,
+          "memory_util": 0.4878
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-02",
+        "observed_state": "failed",
+        "metrics": {
+          "cpu_cores": 4.2666,
+          "cpu_util": 0.3626,
+          "memory_total": 13.4776,
+          "memory_util": 0.5406,
+          "disk_iops": 973.2241,
+          "host_id": 0.0589
+        },
+        "alerts": [
+          "CRITICAL: srv-vm-02 is failed"
+        ]
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.4885,
+          "cpu_util": 0.2193,
+          "memory_total": 14.5195,
+          "memory_util": 0.4357,
+          "disk_iops": 1072.3783,
+          "host_id": -0.0275
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.7261,
+          "cpu_util": 0.2978,
+          "memory_total": 17.2552,
+          "memory_util": 0.5008,
+          "disk_iops": 1111.1451,
+          "host_id": 0.0607
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-05",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.2148,
+          "cpu_util": 0.446,
+          "memory_total": 13.818,
+          "memory_util": 0.4838,
+          "disk_iops": 1217.9804,
+          "host_id": -0.112
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-06",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.8242,
+          "cpu_util": 0.3282,
+          "memory_total": 17.04,
+          "memory_util": 0.4393,
+          "disk_iops": 1013.831,
+          "host_id": -0.0405
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-07",
+        "observed_state": "failed",
+        "metrics": {
+          "cpu_cores": 4.2464,
+          "cpu_util": 0.3503,
+          "memory_total": 16.4348,
+          "memory_util": 0.4235,
+          "disk_iops": 993.6098,
+          "host_id": 0.0047
+        },
+        "alerts": [
+          "CRITICAL: srv-vm-07 is failed"
+        ]
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-09",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.7528,
+          "cpu_util": 0.2967,
+          "memory_total": 16.6057,
+          "memory_util": 0.5252,
+          "disk_iops": 876.1771,
+          "host_id": -0.0093
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-10",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 4.0513,
+          "cpu_util": 0.3503,
+          "memory_total": 15.7404,
+          "memory_util": 0.4692,
+          "disk_iops": 839.5985,
+          "host_id": 0.0583
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-11",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.8793,
+          "cpu_util": 0.3317,
+          "memory_total": 18.525,
+          "memory_util": 0.4394,
+          "disk_iops": 993.8253,
+          "host_id": 0.0579
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-12",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 4.1233,
+          "cpu_util": 0.2992,
+          "memory_total": 15.7939,
+          "memory_util": 0.5071,
+          "disk_iops": 1099.5236,
+          "host_id": 0.0142
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-13",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 4.5143,
+          "cpu_util": 0.2978,
+          "memory_total": 13.8492,
+          "memory_util": 0.5624,
+          "disk_iops": 880.4656,
+          "host_id": -0.052
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-14",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.4037,
+          "cpu_util": 0.3616,
+          "memory_total": 14.3816,
+          "memory_util": 0.606,
+          "disk_iops": 1136.8065,
+          "host_id": 0.002
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-15",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.7446,
+          "cpu_util": 0.4066,
+          "memory_total": 14.0971,
+          "memory_util": 0.6004,
+          "disk_iops": 1199.2859,
+          "host_id": 0.004
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-16",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.7196,
+          "cpu_util": 0.4376,
+          "memory_total": 15.0202,
+          "memory_util": 0.4917,
+          "disk_iops": 1161.7432,
+          "host_id": -0.0784
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-17",
+        "observed_state": "healthy",
+        "metrics": {
+          "cpu_cores": 3.735,
+          "cpu_util": 0.3613,
+          "memory_total": 15.3181,
+          "memory_util": 0.5573,
+          "disk_iops": 1239.8999,
+          "host_id": -0.0473
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "srv-vm-18",
+        "observed_state": "failed",
+        "metrics": {
+          "cpu_cores": 3.5997,
+          "cpu_util": 0.3211,
+          "memory_total": 16.641,
+          "memory_util": 0.5012,
+          "disk_iops": 956.6484,
+          "host_id": 0.0068
+        },
+        "alerts": [
+          "CRITICAL: srv-vm-18 is failed"
+        ]
+      },
+      {
+        "tick": 4,
+        "component_id": "stor-arr-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "total_capacity": 46313.3645,
+          "used_capacity": 33149.12,
+          "iops": 43096.7361,
+          "latency_ms": 1.9896,
+          "raid_level": 5.199,
+          "disk_count": 26.7833
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "stor-tgt-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "protocol": 1.0586,
+          "throughput": 1016.5507,
+          "session_count": 42.077,
+          "latency_ms": 3.2515,
+          "parent_array_id": -0.0342
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "stor-tgt-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "protocol": 1.0284,
+          "throughput": 1024.8685,
+          "session_count": 49.197,
+          "latency_ms": 3.2709,
+          "parent_array_id": 0.052
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "stor-tgt-03",
+        "observed_state": "healthy",
+        "metrics": {
+          "protocol": 0.9332,
+          "throughput": 1014.4156,
+          "session_count": 58.7844,
+          "latency_ms": 3.078,
+          "parent_array_id": -0.0131
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "stor-tgt-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "protocol": 1.0182,
+          "throughput": 1049.7476,
+          "session_count": 45.4304,
+          "latency_ms": 3.1042,
+          "parent_array_id": 0.0264
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "dns-01",
+        "observed_state": "failed",
+        "metrics": {
+          "query_rate": 1012.3273,
+          "cache_size": 48984.2219,
+          "zone_count": 9.3013,
+          "response_time_ms": 0.9566
+        },
+        "alerts": [
+          "CRITICAL: dns-01 is failed"
+        ]
+      },
+      {
+        "tick": 4,
+        "component_id": "dns-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "query_rate": 1061.4792,
+          "cache_size": 47269.3676,
+          "zone_count": 10.9069,
+          "response_time_ms": 1.0418
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "dhcp-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "scope_utilization": 0.5347,
+          "lease_count": 542.598,
+          "max_leases": 874.1036
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "dc-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "replication_status": 1.0198,
+          "ldap_response_ms": 4.8119,
+          "authentication_rate": 163.2331,
+          "fsmo_roles": -0.0199
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "ca-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "cert_count": 534.7882,
+          "crl_size": 93.8138,
+          "ocsp_response_time": 1.7665
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "mon-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "agent_count": 90.4184,
+          "metric_ingest_rate": 10725.3102,
+          "alert_count": 5.7043,
+          "storage_util": 0.4152
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "lb-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "active_connections": 4237.4551,
+          "backend_count": 7.7749,
+          "throughput": 6010.8379,
+          "health_check_interval": 10.1954
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "app-01",
+        "observed_state": "healthy",
+        "metrics": {
+          "response_time_ms": 59.5701,
+          "request_rate": 584.6923,
+          "error_rate": 0.0522,
+          "instance_count": 2.1218,
+          "health_endpoint": 0.9281
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "app-02",
+        "observed_state": "healthy",
+        "metrics": {
+          "response_time_ms": 49.1291,
+          "request_rate": 492.8776,
+          "error_rate": -0.0186,
+          "instance_count": 1.9473,
+          "health_endpoint": 1.0473
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "app-03",
+        "observed_state": "failed",
+        "metrics": {
+          "response_time_ms": 47.8618,
+          "request_rate": 407.1232,
+          "error_rate": -0.0153,
+          "instance_count": 1.9583,
+          "health_endpoint": 0.9563
+        },
+        "alerts": [
+          "CRITICAL: app-03 is failed"
+        ]
+      },
+      {
+        "tick": 4,
+        "component_id": "app-04",
+        "observed_state": "healthy",
+        "metrics": {
+          "response_time_ms": 45.2226,
+          "request_rate": 498.8714,
+          "error_rate": 0.0754,
+          "instance_count": 2.0308,
+          "health_endpoint": 0.9352
+        },
+        "alerts": []
+      },
+      {
+        "tick": 4,
+        "component_id": "app-05",
+        "observed_state": "failed",
+        "metrics": {
+          "response_time_ms": 49.0814,
+          "request_rate": 486.9375,
+          "error_rate": 0.0099,
+          "instance_count": 2.0568,
+          "health_endpoint": 1.0582
+        },
+        "alerts": [
+          "CRITICAL: app-05 is failed"
+        ]
+      }
+    ],
+    "false_positives": [
+      {
+        "tick": 2,
+        "component_id": "srv-vm-10",
+        "alert": "Interface flap detected on srv-vm-10"
+      }
+    ]
+  },
+  "decision_points": [
+    {
+      "tick": 0,
+      "available_decisions": [
+        {
+          "action": "RESTART_SERVICE",
+          "target": "hv-01",
+          "secondary_target": null,
+          "success_probability": 0.1,
+          "time_cost": 5,
+          "side_effects": [
+            "Brief downtime during restart of hv-01"
+          ],
+          "information_gain": [],
+          "prerequisites": []
+        },
+        {
+          "action": "FAILOVER",
+          "target": "hv-01",
+          "secondary_target": "hv-02",
+          "success_probability": 0.85,
+          "time_cost": 1,
+          "side_effects": [
+            "Increased load on hv-02"
+          ],
+          "information_gain": [],
+          "prerequisites": []
+        },
+        {
+          "action": "ISOLATE",
+          "target": "hv-01",
+          "secondary_target": null,
+          "success_probability": 0.7,
+          "time_cost": 1,
+          "side_effects": [
+            "Dependents of hv-01 will lose connectivity"
+          ],
+          "information_gain": [],
+          "prerequisites": []
+        },
+        {
+          "action": "ROLLBACK_CHANGE",
+          "target": "hv-01",
+          "secondary_target": null,
+          "success_probability": 0.3,
+          "time_cost": 2,
+          "side_effects": [
+            "May reintroduce previous issue"
+          ],
+          "information_gain": [],
+          "prerequisites": []
+        },
+        {
+          "action": "ESCALATE_VENDOR",
+          "target": "hv-01",
+          "secondary_target": null,
+          "success_probability": 0.7,
+          "time_cost": 19,
+          "side_effects": [],
+          "information_gain": [],
+          "prerequisites": []
+        },
+        {
+          "action": "REDISTRIBUTE_LOAD",
+          "target": "hv-01",
+          "secondary_target": "hv-02",
+          "success_probability": 0.5,
+          "time_cost": 4,
+          "side_effects": [
+            "Configuration complexity"
+          ],
+          "information_gain": [],
+          "prerequisites": []
+        },
+        {
+          "action": "INVESTIGATE",
+          "target": "hv-01",
+          "secondary_target": null,
+          "success_probability": 0.9,
+          "time_cost": 2,
+          "side_effects": [],
+          "information_gain": [
+            "Reveals detailed metrics/logs for hv-01"
+          ],
+          "prerequisites": []
+        },
+        {
+          "action": "DO_NOTHING",
+          "target": "hv-01",
+          "secondary_target": null,
+          "success_probability": 0.15,
+          "time_cost": 0,
+          "side_effects": [
+            "Cascade may worsen"
+          ],
+          "information_gain": [],
+          "prerequisites": []
+        }
+      ],
+      "optimal_decision": "FAILOVER",
+      "reasoning": "Root cause is hardware failure on hv-01. Failover to redundant component while awaiting hardware replacement."
+    }
+  ]
+}
