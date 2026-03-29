@@ -1,54 +1,106 @@
-# SABLE Console — Electron App Setup
+# SABLE
 
-## Prerequisites
+Three-pillar cognitive architecture for infrastructure diagnostics.
 
-You need Node.js installed. If you don't have it:
-- Download from https://nodejs.org/ (LTS version)
-- Install with defaults
+A 5.4M parameter system that classifies infrastructure node states through three specialized neural pillars fused with a temporal feedback loop. Runs at 5ms per inference on a single RTX 5090.
 
-## Setup (one time)
+## Architecture
 
-```powershell
-cd C:\Users\Tom\sable-console
-npm install
+```
+                    ┌─────────────────────────────────┐
+                    │         Fusion Layer             │
+                    │   Cross-Attention + Routed Expert│
+                    │   + Temporal Chain               │
+                    └──────┬──────┬──────┬────────────┘
+                           │      │      │
+              ┌────────────┘      │      └────────────┐
+              ▼                   ▼                    ▼
+     ┌────────────────┐ ┌────────────────┐ ┌──────────────────┐
+     │   Pillar 1     ��� │   Pillar 2     │ │    Pillar 3      │
+     │   GNN          │ │   POMDP        │ │    Mamba/SSM     │
+     │                │ │                │ │                   │
+     │   Structural   │ │   Decision     │ │   Temporal        │
+     │   Reasoning    │ │   Planning     │ │   Prediction      │
+     └────────────────┘ └────���───────────┘ └──────────────────┘
+              │                   │                    │
+              └───────────────────┴──────���─────────────┘
+                                  │
+                    ┌─────────────▼─────────────┐
+                    │      sable_sim             │
+                    │  Infrastructure Simulator  │
+                    │  20 component types        │
+                    │  9 dependency types         │
+                    │  Cascade propagation       │
+                    │  Fog-of-war observability  │
+                    └───────────────────────────┘
 ```
 
-This downloads Electron and electron-builder (~200MB).
+**Pillar 1 — GNN (Structural Reasoning):** EdgeConditionedGAT over infrastructure topology. 1044-dim node features (1024 embedding + 20 native infrastructure type one-hot). Learns dependency propagation patterns, contradiction detection, link prediction.
 
-## Run in dev mode (instant, no build)
+**Pillar 2 — POMDP (Decision Planning):** Monte Carlo tree search under partial observability. Given fog-of-war constraints (75% monitoring coverage, 2-tick delay, 5% false positives), plans diagnostic actions to maximize information gain toward root cause.
 
-```powershell
-npm start
+**Pillar 3 — Mamba/SSM (Temporal Prediction):** Selective state space model for cascade forecasting. Takes 2-tick system snapshots, predicts 30-tick cascade outcomes — which nodes will be affected, predicted severity, state trajectories.
+
+**Fusion:** Cross-attention weighted combination of three pillar perspectives with routed expert selection per node. Temporal chain maintains state across inference cycles for multi-step reasoning.
+
+## Project Structure
+
+```
+sable/
+├── sable_sim/          # Infrastructure simulator (foundation)
+├── pillar1/            # GNN — structural reasoning
+├── pillar2/            # POMDP — decision planning
+├── pillar3/            # Mamba — temporal prediction
+├── fusion/             # Three-pillar fusion + temporal chain
+├── orchestrator/       # Integration layer
+├── adapters/           # Telemetry adapters (Prometheus, health scoring, encoding)
+│   └── topologies/     # Infrastructure topology configs (YAML)
+├── docker/             # Engine demo server + dashboard
+├── dashboard/          # CORTEX knowledge graph dashboard (React)
+├── docs/               # Documentation + session history
+└── archive/            # Deprecated scripts
 ```
 
-This opens the app window immediately. Use this for testing.
+## Running the Engine Demo
 
-## Build the .exe
-
-```powershell
-npm run build
+```bash
+cd docker
+source ~/ml-env/bin/activate
+python server.py
 ```
 
-This creates a portable `.exe` in `dist/` — no installer needed.
-Double-click to run. Self-contained, no Node.js required on the target machine.
+Open http://localhost:8080. Select a scenario, hit play, watch the cascade unfold. Click nodes to inspect state probabilities, trajectories, and routing decisions. Hit the fix button for prioritized remediation recommendations.
 
-## Connect to Nemotron
+## Telemetry Adapters
 
-Start llama-server in another terminal:
+The `adapters/` package converts real monitoring data into SABLE's pillar input formats:
 
-```powershell
-cd C:\Users\Tom\llama.cpp
-.\build\bin\Release\llama-server.exe -m G:\models\nemotron-nano\Nemotron-3-Nano-30B-A3B-UD-Q4_K_XL.gguf --ctx-size 16384 --temp 0.6 --top-p 0.95 -ngl 999 --port 8080 --jinja
+```python
+from adapters import HealthScorer, PillarEncoder, SystemSnapshot
+from adapters.prometheus import PrometheusAdapter, PrometheusConfig
+
+adapter = PrometheusAdapter(PrometheusConfig(url="http://prometheus:9090"))
+scorer = HealthScorer()
+encoder = PillarEncoder()
+
+snapshot = adapter.poll_with_health(scorer)
+inputs = encoder.encode(snapshot)
+# inputs.gnn  → [N, 1044] node features
+# inputs.pomdp → dict[node_id → 8-dim belief]
+# inputs.mamba → [1, 2, 1040] temporal input
 ```
 
-Then click the gear icon in the app to verify the endpoint is set to `http://127.0.0.1:8080`.
+## Requirements
 
-## How to Use
+- Python 3.11+
+- PyTorch 2.x with CUDA
+- torch-geometric
+- numpy, networkx, requests
+- FastAPI + uvicorn (for server)
 
-1. Select a topology template (Small Office, Enterprise Campus, VDI, Healthcare)
-2. Click GENERATE to build the infrastructure graph
-3. Click any node in the graph to inspect it
-4. Click INJECT FAILURE to simulate a hardware failure on that node
-5. Use the playback controls to watch the cascade propagate tick by tick
-6. When the cascade finishes, click ASK NEMOTRON for AI root cause analysis
-7. Click RESET to start over
+## Hardware
+
+Developed and tested on:
+- AMD Ryzen 9 9950X3D
+- NVIDIA RTX 5090 (32GB VRAM)
+- 64GB DDR5-6000

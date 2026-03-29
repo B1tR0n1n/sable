@@ -34,5 +34,9 @@ models/
 node_modules/
 dashboard/dist/
 
+# Internal plans (not public)
+SABLE_PLAN.md
+SABLE_PLANFULL.md
+
 # OS
 .DS_Store
