@@ -112,7 +112,7 @@ class SelectiveSSM(nn.Module):
             (B, L, d_model) if return_state=False
             ((B, L, d_model), (B, d_inner, d_state)) if return_state=True
         """
-        B, L, _ = x.shape
+        _, L, _ = x.shape
 
         # Input projection and split
         xz = self.in_proj(x)  # (B, L, 2*d_inner)
@@ -331,6 +331,131 @@ class TrainConfig:
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
 
+def _build_length_mask(pred, batch_len):
+    """Build a valid-tick mask from prediction tensor and sequence lengths."""
+    mask = torch.zeros_like(pred[:, :, 0])
+    for i, l in enumerate(batch_len):
+        valid = min(l.item() - 1, pred.size(1))
+        if valid > 0:
+            mask[i, :valid] = 1.0
+    return mask
+
+
+def _mamba_train_epoch(model, train_loader, optimizer, state_dim, device):
+    """Run one training epoch, return average loss."""
+    model.train()
+    loss_sum = 0.0
+    count = 0
+
+    for batch_x, batch_y, batch_len in train_loader:
+        batch_x = batch_x.to(device)
+        batch_y = batch_y.to(device)
+        batch_len = batch_len.to(device)
+
+        pred = model(batch_x)
+        mask = _build_length_mask(pred, batch_len)
+
+        loss = ((pred - batch_y) ** 2 * mask.unsqueeze(-1)).sum()
+        loss = loss / (mask.sum() * state_dim + 1e-8)
+
+        optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        optimizer.step()
+
+        loss_sum += loss.item() * mask.sum().item()
+        count += mask.sum().item()
+
+    return loss_sum / (count + 1e-8)
+
+
+def _mamba_validate(model, val_loader, state_dim, device):
+    """Run validation, return (val_loss, val_mse)."""
+    model.eval()
+    loss_sum = 0.0
+    mse_sum = 0.0
+    count = 0
+
+    with torch.no_grad():
+        for batch_x, batch_y, batch_len in val_loader:
+            batch_x = batch_x.to(device)
+            batch_y = batch_y.to(device)
+            batch_len = batch_len.to(device)
+
+            pred = model(batch_x)
+            mask = _build_length_mask(pred, batch_len)
+
+            loss = ((pred - batch_y) ** 2 * mask.unsqueeze(-1)).sum()
+            loss = loss / (mask.sum() * state_dim + 1e-8)
+            loss_sum += loss.item() * mask.sum().item()
+
+            mse = ((pred - batch_y) ** 2).mean(dim=-1)
+            mse_sum += (mse * mask).sum().item()
+            count += mask.sum().item()
+
+    return loss_sum / (count + 1e-8), mse_sum / (count + 1e-8)
+
+
+def _mamba_evaluate(model, X_input, X_target, lengths, test_idx, config, checkpoint_path, n_params):
+    """Load best checkpoint and run test evaluation with baseline comparison."""
+    print(f"\n  {C_GOLD}{C_BOLD}  Test Set Evaluation{C_RESET}")
+    print(f"  {C_DIM}{'─' * 50}{C_RESET}")
+
+    ckpt = torch.load(checkpoint_path / "best_mamba.pt", weights_only=False)
+    model.load_state_dict(ckpt["model_state_dict"])
+    model.eval()
+
+    test_dataset = TensorDataset(X_input[test_idx], X_target[test_idx], lengths[test_idx])
+    test_loader = DataLoader(test_dataset, batch_size=config.batch_size)
+
+    test_mse_per_step = {}
+    with torch.no_grad():
+        for batch_x, batch_y, batch_len in test_loader:
+            batch_x = batch_x.to(config.device)
+            batch_y = batch_y.to(config.device)
+            pred = model(batch_x)
+            for i in range(batch_x.size(0)):
+                valid = min(batch_len[i].item() - 1, pred.size(1))
+                for t in range(valid):
+                    mse = ((pred[i, t] - batch_y[i, t]) ** 2).mean().item()
+                    test_mse_per_step.setdefault(t + 1, []).append(mse)
+
+    print(f"\n  {C_INFO}MSE by prediction horizon:{C_RESET}")
+    for step in sorted(test_mse_per_step.keys()):
+        mses = test_mse_per_step[step]
+        mean_mse = np.mean(mses)
+        bar = "█" * min(int(mean_mse * 500), 40)
+        print(f"    {C_DIM}t+{step}:{C_RESET} {C_TEXT}MSE={mean_mse:.6f}{C_RESET} (n={len(mses):4d}) {C_GOLD}{bar}{C_RESET}")
+
+    print(f"\n  {C_INFO}Baseline comparison (last-state predictor):{C_RESET}")
+    baseline_mse_per_step = {}
+    with torch.no_grad():
+        for batch_x, batch_y, batch_len in test_loader:
+            for i in range(batch_x.size(0)):
+                valid = min(batch_len[i].item() - 1, batch_x.size(1))
+                for t in range(valid):
+                    mse = ((batch_x[i, t] - batch_y[i, t]) ** 2).mean().item()
+                    baseline_mse_per_step.setdefault(t + 1, []).append(mse)
+
+    print(f"\n  {C_DIM}{'step':>6s}  {'Mamba MSE':>12s}  {'Baseline MSE':>12s}  {'Improvement':>12s}{C_RESET}")
+    print(f"  {C_DIM}{'─' * 50}{C_RESET}")
+    for step in sorted(test_mse_per_step.keys()):
+        mamba_mse = np.mean(test_mse_per_step[step])
+        baseline_mse = np.mean(baseline_mse_per_step.get(step, [0]))
+        improvement = (baseline_mse - mamba_mse) / baseline_mse * 100 if baseline_mse > 0 else 0
+        c = C_SUCCESS if improvement > 0 else C_DANGER
+        print(
+            f"  {C_TEXT}t+{step:3d}{C_RESET}  "
+            f"{mamba_mse:12.6f}  "
+            f"{baseline_mse:12.6f}  "
+            f"{c}{improvement:+11.1f}%{C_RESET}"
+        )
+
+    print(f"\n  {C_SUCCESS}{C_BOLD}Best checkpoint:{C_RESET} {C_TEXT}{checkpoint_path / 'best_mamba.pt'}{C_RESET}")
+    print(f"  {C_TEXT}Epoch: {ckpt['epoch']}  Val MSE: {ckpt['val_mse']:.6f}{C_RESET}")
+    print(f"  {C_TEXT}Parameters: {C_BRIGHT}{n_params:,}{C_RESET}\n")
+
+
 def train(data_path: str = "temporal_data.pt", config: TrainConfig = None,
           checkpoint_dir: str = "checkpoints"):
     """Train SableMamba on temporal state sequences."""
@@ -394,73 +519,12 @@ def train(data_path: str = "temporal_data.pt", config: TrainConfig = None,
     print(f"  {C_DIM}{'─' * 55}{C_RESET}")
 
     for epoch in range(1, config.epochs + 1):
-        # Train
-        model.train()
-        train_loss_sum = 0.0
-        train_count = 0
+        train_loss = _mamba_train_epoch(model, train_loader, optimizer, state_dim, config.device)
 
-        for batch_x, batch_y, batch_len in train_loader:
-            batch_x = batch_x.to(config.device)
-            batch_y = batch_y.to(config.device)
-            batch_len = batch_len.to(config.device)
-
-            pred = model(batch_x)
-
-            # Masked loss — only count valid ticks
-            mask = torch.zeros_like(pred[:, :, 0])
-            for i, l in enumerate(batch_len):
-                valid = min(l.item() - 1, pred.size(1))
-                if valid > 0:
-                    mask[i, :valid] = 1.0
-
-            loss = ((pred - batch_y) ** 2 * mask.unsqueeze(-1)).sum()
-            loss = loss / (mask.sum() * state_dim + 1e-8)
-
-            optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
-
-            train_loss_sum += loss.item() * mask.sum().item()
-            train_count += mask.sum().item()
-
-        train_loss = train_loss_sum / (train_count + 1e-8)
-
-        # Validate
-        model.eval()
-        val_loss_sum = 0.0
-        val_mse_sum = 0.0
-        val_count = 0
-
-        with torch.no_grad():
-            for batch_x, batch_y, batch_len in val_loader:
-                batch_x = batch_x.to(config.device)
-                batch_y = batch_y.to(config.device)
-                batch_len = batch_len.to(config.device)
-
-                pred = model(batch_x)
-
-                mask = torch.zeros_like(pred[:, :, 0])
-                for i, l in enumerate(batch_len):
-                    valid = min(l.item() - 1, pred.size(1))
-                    if valid > 0:
-                        mask[i, :valid] = 1.0
-
-                loss = ((pred - batch_y) ** 2 * mask.unsqueeze(-1)).sum()
-                loss = loss / (mask.sum() * state_dim + 1e-8)
-                val_loss_sum += loss.item() * mask.sum().item()
-
-                # MSE per valid position
-                mse = ((pred - batch_y) ** 2).mean(dim=-1)  # (B, T)
-                val_mse_sum += (mse * mask).sum().item()
-                val_count += mask.sum().item()
-
-        val_loss = val_loss_sum / (val_count + 1e-8)
-        val_mse = val_mse_sum / (val_count + 1e-8)
+        val_loss, val_mse = _mamba_validate(model, val_loader, state_dim, config.device)
         current_lr = optimizer.param_groups[0]["lr"]
         scheduler.step(val_loss)
 
-        # Log
         improved = val_loss < best_val_loss - 1e-5
         marker = f"{C_SUCCESS}*{C_RESET}" if improved else " "
 
@@ -497,67 +561,7 @@ def train(data_path: str = "temporal_data.pt", config: TrainConfig = None,
                 break
 
     # ── Evaluation ──
-    print(f"\n  {C_GOLD}{C_BOLD}  Test Set Evaluation{C_RESET}")
-    print(f"  {C_DIM}{'─' * 50}{C_RESET}")
-
-    ckpt = torch.load(checkpoint_path / "best_mamba.pt", weights_only=False)
-    model.load_state_dict(ckpt["model_state_dict"])
-    model.eval()
-
-    test_dataset = TensorDataset(X_input[test_idx], X_target[test_idx], lengths[test_idx])
-    test_loader = DataLoader(test_dataset, batch_size=config.batch_size)
-
-    test_mse_per_step = {}  # tick → list of MSEs
-    with torch.no_grad():
-        for batch_x, batch_y, batch_len in test_loader:
-            batch_x = batch_x.to(config.device)
-            batch_y = batch_y.to(config.device)
-
-            pred = model(batch_x)
-            for i in range(batch_x.size(0)):
-                valid = min(batch_len[i].item() - 1, pred.size(1))
-                for t in range(valid):
-                    mse = ((pred[i, t] - batch_y[i, t]) ** 2).mean().item()
-                    test_mse_per_step.setdefault(t + 1, []).append(mse)
-
-    print(f"\n  {C_INFO}MSE by prediction horizon:{C_RESET}")
-    for step in sorted(test_mse_per_step.keys()):
-        mses = test_mse_per_step[step]
-        mean_mse = np.mean(mses)
-        bar = "█" * min(int(mean_mse * 500), 40)
-        print(f"    {C_DIM}t+{step}:{C_RESET} {C_TEXT}MSE={mean_mse:.6f}{C_RESET} (n={len(mses):4d}) {C_GOLD}{bar}{C_RESET}")
-
-    # Baseline: last-state predictor (predict s_{t+1} = s_t)
-    print(f"\n  {C_INFO}Baseline comparison (last-state predictor):{C_RESET}")
-    baseline_mse_per_step = {}
-    with torch.no_grad():
-        for batch_x, batch_y, batch_len in test_loader:
-            for i in range(batch_x.size(0)):
-                valid = min(batch_len[i].item() - 1, batch_x.size(1))
-                for t in range(valid):
-                    mse = ((batch_x[i, t] - batch_y[i, t]) ** 2).mean().item()
-                    baseline_mse_per_step.setdefault(t + 1, []).append(mse)
-
-    print(f"\n  {C_DIM}{'step':>6s}  {'Mamba MSE':>12s}  {'Baseline MSE':>12s}  {'Improvement':>12s}{C_RESET}")
-    print(f"  {C_DIM}{'─' * 50}{C_RESET}")
-    for step in sorted(test_mse_per_step.keys()):
-        mamba_mse = np.mean(test_mse_per_step[step])
-        baseline_mse = np.mean(baseline_mse_per_step.get(step, [0]))
-        if baseline_mse > 0:
-            improvement = (baseline_mse - mamba_mse) / baseline_mse * 100
-        else:
-            improvement = 0
-        c = C_SUCCESS if improvement > 0 else C_DANGER
-        print(
-            f"  {C_TEXT}t+{step:3d}{C_RESET}  "
-            f"{mamba_mse:12.6f}  "
-            f"{baseline_mse:12.6f}  "
-            f"{c}{improvement:+11.1f}%{C_RESET}"
-        )
-
-    print(f"\n  {C_SUCCESS}{C_BOLD}Best checkpoint:{C_RESET} {C_TEXT}{checkpoint_path / 'best_mamba.pt'}{C_RESET}")
-    print(f"  {C_TEXT}Epoch: {ckpt['epoch']}  Val MSE: {ckpt['val_mse']:.6f}{C_RESET}")
-    print(f"  {C_TEXT}Parameters: {C_BRIGHT}{n_params:,}{C_RESET}\n")
+    _mamba_evaluate(model, X_input, X_target, lengths, test_idx, config, checkpoint_path, n_params)
 
 
 if __name__ == "__main__":

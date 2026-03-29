@@ -204,158 +204,107 @@ def generate_scenario(name, desc, seed, n_ticks, inject_fn, gnn, device="cpu"):
     }
 
 
-def main():
-    print(f"\n  {C}SABLE — Pre-computing Demo Scenarios{R}\n", flush=True)
-    gnn = load_gnn()
-    out_dir = Path(__file__).parent / "scenarios"
-    out_dir.mkdir(exist_ok=True)
+def _set_component_states(graph, cids, target_state, health):
+    """Helper: set state and health on a list of component IDs."""
+    for cid in cids:
+        c = graph.get_component(cid)
+        if c:
+            c.state = target_state
+            c.health = health
 
-    # ── Monday Morning: progressive cascade ──
-    def mm_inject(graph, state, comps, cids, rng, tick):
-        degrees = {c.id: len(graph.get_dependents(c.id)) for c in comps}
-        hubs = sorted(degrees, key=degrees.get, reverse=True)
-        if tick == 0:
-            pass  # all healthy
-        elif tick == 3:
-            # DB cluster starts degrading
-            for cid in hubs[5:7]:
-                c = graph.get_component(cid)
-                if c: c.state = ComponentState.DEGRADED; c.health = 0.4
-        elif tick == 6:
-            # DB fails, app tier degrades
-            for cid in hubs[5:7]:
-                c = graph.get_component(cid)
-                if c: c.state = ComponentState.FAILED; c.health = 0.0
-            for cid in hubs[2:5]:
-                c = graph.get_component(cid)
-                if c and c.state == ComponentState.HEALTHY:
-                    c.state = ComponentState.DEGRADED; c.health = 0.5
-        elif tick == 10:
-            # App tier fails, services unreachable
-            for cid in hubs[2:5]:
-                c = graph.get_component(cid)
-                if c: c.state = ComponentState.FAILED; c.health = 0.0
-            for cid in hubs[7:10]:
-                c = graph.get_component(cid)
-                if c: c.state = ComponentState.UNREACHABLE; c.health = 0.0
-        elif tick == 16:
-            # Partial recovery: DB recovers
-            for cid in hubs[5:7]:
-                c = graph.get_component(cid)
-                if c: c.state = ComponentState.DEGRADED; c.health = 0.5
-        elif tick == 20:
-            for cid in hubs[5:7]:
-                c = graph.get_component(cid)
-                if c: c.state = ComponentState.HEALTHY; c.health = 1.0
-            # Some apps recover
-            for cid in hubs[2:4]:
-                c = graph.get_component(cid)
-                if c: c.state = ComponentState.HEALTHY; c.health = 1.0
 
-    s1 = generate_scenario("monday_morning",
-        "Monday Morning Meltdown — DB degrades at tick 3, app cascade at 6, "
-        "services unreachable by 10, partial recovery at 16.",
-        400, 25, mm_inject, gnn)
+def _set_healthy_only(graph, cids, target_state, health):
+    """Helper: set state/health only on components currently HEALTHY."""
+    for cid in cids:
+        c = graph.get_component(cid)
+        if c and c.state == ComponentState.HEALTHY:
+            c.state = target_state
+            c.health = health
 
-    # ── Silent Killer: one hub fails, no direct obs ──
-    def sk_inject(graph, state, comps, cids, rng, tick):
-        degrees = {c.id: len(graph.get_dependents(c.id)) for c in comps}
-        hub = max(degrees, key=degrees.get)
-        deps = [c.id for c in graph.get_dependents(hub)]
-        if tick == 3:
-            c = graph.get_component(hub)
-            if c: c.state = ComponentState.FAILED; c.health = 0.0
-        elif tick == 7:
-            for did in deps[:3]:
-                c = graph.get_component(did)
-                if c and c.state == ComponentState.HEALTHY:
-                    c.state = ComponentState.DEGRADED; c.health = 0.4
-        elif tick == 11:
-            for did in deps[:2]:
-                c = graph.get_component(did)
-                if c: c.state = ComponentState.FAILED; c.health = 0.0
-            for did in deps[3:6]:
-                c = graph.get_component(did)
-                if c and c.state == ComponentState.HEALTHY:
-                    c.state = ComponentState.UNREACHABLE; c.health = 0.0
 
-    s2 = generate_scenario("silent_killer",
-        "Silent Killer — Hub fails at tick 3. No direct observation. "
-        "Downstream degrades at 7, failures at 11.",
-        999, 20, sk_inject, gnn)
+def _get_hub_ranked_ids(graph, comps):
+    """Return component IDs sorted by dependent count (descending)."""
+    degrees = {c.id: len(graph.get_dependents(c.id)) for c in comps}
+    return sorted(degrees, key=degrees.get, reverse=True)
 
-    # ── Whiplash: root recovers, dependents stay dead ──
-    def cw_inject(graph, state, comps, cids, rng, tick):
-        root = cids[0]
-        deps = cids[1:6]
-        if tick == 2:
-            c = graph.get_component(root)
-            if c: c.state = ComponentState.FAILED; c.health = 0.0
-            for d in deps:
-                c = graph.get_component(d)
-                if c: c.state = ComponentState.DEGRADED; c.health = 0.4
-        elif tick == 5:
-            for d in deps[:3]:
-                c = graph.get_component(d)
-                if c: c.state = ComponentState.FAILED; c.health = 0.0
-        elif tick == 8:
-            c = graph.get_component(root)
-            if c: c.state = ComponentState.HEALTHY; c.health = 1.0
-        elif tick == 11:
-            for d in deps[3:]:
-                c = graph.get_component(d)
-                if c: c.state = ComponentState.HEALTHY; c.health = 1.0
 
-    s3 = generate_scenario("cascade_whiplash",
-        "Cascade Whiplash — Root fails at 2, cascade at 5, root recovers at 8. "
-        "Dependents stay dead.",
-        777, 15, cw_inject, gnn)
+def _inject_monday_morning(graph, state, comps, cids, rng, tick):
+    """Monday Morning Meltdown — progressive cascade injection."""
+    hubs = _get_hub_ranked_ids(graph, comps)
+    if tick == 3:
+        _set_component_states(graph, hubs[5:7], ComponentState.DEGRADED, 0.4)
+    elif tick == 6:
+        _set_component_states(graph, hubs[5:7], ComponentState.FAILED, 0.0)
+        _set_healthy_only(graph, hubs[2:5], ComponentState.DEGRADED, 0.5)
+    elif tick == 10:
+        _set_component_states(graph, hubs[2:5], ComponentState.FAILED, 0.0)
+        _set_component_states(graph, hubs[7:10], ComponentState.UNREACHABLE, 0.0)
+    elif tick == 16:
+        _set_component_states(graph, hubs[5:7], ComponentState.DEGRADED, 0.5)
+    elif tick == 20:
+        _set_component_states(graph, hubs[5:7], ComponentState.HEALTHY, 1.0)
+        _set_component_states(graph, hubs[2:4], ComponentState.HEALTHY, 1.0)
 
-    # ── Slow Poison ──
-    def sp_inject(graph, state, comps, cids, rng, tick):
-        for cid in cids[:8]:
-            c = graph.get_component(cid)
-            if c:
-                h = max(0.0, 1.0 - tick * 0.05)
-                c.health = h
-                if h < 0.3:
-                    c.state = ComponentState.FAILED
-                elif h < 0.6:
-                    c.state = ComponentState.DEGRADED
-                else:
-                    c.state = ComponentState.HEALTHY
 
-    s4 = generate_scenario("slow_poison",
-        "Slow Poison — 8 nodes lose 5% health per tick. No sudden failures. "
-        "Only trajectory tracking catches the trend.",
-        5555, 20, sp_inject, gnn)
+def _inject_silent_killer(graph, state, comps, cids, rng, tick):
+    """Silent Killer — hub fails, downstream cascades without direct observation."""
+    degrees = {c.id: len(graph.get_dependents(c.id)) for c in comps}
+    hub = max(degrees, key=degrees.get)
+    deps = [c.id for c in graph.get_dependents(hub)]
+    if tick == 3:
+        _set_component_states(graph, [hub], ComponentState.FAILED, 0.0)
+    elif tick == 7:
+        _set_healthy_only(graph, deps[:3], ComponentState.DEGRADED, 0.4)
+    elif tick == 11:
+        _set_component_states(graph, deps[:2], ComponentState.FAILED, 0.0)
+        _set_healthy_only(graph, deps[3:6], ComponentState.UNREACHABLE, 0.0)
 
-    # ── Random Chaos: multiple staged failures ──
-    def rc_inject(graph, state, comps, cids, rng, tick):
-        if tick == 3:
-            for cid in cids[:3]:
-                c = graph.get_component(cid)
-                if c: c.state = ComponentState.FAILED; c.health = 0.0
-        if tick == 8:
-            for cid in cids[5:9]:
-                c = graph.get_component(cid)
-                if c: c.state = ComponentState.DEGRADED; c.health = 0.3
-        if tick == 12:
-            for cid in cids[10:14]:
-                c = graph.get_component(cid)
-                if c: c.state = ComponentState.UNREACHABLE; c.health = 0.0
-        if tick == 15:
-            # some recover
-            for cid in cids[:2]:
-                c = graph.get_component(cid)
-                if c: c.state = ComponentState.HEALTHY; c.health = 1.0
 
-    s5 = generate_scenario("random_chaos",
-        "Random Chaos — Failures at 3, degradation at 8, unreachable at 12, "
-        "partial recovery at 15.",
-        1234, 20, rc_inject, gnn)
+def _inject_cascade_whiplash(graph, state, comps, cids, rng, tick):
+    """Cascade Whiplash — root recovers but dependents stay dead."""
+    root = cids[0]
+    deps = cids[1:6]
+    if tick == 2:
+        _set_component_states(graph, [root], ComponentState.FAILED, 0.0)
+        _set_component_states(graph, deps, ComponentState.DEGRADED, 0.4)
+    elif tick == 5:
+        _set_component_states(graph, deps[:3], ComponentState.FAILED, 0.0)
+    elif tick == 8:
+        _set_component_states(graph, [root], ComponentState.HEALTHY, 1.0)
+    elif tick == 11:
+        _set_component_states(graph, deps[3:], ComponentState.HEALTHY, 1.0)
 
-    for s in [s1, s2, s3, s4, s5]:
+
+def _inject_slow_poison(graph, state, comps, cids, rng, tick):
+    """Slow Poison — gradual health decay, no sudden failures."""
+    for cid in cids[:8]:
+        c = graph.get_component(cid)
+        if c:
+            h = max(0.0, 1.0 - tick * 0.05)
+            c.health = h
+            if h < 0.3:
+                c.state = ComponentState.FAILED
+            elif h < 0.6:
+                c.state = ComponentState.DEGRADED
+            else:
+                c.state = ComponentState.HEALTHY
+
+
+def _inject_random_chaos(graph, state, comps, cids, rng, tick):
+    """Random Chaos — multiple staged failures with partial recovery."""
+    if tick == 3:
+        _set_component_states(graph, cids[:3], ComponentState.FAILED, 0.0)
+    if tick == 8:
+        _set_component_states(graph, cids[5:9], ComponentState.DEGRADED, 0.3)
+    if tick == 12:
+        _set_component_states(graph, cids[10:14], ComponentState.UNREACHABLE, 0.0)
+    if tick == 15:
+        _set_component_states(graph, cids[:2], ComponentState.HEALTHY, 1.0)
+
+
+def _save_and_report(scenarios, out_dir):
+    """Save scenario tensors and print summary."""
+    for s in scenarios:
         path = out_dir / f"{s['name']}.pt"
         torch.save(s, path)
         gt = s["ground_truth"]
@@ -363,8 +312,43 @@ def main():
         tot = gt.numel()
         print(f"  {s['name']:<25s} {s['n_nodes']:2d}n {s['n_ticks']:2d}t "
               f"{aff}/{tot} ({aff/tot*100:.0f}%) {path.stat().st_size//1024}KB", flush=True)
+    print(f"\n  Saved {len(scenarios)} scenarios to {out_dir}/\n", flush=True)
 
-    print(f"\n  Saved 5 scenarios to {out_dir}/\n", flush=True)
+
+def main():
+    print(f"\n  {C}SABLE — Pre-computing Demo Scenarios{R}\n", flush=True)
+    gnn = load_gnn()
+    out_dir = Path(__file__).parent / "scenarios"
+    out_dir.mkdir(exist_ok=True)
+
+    scenario_defs = [
+        ("monday_morning",
+         "Monday Morning Meltdown — DB degrades at tick 3, app cascade at 6, "
+         "services unreachable by 10, partial recovery at 16.",
+         400, 25, _inject_monday_morning),
+        ("silent_killer",
+         "Silent Killer — Hub fails at tick 3. No direct observation. "
+         "Downstream degrades at 7, failures at 11.",
+         999, 20, _inject_silent_killer),
+        ("cascade_whiplash",
+         "Cascade Whiplash — Root fails at 2, cascade at 5, root recovers at 8. "
+         "Dependents stay dead.",
+         777, 15, _inject_cascade_whiplash),
+        ("slow_poison",
+         "Slow Poison — 8 nodes lose 5% health per tick. No sudden failures. "
+         "Only trajectory tracking catches the trend.",
+         5555, 20, _inject_slow_poison),
+        ("random_chaos",
+         "Random Chaos — Failures at 3, degradation at 8, unreachable at 12, "
+         "partial recovery at 15.",
+         1234, 20, _inject_random_chaos),
+    ]
+
+    scenarios = [
+        generate_scenario(name, desc, seed, n_ticks, inject_fn, gnn)
+        for name, desc, seed, n_ticks, inject_fn in scenario_defs
+    ]
+    _save_and_report(scenarios, out_dir)
 
 
 if __name__ == "__main__":

@@ -137,7 +137,7 @@ class InfrastructureAdapter:
     }
 
     def __init__(self, seed: int = 42):
-        self.rng = np.random.RandomState(seed)
+        self.rng = np.random.default_rng(seed)
         self.type_embeddings = self._generate_type_embeddings()
 
     def _generate_type_embeddings(self) -> dict[str, np.ndarray]:
@@ -150,7 +150,7 @@ class InfrastructureAdapter:
         embeddings = {}
 
         group_centroids = {
-            name: self.rng.randn(GNN_EMBEDDING_DIM) * 0.3
+            name: self.rng.standard_normal(GNN_EMBEDDING_DIM) * 0.3
             for name in self.FUNCTIONAL_GROUPS
         }
 
@@ -162,7 +162,7 @@ class InfrastructureAdapter:
         for comp_type in COMPONENT_TYPES:
             group = type_to_group[comp_type]
             base = group_centroids[group].copy()
-            noise = self.rng.randn(GNN_EMBEDDING_DIM) * 0.15
+            noise = self.rng.standard_normal(GNN_EMBEDDING_DIM) * 0.15
             emb = base + noise
             emb = emb / (np.linalg.norm(emb) + 1e-8)
             embeddings[comp_type] = emb
@@ -179,7 +179,7 @@ class InfrastructureAdapter:
 
         # Modulate embedding by health — degraded nodes have shifted embeddings
         if health < 1.0:
-            perturbation = self.rng.randn(GNN_EMBEDDING_DIM) * (1.0 - health) * 0.2
+            perturbation = self.rng.standard_normal(GNN_EMBEDDING_DIM) * (1.0 - health) * 0.2
             emb = emb + perturbation
             emb = emb / (np.linalg.norm(emb) + 1e-8)
 
@@ -220,7 +220,7 @@ def generate_infrastructure_graph(
     Returns (nodes, edges) where each node/edge is a dict with
     type, health, properties, etc.
     """
-    rng = np.random.RandomState(seed)
+    rng = np.random.default_rng(seed)
 
     # Type distribution matching a real enterprise environment
     type_weights = {
@@ -250,8 +250,6 @@ def generate_infrastructure_graph(
 
     # Generate edges based on realistic dependency patterns
     edges = []
-    node_types = {n["id"]: n["type"] for n in nodes}
-
     # Dependency patterns: which types connect to which, and how
     patterns = [
         # (source_types, target_types, dep_type, criticality, probability)
@@ -362,7 +360,7 @@ def run_portability_test(
     print(f"  {C_TEXT}node features: {C_BRIGHT}{x.shape}{C_RESET}")
 
     # Encode edges — hold out 20% for testing
-    rng = np.random.RandomState(seed)
+    rng = np.random.default_rng(seed)
     indices = np.arange(len(edges))
     rng.shuffle(indices)
     split = int(len(edges) * 0.8)
@@ -383,8 +381,8 @@ def run_portability_test(
         el = torch.tensor(labels, dtype=torch.long)
         return ei, ea, el
 
-    train_ei, train_ea, train_labels = encode_edges(edges, train_idx)
-    test_ei, test_ea, test_labels = encode_edges(edges, test_idx)
+    train_ei, train_ea, _ = encode_edges(edges, train_idx)
+    test_ei, _, test_labels = encode_edges(edges, test_idx)
 
     print(f"  {C_TEXT}train edges: {C_BRIGHT}{train_ei.size(1)}{C_RESET}")
     print(f"  {C_TEXT}test edges:  {C_BRIGHT}{test_ei.size(1)}{C_RESET}")
@@ -480,10 +478,10 @@ def run_portability_test(
     print(f"\n  {C_INFO}Baselines on same infrastructure graph:{C_RESET}")
 
     # Random baseline
-    rng2 = np.random.RandomState(99)
+    rng2 = np.random.default_rng(99)
     random_link = rng2.random(len(all_link_scores))
     random_auc = compute_auc(random_link, all_link_labels)
-    random_type = rng2.randint(0, len(GNN_RELATION_TYPES), size=len(test_labels_np))
+    random_type = rng2.integers(0, len(GNN_RELATION_TYPES), size=len(test_labels_np))
     random_type_f1 = compute_macro_f1(random_type, test_labels_np, len(GNN_RELATION_TYPES))
 
     # Cosine baseline

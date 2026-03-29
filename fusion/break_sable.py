@@ -42,7 +42,7 @@ C_RESET = "\033[0m"
 C_BOLD = "\033[1m"
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-rng = np.random.RandomState(1337)
+rng = np.random.default_rng(1337)
 
 # Load model
 base = SharpRoutedFusion(mamba_dim=NODE_FEAT_DIM)
@@ -69,7 +69,12 @@ def run_test(name, fn):
         results[name] = result
         status = result.get('status', 'UNKNOWN')
         detail = result.get('detail', '')
-        c = C_SUCCESS if status == 'SURVIVED' else C_DANGER if status == 'BROKEN' else C_TEXT
+        if status == 'SURVIVED':
+            c = C_SUCCESS
+        elif status == 'BROKEN':
+            c = C_DANGER
+        else:
+            c = C_TEXT
         print(f"  {c}{name:<45s} {status:>10s}  {elapsed:5.2f}s  {detail}{C_RESET}", flush=True)
     except Exception as e:
         crashes.append((name, str(e)))
@@ -108,7 +113,7 @@ def make_features(states, health, obs_noise=0.15, obs_coverage=0.3, n=N):
         # POMDP belief is 4-dim (sim states only, oscillating detected temporally)
         belief = np.array([0.25]*4)
         if rng.random() < obs_coverage:
-            obs = states[i] if rng.random() > obs_noise else rng.randint(0, 4)
+            obs = states[i] if rng.random() > obs_noise else rng.integers(0, 4)
             obs = min(obs, 3)
             belief[obs] += 2.0
             belief /= belief.sum()
@@ -161,8 +166,15 @@ def test_fgsm_attack():
     flipped = (clean_preds != adv_preds).sum().item()
     issues = check_output_sanity(out_adv)
 
+    if issues:
+        status = 'BROKEN'
+    elif flipped > N * 0.5:
+        status = 'VULNERABLE'
+    else:
+        status = 'SURVIVED'
+
     return {
-        'status': 'BROKEN' if issues else ('VULNERABLE' if flipped > N*0.5 else 'SURVIVED'),
+        'status': status,
         'detail': f'{flipped}/{N} flipped, issues={issues}',
     }
 
@@ -199,7 +211,7 @@ def test_all_same_class():
     results_per = {}
     for cls in range(N_STATES):
         states = np.full(N, cls, dtype=int)
-        health = np.where(states <= 1, np.random.uniform(0.5, 1.0, N), 0.0)
+        health = np.where(states <= 1, rng.uniform(0.5, 1.0, N), 0.0)
         gnn, pomdp, mamba = make_features(states, health)
         gt = torch.full((N,), cls, dtype=torch.long, device=device)
         with torch.no_grad():
@@ -668,7 +680,12 @@ def test_perfect_storm():
 
             # Oscillators
             for i in range(10):
-                states[i] = 4 if t >= 3 else (2 if t%2==0 else 0)
+                if t >= 3:
+                    states[i] = 4
+                elif t % 2 == 0:
+                    states[i] = 2
+                else:
+                    states[i] = 0
                 health[i] = 0.5
 
             # Cascade
@@ -689,7 +706,7 @@ def test_perfect_storm():
                 # POMDP belief is 4-dim (sim states only, oscillating detected temporally)
         belief = np.array([0.25]*4)
                 if rng.random() < 0.4:  # only 40% observed
-                    obs = states[i] if rng.random() > 0.6 else rng.randint(0,4)  # 60% noise
+                    obs = states[i] if rng.random() > 0.6 else rng.integers(0, 4)  # 60% noise
                     obs = min(obs, 3)
                     belief[obs] += 1.5
                     belief /= belief.sum()
@@ -719,8 +736,15 @@ def test_perfect_storm():
     macro = sum(f1s)/N_STATES
     f1_str = ' '.join(f'{STATE_NAMES[i][:4]}={f1s[i]:.3f}' for i in range(N_STATES))
 
+    if any_issues:
+        status = 'BROKEN'
+    elif macro < 0.15:
+        status = 'VULNERABLE'
+    else:
+        status = 'SURVIVED'
+
     return {
-        'status': 'BROKEN' if any_issues else ('VULNERABLE' if macro < 0.15 else 'SURVIVED'),
+        'status': status,
         'detail': f'macro={macro:.3f} [{f1_str}] issues={any_issues[:3]}',
     }
 

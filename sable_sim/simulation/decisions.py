@@ -353,7 +353,12 @@ class DecisionGenerator:
         match decision.action:
             case DecisionType.RESTART_SERVICE:
                 is_hw = self._is_hardware_cause(root_comp)
-                return 0.1 if is_hw else (0.8 if addresses_root else 0.3)
+                if is_hw:
+                    return 0.1
+                elif addresses_root:
+                    return 0.8
+                else:
+                    return 0.3
             case DecisionType.FAILOVER:
                 return 0.85 if addresses_root else 0.5
             case DecisionType.ISOLATE:

@@ -325,8 +325,6 @@ def train(data_path: str = "temporal_v3.pt", config: TrainConfig = None,
     for epoch in range(1, config.epochs + 1):
         model.train()
         epoch_loss = 0.0
-        epoch_aff_correct = 0
-        epoch_aff_total = 0
         epoch_aff_tp = 0
         epoch_aff_fp = 0
         epoch_aff_fn = 0
@@ -401,11 +399,9 @@ def train(data_path: str = "temporal_v3.pt", config: TrainConfig = None,
 
         # Validate
         model.eval()
-        val_loss = 0.0
         val_aff_tp = val_aff_fp = val_aff_fn = 0
         val_state_correct = val_state_total = 0
         val_fail_correct = val_fail_total = 0
-        val_n = 0
 
         with torch.no_grad():
             for bx, bh, bs, ba, bsev, bn in val_loader:
@@ -435,8 +431,6 @@ def train(data_path: str = "temporal_v3.pt", config: TrainConfig = None,
                 fail_mask = (bs == 2) & (mask > 0)
                 val_fail_total += fail_mask.sum().item()
                 val_fail_correct += ((state_preds == 2) & fail_mask).sum().item()
-
-                val_n += mask.sum().item()
 
         val_aff_prec = val_aff_tp / max(val_aff_tp + val_aff_fp, 1)
         val_aff_rec = val_aff_tp / max(val_aff_tp + val_aff_fn, 1)

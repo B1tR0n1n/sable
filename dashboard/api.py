@@ -174,7 +174,6 @@ async def get_stats():
         adj[e["source"]] += 1
         adj[e["target"]] += 1
     degrees = list(adj.values()) if adj else [0]
-    node_ids = {n["id"] for n in nodes}
     isolated = sum(1 for n in nodes if n["id"] not in adj)
 
     return {
@@ -253,4 +252,4 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=3001)
+    uvicorn.run(app, host="127.0.0.1", port=3001)

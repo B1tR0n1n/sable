@@ -73,7 +73,6 @@ def create_infra_gnn():
     # Transfer weights where shapes match
     infra_state = infra_model.state_dict()
     transferred = 0
-    skipped = 0
     reinitialized = 0
 
     print(f"\n  {C_INFO}Weight transfer:{C_RESET}")
@@ -83,10 +82,8 @@ def create_infra_gnn():
             transferred += 1
         elif key in src_state:
             print(f"    {C_DIM}SKIP {key}: {src_state[key].shape} → {infra_state[key].shape}{C_RESET}")
-            skipped += 1
             reinitialized += 1
         else:
-            skipped += 1
             reinitialized += 1
 
     infra_model.load_state_dict(infra_state)

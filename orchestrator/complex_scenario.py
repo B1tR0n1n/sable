@@ -317,7 +317,12 @@ def run_complex_scenario():
 
     # Mamba results
     print(f"\n  {C_INFO}Pillar 3 — Temporal Prediction (Mamba):{C_RESET}")
-    risk_color = C_DANGER if result.cascade_risk in ("high", "critical") else C_GOLD if result.cascade_risk == "medium" else C_TEXT
+    if result.cascade_risk in ("high", "critical"):
+        risk_color = C_DANGER
+    elif result.cascade_risk == "medium":
+        risk_color = C_GOLD
+    else:
+        risk_color = C_TEXT
     print(f"    {C_TEXT}Cascade risk:  {risk_color}{C_BOLD}{result.cascade_risk}{C_RESET} (severity={result.predicted_severity:.3f})")
     if result.predicted_affected:
         print(f"    {C_TEXT}Nodes predicted at risk:{C_RESET}")

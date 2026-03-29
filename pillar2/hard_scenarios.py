@@ -376,7 +376,7 @@ def run_scenario(name: str, description: str,
             print(f"    {C_DANGER}MISSED: {rc}{C_RESET}")
 
         accuracy = len(found) / len(root_causes) if root_causes else 0
-        if accuracy == 1.0:
+        if accuracy >= 1.0 - 1e-9:
             print(f"\n  {C_SUCCESS}{C_BOLD}ALL ROOT CAUSES IDENTIFIED ({len(found)}/{len(root_causes)}){C_RESET}")
         elif accuracy > 0:
             print(f"\n  {C_GOLD}{C_BOLD}PARTIAL ({len(found)}/{len(root_causes)} root causes found){C_RESET}")
@@ -436,8 +436,19 @@ def main():
         print(f"  {C_DIM}{'─' * 60}{C_RESET}")
         print(f"  {C_DIM}{'Scenario':<25s} {'Steps':>5s} {'Time':>7s} {'Found':>10s} {'Result':>10s}{C_RESET}")
         for s in scenarios:
-            result = "PASS" if s["accuracy"] == 1.0 else "PARTIAL" if s["accuracy"] > 0 else "FAIL"
-            c = C_SUCCESS if result == "PASS" else C_GOLD if result == "PARTIAL" else C_DANGER
+            if s["accuracy"] >= 1.0 - 1e-9:
+                result = "PASS"
+            elif s["accuracy"] > 0:
+                result = "PARTIAL"
+            else:
+                result = "FAIL"
+
+            if result == "PASS":
+                c = C_SUCCESS
+            elif result == "PARTIAL":
+                c = C_GOLD
+            else:
+                c = C_DANGER
             print(
                 f"  {C_TEXT}{s['name']:<25s} "
                 f"{s['steps']:5d} "

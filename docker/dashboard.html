@@ -525,7 +525,7 @@ async function init() {
     const topo = await api('topology');
     topoNodes = topo.nodes || [];
     topoEdges = topo.edges || [];
-  } catch(e) { topoNodes = []; topoEdges = []; }
+  } catch(e) { /* Topology endpoint may not be available; fall back to empty */ topoNodes = []; topoEdges = []; }
 
   // Build node grid
   buildNodeGrid(nNodes);
@@ -700,7 +700,6 @@ function updateTimeline() {
   if (nodes.length === 0) return;
 
   const grid = document.getElementById('timeline-grid');
-  const cols = tickHistory.length + 1; // +1 for label column
   const labelWidth = topoNodes.length > 0 ? '100px' : '60px';
   grid.style.gridTemplateColumns = labelWidth + ' repeat(' + tickHistory.length + ', 18px)';
 
@@ -949,8 +948,8 @@ async function fetchRecommendations() {
   el.innerHTML = html;
 }
 
-// Boot
-init();
+// Boot — init() is async, use IIFE to handle at top level
+(async () => { await init(); })();
 </script>
 </body>
 </html>

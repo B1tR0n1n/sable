@@ -253,9 +253,6 @@ class SableEngine:
         probs_stack = torch.stack(all_probs)
         preds_stack = torch.stack(all_preds)  # (n_samples, N)
 
-        # Mean probability across samples
-        mean_probs = probs_stack.mean(dim=0)  # (N, N_STATES)
-
         # Variance of predicted probabilities per node (mean across states)
         prob_variance = probs_stack.var(dim=0).mean(dim=-1)  # (N,)
 

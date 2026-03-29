@@ -238,7 +238,7 @@ class GNNEngine:
 
 
 class GNNHandler(BaseHTTPRequestHandler):
-    engine: GNNEngine = None  # Set by server setup
+    engine: "GNNEngine | None" = None  # Set by server setup
 
     def log_message(self, format, *args):
         # Custom log format
@@ -275,7 +275,7 @@ class GNNHandler(BaseHTTPRequestHandler):
 
         try:
             body = self._read_body()
-        except (json.JSONDecodeError, ValueError) as e:
+        except ValueError as e:  # JSONDecodeError is a subclass of ValueError
             self._send_json({"error": f"Invalid JSON: {e}"}, 400)
             return
 

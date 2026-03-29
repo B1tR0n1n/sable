@@ -35,6 +35,8 @@ from cortex_gnn_model import SableGNN
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://lqpvskwevanpgywdksqu.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
+UNKNOWN_CONTENT = "(unknown)"
+
 C_GOLD = "\033[38;2;201;162;39m"
 C_DIM = "\033[38;2;138;130;114m"
 C_TEXT = "\033[38;2;200;189;160m"
@@ -159,8 +161,8 @@ def main():
             current_label = relation_types[edge_labels[idx].item()] if edge_labels is not None else "?"
             predicted_type = relation_types[link_type_preds[idx].item()]
 
-            src_content = content_map.get(src_id, "(unknown)")[:120]
-            tgt_content = content_map.get(tgt_id, "(unknown)")[:120]
+            src_content = content_map.get(src_id, UNKNOWN_CONTENT)[:120]
+            tgt_content = content_map.get(tgt_id, UNKNOWN_CONTENT)[:120]
 
             is_already_contradiction = current_label == "contradicts"
             marker = f"{C_SUCCESS}[KNOWN]{C_RESET}" if is_already_contradiction else f"{C_DANGER}[NEW?]{C_RESET}"
@@ -207,8 +209,8 @@ def main():
                 src_id = node_ids[src_idx]
                 tgt_id = node_ids[tgt_idx]
 
-                src_content = content_map.get(src_id, "(unknown)")[:120]
-                tgt_content = content_map.get(tgt_id, "(unknown)")[:120]
+                src_content = content_map.get(src_id, UNKNOWN_CONTENT)[:120]
+                tgt_content = content_map.get(tgt_id, UNKNOWN_CONTENT)[:120]
 
                 print(f"\n  {C_DANGER}[UNLINKED]{C_RESET} {C_BRIGHT}p={prob:.3f}{C_RESET}")
                 print(f"    {C_TEXT}SRC: {src_content}{C_RESET}")

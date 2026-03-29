@@ -134,7 +134,7 @@ def load_biokg(data_root: str) -> dict:
 # ── KG Model (Heterogeneous) ─────────────────────────────────────────────
 
 
-class SableGNN_BioKG(nn.Module):
+class SableGnnBioKg(nn.Module):
     """SableGNN with type-aware node embeddings for heterogeneous KG.
 
     Each entity gets: learnable embedding + entity type embedding.
@@ -294,7 +294,7 @@ def train(data: dict, config: BioKGConfig | None = None):
     print(f"  {C_TEXT}device:      {C_BRIGHT}{config.device}{C_RESET}")
 
     # Build model
-    model = SableGNN_BioKG(
+    model = SableGnnBioKg(
         num_nodes=total_nodes,
         num_relations=num_relations,
         n_types=n_types,

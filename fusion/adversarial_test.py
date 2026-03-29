@@ -56,7 +56,7 @@ C_INFO = "\033[38;2;58;142;201m"
 C_RESET = "\033[0m"
 C_BOLD = "\033[1m"
 
-rng = np.random.RandomState(666)
+rng = np.random.default_rng(666)
 N = 40  # nodes
 B = 1
 
@@ -85,7 +85,7 @@ def make_features(node_states, health_values, obs_noise=0.0, obs_coverage=1.0,
             if obs_delay > 0 and gt_history is not None and tick >= obs_delay:
                 observed = gt_history[tick - obs_delay][i]  # delayed
             if rng.random() < obs_noise:
-                observed = rng.randint(0, 4)  # completely wrong
+                observed = rng.integers(0, 4)  # completely wrong
             # POMDP belief is 4-dim (sim states only). Oscillating maps to failed for belief.
             obs_belief = min(observed, 3)
             belief[obs_belief] += 2.0
@@ -286,7 +286,13 @@ def monday_state(t):
         if t >= 3:
             s[i] = 4  # oscillating
         else:
-            s[i] = 2 if (t + i) % 3 == 0 else (1 if (t + i) % 3 == 1 else 0)
+            mod = (t + i) % 3
+            if mod == 0:
+                s[i] = 2
+            elif mod == 1:
+                s[i] = 1
+            else:
+                s[i] = 0
     # Slow poison (nodes 5-9)
     for i in range(5, 10):
         health = 1.0 - t * 0.04
@@ -335,7 +341,12 @@ print(f"  {C_GOLD}{C_BOLD}  ╚════════════════�
 print(f"\n  {C_DIM}{'Scenario':<30s} {'Macro':>7s}  {'Hlthy':>7s} {'Dgrad':>7s} {'Faild':>7s} {'Unrch':>7s} {'Oscil':>7s}{C_RESET}")
 print(f"  {C_DIM}{'─' * 75}{C_RESET}")
 for name, (macro, f1s) in results.items():
-    c = C_SUCCESS if macro > 0.7 else C_DANGER if macro < 0.4 else C_TEXT
+    if macro > 0.7:
+        c = C_SUCCESS
+    elif macro < 0.4:
+        c = C_DANGER
+    else:
+        c = C_TEXT
     f1_str = " ".join(f"{f1s[i]:7.4f}" for i in range(len(f1s)))
     print(f"  {c}{name:<30s} {macro:7.4f}  {f1_str}{C_RESET}")
 

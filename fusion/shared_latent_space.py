@@ -402,6 +402,78 @@ def alignment_loss(z_gnn, z_pomdp, z_mamba, states, margin=1.0):
     return pull_loss + push_loss
 
 
+def _compute_fusion_batch_loss(shared_space, aux_heads, out, s, mask, state_weights, device):
+    """Compute combined loss for one batch: task + auxiliary + alignment + diversity."""
+    aux_gnn_head, aux_pomdp_head, aux_mamba_head = aux_heads
+
+    # 1. Fused task loss
+    logits = out["state_logits"]
+    task_loss = F.cross_entropy(
+        logits.reshape(-1, N_STATES), s.reshape(-1).long(),
+        weight=state_weights, reduction="none"
+    )
+    task_loss = (task_loss * mask.reshape(-1)).sum() / mask.sum()
+
+    # 2. Auxiliary pillar-specific losses
+    aux_loss = torch.tensor(0.0, device=device)
+    for head, z_key in [(aux_gnn_head, "z_gnn"), (aux_pomdp_head, "z_pomdp"), (aux_mamba_head, "z_mamba")]:
+        pillar_logits = head(out[z_key])
+        pillar_loss = F.cross_entropy(
+            pillar_logits.reshape(-1, N_STATES), s.reshape(-1).long(), reduction="none"
+        )
+        aux_loss = aux_loss + (pillar_loss * mask.reshape(-1)).sum() / mask.sum()
+    aux_loss = aux_loss / 3.0
+
+    # 3. Alignment loss
+    align = alignment_loss(out["z_gnn"], out["z_pomdp"], out["z_mamba"], s)
+
+    # 4. Attention diversity loss
+    weights = out["pillar_weights"]
+    if weights is not None:
+        w_entropy = -(weights * (weights + 1e-8).log()).sum(dim=-1)
+        diversity_loss = (w_entropy * mask).sum() / mask.sum()
+    else:
+        diversity_loss = torch.tensor(0.0, device=device)
+
+    return task_loss + 0.3 * aux_loss + 0.1 * align + 0.05 * diversity_loss
+
+
+def _validate_fusion(shared_space, val_data, device, batch_size):
+    """Validate shared state space, returning (macro_f1, per_class_f1)."""
+    shared_space.eval()
+    class_tp = torch.zeros(N_STATES)
+    class_fp = torch.zeros(N_STATES)
+    class_fn = torch.zeros(N_STATES)
+    n_val = val_data["gnn"].size(0)
+
+    with torch.no_grad():
+        for i in range(0, n_val, batch_size):
+            g = val_data["gnn"][i:i+batch_size].to(device)
+            p = val_data["pomdp"][i:i+batch_size].to(device)
+            m = val_data["mamba"][i:i+batch_size].to(device)
+            s = val_data["states"][i:i+batch_size].to(device)
+            mask = val_data["mask"][i:i+batch_size].to(device)
+
+            out = shared_space(g, p, m)
+            preds = out["state_logits"].argmax(dim=-1)
+            valid = mask > 0
+
+            for c in range(N_STATES):
+                ct = (s.long() == c) & valid
+                cp = (preds == c) & valid
+                class_tp[c] += (ct & cp).sum().item()
+                class_fp[c] += (~ct & cp).sum().item()
+                class_fn[c] += (ct & ~cp).sum().item()
+
+    class_f1 = []
+    for c in range(N_STATES):
+        prec = class_tp[c] / max(class_tp[c] + class_fp[c], 1)
+        rec = class_tp[c] / max(class_tp[c] + class_fn[c], 1)
+        class_f1.append(2 * prec * rec / max(prec + rec, 1e-8))
+    macro_f1 = sum(class_f1) / N_STATES
+    return macro_f1, class_f1
+
+
 def train_fusion(
     shared_space: SharedStateSpace,
     train_data: dict,
@@ -413,18 +485,13 @@ def train_fusion(
 ):
     """Train the shared state space on simulator data."""
 
-    optimizer = torch.optim.AdamW(shared_space.parameters(), lr=lr, weight_decay=1e-3)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
-
     state_counts = torch.bincount(train_data["states"].flatten().long(), minlength=N_STATES).float().clamp(min=1)
-    # Balanced weights but don't over-boost rare classes at the expense of common ones
     state_weights = (train_data["states"].numel() / (N_STATES * state_counts)).clamp(max=8.0).to(device)
 
-    # Pillar-specific classifiers for auxiliary supervision
-    # These ensure each projection head preserves its pillar's competence
     aux_gnn_head = nn.Linear(Z_DIM, N_STATES).to(device)
     aux_pomdp_head = nn.Linear(Z_DIM, N_STATES).to(device)
     aux_mamba_head = nn.Linear(Z_DIM, N_STATES).to(device)
+    aux_heads = (aux_gnn_head, aux_pomdp_head, aux_mamba_head)
     aux_params = list(aux_gnn_head.parameters()) + list(aux_pomdp_head.parameters()) + list(aux_mamba_head.parameters())
 
     all_params = list(shared_space.parameters()) + aux_params
@@ -432,7 +499,6 @@ def train_fusion(
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
 
     n_train = train_data["gnn"].size(0)
-    n_val = val_data["gnn"].size(0)
 
     best_val_macro = 0.0
     best_state = None
@@ -440,9 +506,8 @@ def train_fusion(
 
     for epoch in range(1, epochs + 1):
         shared_space.train()
-        aux_gnn_head.train()
-        aux_pomdp_head.train()
-        aux_mamba_head.train()
+        for h in aux_heads:
+            h.train()
 
         perm = torch.randperm(n_train)
         epoch_loss = 0.0
@@ -457,55 +522,7 @@ def train_fusion(
             mask = train_data["mask"][idx].to(device)
 
             out = shared_space(g, p, m)
-
-            # 1. Fused task loss: state classification from shared Z
-            logits = out["state_logits"]
-            task_loss = F.cross_entropy(
-                logits.reshape(-1, N_STATES), s.reshape(-1).long(),
-                weight=state_weights, reduction="none"
-            )
-            task_loss = (task_loss * mask.reshape(-1)).sum() / mask.sum()
-
-            # 2. Auxiliary pillar-specific losses
-            # Each pillar's projection should independently be useful
-            # This prevents the fusion from destroying individual competence
-            gnn_logits = aux_gnn_head(out["z_gnn"])
-            pomdp_logits = aux_pomdp_head(out["z_pomdp"])
-            mamba_logits = aux_mamba_head(out["z_mamba"])
-
-            aux_gnn_loss = F.cross_entropy(
-                gnn_logits.reshape(-1, N_STATES), s.reshape(-1).long(), reduction="none"
-            )
-            aux_gnn_loss = (aux_gnn_loss * mask.reshape(-1)).sum() / mask.sum()
-
-            aux_pomdp_loss = F.cross_entropy(
-                pomdp_logits.reshape(-1, N_STATES), s.reshape(-1).long(), reduction="none"
-            )
-            aux_pomdp_loss = (aux_pomdp_loss * mask.reshape(-1)).sum() / mask.sum()
-
-            aux_mamba_loss = F.cross_entropy(
-                mamba_logits.reshape(-1, N_STATES), s.reshape(-1).long(), reduction="none"
-            )
-            aux_mamba_loss = (aux_mamba_loss * mask.reshape(-1)).sum() / mask.sum()
-
-            aux_loss = (aux_gnn_loss + aux_pomdp_loss + aux_mamba_loss) / 3.0
-
-            # 3. Alignment loss (consensus subspace only)
-            align = alignment_loss(out["z_gnn"], out["z_pomdp"], out["z_mamba"], s)
-
-            # 4. Attention diversity loss — push attention away from uniform
-            # Penalize when all pillars get equal weight (0.333 each)
-            weights = out["pillar_weights"]  # (B, N, 3)
-            if weights is not None:
-                # Entropy of attention distribution — lower = more decisive
-                w_entropy = -(weights * (weights + 1e-8).log()).sum(dim=-1)  # (B, N)
-                diversity_loss = (w_entropy * mask).sum() / mask.sum()
-            else:
-                diversity_loss = torch.tensor(0.0, device=device)
-
-            # Combined: fused task (main) + auxiliary (preserve competence) +
-            # alignment (shared space coherence) + diversity (decisive attention)
-            loss = task_loss + 0.3 * aux_loss + 0.1 * align + 0.05 * diversity_loss
+            loss = _compute_fusion_batch_loss(shared_space, aux_heads, out, s, mask, state_weights, device)
 
             optimizer.zero_grad()
             loss.backward()
@@ -517,42 +534,9 @@ def train_fusion(
 
         scheduler.step()
 
-        # Validate — track macro F1 not just accuracy
         if epoch % 5 == 0 or epoch == epochs:
-            shared_space.eval()
-            class_tp = torch.zeros(N_STATES)
-            class_fp = torch.zeros(N_STATES)
-            class_fn = torch.zeros(N_STATES)
+            macro_f1, class_f1 = _validate_fusion(shared_space, val_data, device, batch_size)
 
-            with torch.no_grad():
-                for i in range(0, n_val, batch_size):
-                    g = val_data["gnn"][i:i+batch_size].to(device)
-                    p = val_data["pomdp"][i:i+batch_size].to(device)
-                    m = val_data["mamba"][i:i+batch_size].to(device)
-                    s = val_data["states"][i:i+batch_size].to(device)
-                    mask = val_data["mask"][i:i+batch_size].to(device)
-
-                    out = shared_space(g, p, m)
-                    preds = out["state_logits"].argmax(dim=-1)
-                    valid = mask > 0
-
-                    for c in range(N_STATES):
-                        ct = (s.long() == c) & valid
-                        cp = (preds == c) & valid
-                        class_tp[c] += (ct & cp).sum().item()
-                        class_fp[c] += (~ct & cp).sum().item()
-                        class_fn[c] += (ct & ~cp).sum().item()
-
-            # Compute per-class F1 and macro
-            class_f1 = []
-            for c in range(N_STATES):
-                p = class_tp[c] / max(class_tp[c] + class_fp[c], 1)
-                r = class_tp[c] / max(class_tp[c] + class_fn[c], 1)
-                f1 = 2 * p * r / max(p + r, 1e-8)
-                class_f1.append(f1)
-            macro_f1 = sum(class_f1) / N_STATES
-
-            # Track by macro F1 — balances all classes including rare ones
             improved = macro_f1 > best_val_macro
             if improved:
                 best_val_macro = macro_f1
@@ -577,6 +561,7 @@ def train_fusion(
 
     if best_state:
         shared_space.load_state_dict(best_state)
+    shared_space.eval()
 
     return best_val_macro
 
@@ -847,53 +832,30 @@ def run_fusion_experiment(device="cuda", n_samples=10000):
     # Also train single-pillar baselines for comparison
     print(f"\n  {C_INFO}Training baselines (single-pillar classifiers)...{C_RESET}")
 
-    # GNN-only baseline
+    def _train_baseline(head, data_key, train_data, device, n_epochs=30):
+        """Train a single-pillar baseline classifier."""
+        opt = torch.optim.Adam(head.parameters(), lr=0.001, weight_decay=1e-5)
+        for _ in range(n_epochs):
+            head.train()
+            perm = torch.randperm(train_data[data_key].size(0))
+            for i in range(0, len(perm), 128):
+                idx = perm[i:i+128]
+                x = train_data[data_key][idx].to(device)
+                s = train_data["states"][idx].to(device).long()
+                mask = train_data["mask"][idx].to(device)
+                logits = head(x)
+                loss = F.cross_entropy(logits.reshape(-1, N_STATES), s.reshape(-1), reduction="none")
+                loss = (loss * mask.reshape(-1)).sum() / mask.sum()
+                opt.zero_grad(); loss.backward(); opt.step()
+
     gnn_head = nn.Linear(GNN_DIM, N_STATES).to(device)
-    gnn_opt = torch.optim.Adam(gnn_head.parameters(), lr=0.001)
-    for epoch in range(30):
-        gnn_head.train()
-        perm = torch.randperm(train_data["gnn"].size(0))
-        for i in range(0, len(perm), 128):
-            idx = perm[i:i+128]
-            g = train_data["gnn"][idx].to(device)
-            s = train_data["states"][idx].to(device).long()
-            mask = train_data["mask"][idx].to(device)
-            logits = gnn_head(g)
-            loss = F.cross_entropy(logits.reshape(-1, N_STATES), s.reshape(-1), reduction="none")
-            loss = (loss * mask.reshape(-1)).sum() / mask.sum()
-            gnn_opt.zero_grad(); loss.backward(); gnn_opt.step()
+    _train_baseline(gnn_head, "gnn", train_data, device)
 
-    # POMDP-only baseline
     pomdp_head = nn.Sequential(nn.Linear(POMDP_DIM, 32), nn.GELU(), nn.Linear(32, N_STATES)).to(device)
-    pomdp_opt = torch.optim.Adam(pomdp_head.parameters(), lr=0.001)
-    for epoch in range(30):
-        pomdp_head.train()
-        perm = torch.randperm(train_data["pomdp"].size(0))
-        for i in range(0, len(perm), 128):
-            idx = perm[i:i+128]
-            p = train_data["pomdp"][idx].to(device)
-            s = train_data["states"][idx].to(device).long()
-            mask = train_data["mask"][idx].to(device)
-            logits = pomdp_head(p)
-            loss = F.cross_entropy(logits.reshape(-1, N_STATES), s.reshape(-1), reduction="none")
-            loss = (loss * mask.reshape(-1)).sum() / mask.sum()
-            pomdp_opt.zero_grad(); loss.backward(); pomdp_opt.step()
+    _train_baseline(pomdp_head, "pomdp", train_data, device)
 
-    # Mamba-only baseline
     mamba_head = nn.Linear(NODE_FEAT_DIM, N_STATES).to(device)
-    mamba_opt = torch.optim.Adam(mamba_head.parameters(), lr=0.001)
-    for epoch in range(30):
-        mamba_head.train()
-        perm = torch.randperm(train_data["mamba"].size(0))
-        for i in range(0, len(perm), 128):
-            idx = perm[i:i+128]
-            m = train_data["mamba"][idx].to(device)
-            s = train_data["states"][idx].to(device).long()
-            mask = train_data["mask"][idx].to(device)
-            logits = mamba_head(m)
-            loss = F.cross_entropy(logits.reshape(-1, N_STATES), s.reshape(-1), reduction="none")
-            loss = (loss * mask.reshape(-1)).sum() / mask.sum()
-            mamba_opt.zero_grad(); loss.backward(); mamba_opt.step()
+    _train_baseline(mamba_head, "mamba", train_data, device)
 
     # Train fusion
     print(f"\n  {C_INFO}Training shared state space...{C_RESET}")
@@ -901,7 +863,7 @@ def run_fusion_experiment(device="cuda", n_samples=10000):
     print(f"  {C_DIM}{'─' * 60}{C_RESET}")
 
     t0 = time.time()
-    fusion_acc = train_fusion(shared_space, train_data, val_data, device, epochs=80)
+    train_fusion(shared_space, train_data, val_data, device, epochs=80)
     train_time = time.time() - t0
 
     # ── Evaluate all on validation set ──
@@ -987,8 +949,19 @@ def run_fusion_experiment(device="cuda", n_samples=10000):
         best_single = max(gnn_results[s]["f1"], pomdp_results[s]["f1"], mamba_results[s]["f1"])
         fused_f1 = fusion_results[s]["f1"]
         delta = fused_f1 - best_single
-        which = "GNN" if gnn_results[s]["f1"] == best_single else "POMDP" if pomdp_results[s]["f1"] == best_single else "Mamba"
-        c = C_SUCCESS if delta > 0.02 else C_DANGER if delta < -0.02 else C_DIM
+        if gnn_results[s]["f1"] == best_single:
+            which = "GNN"
+        elif pomdp_results[s]["f1"] == best_single:
+            which = "POMDP"
+        else:
+            which = "Mamba"
+
+        if delta > 0.02:
+            c = C_SUCCESS
+        elif delta < -0.02:
+            c = C_DANGER
+        else:
+            c = C_DIM
         print(f"    {c}{s:<15s} fused={fused_f1:.4f} best_single={best_single:.4f} ({which}) delta={delta:+.4f}{C_RESET}")
 
     macro_best = max(gnn_results["macro_f1"], pomdp_results["macro_f1"], mamba_results["macro_f1"])
@@ -1018,12 +991,6 @@ def run_fusion_experiment(device="cuda", n_samples=10000):
     print(f"  {C_TEXT}Macro F1: fused={macro_fused:.4f} vs best_single={macro_best:.4f} ({macro_delta:+.4f}){C_RESET}")
     print(f"  {C_TEXT}Training time: {train_time:.1f}s{C_RESET}")
     print(f"  {C_TEXT}Fusion params: {params['total']:,}{C_RESET}")
-
-    unreachable_delta = fusion_results["unreachable"]["f1"] - max(
-        gnn_results["unreachable"]["f1"],
-        pomdp_results["unreachable"]["f1"],
-        mamba_results["unreachable"]["f1"],
-    )
 
     wins = sum(1 for s in STATE_NAMES
                if fusion_results[s]["f1"] > max(

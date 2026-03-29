@@ -255,7 +255,7 @@ class FogOfWar:
                 case ComponentType.WAN_LINK:
                     alerts.append(f"Link degradation on {comp.id}")
                 case _:
-                    pass
+                    alerts.append(f"Performance degraded on {comp.id}")
         elif observed_state == "unknown":
             alerts.append(f"WARNING: {comp.id} unreachable by monitoring")
         return alerts

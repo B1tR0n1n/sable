@@ -42,6 +42,131 @@ C_BOLD = "\033[1m"
 
 
 
+def _train_one_sequence(model, ds, seq_idx, seq_lens, window, device, state_weights):
+    """Train on a single sequence, returning (loss * n_nodes, total_node_ticks) or None."""
+    seq_len = seq_lens[seq_idx].item()
+    n_nodes = ds["n_nodes"][seq_idx].item()
+
+    max_start = seq_len - window
+    start = 0 if max_start <= 0 else torch.randint(0, max_start + 1, (1,)).item()
+
+    ts = TemporalState.cold_start(n_nodes, device=device)
+
+    tick_losses = []
+    for t in range(start, min(start + window, seq_len)):
+        gnn_t = ds["gnn"][seq_idx, t, :n_nodes].unsqueeze(0).to(device)
+        pomdp_t = ds["pomdp"][seq_idx, t, :n_nodes].unsqueeze(0).to(device).clone()
+        mamba_t = ds["mamba"][seq_idx, t, :n_nodes].unsqueeze(0).to(device)
+        gt_t = ds["states"][seq_idx, t, :n_nodes].unsqueeze(0).to(device)
+        mask_t = ds["mask"][seq_idx, t, :n_nodes].unsqueeze(0).to(device)
+
+        # Noise hardening: 35% of steps, scramble POMDP for degraded/random nodes
+        if torch.rand(1).item() < 0.35:
+            degraded_mask = (gt_t[0] == 1)
+            if degraded_mask.any():
+                noise = torch.rand(degraded_mask.sum().item(), 4, device=device)
+                noise = noise / noise.sum(dim=-1, keepdim=True)
+                pomdp_t[0, degraded_mask, :4] = noise
+            random_mask = torch.rand(n_nodes, device=device) < 0.10
+            if random_mask.any():
+                noise2 = torch.rand(random_mask.sum().item(), 4, device=device)
+                noise2 = noise2 / noise2.sum(dim=-1, keepdim=True)
+                pomdp_t[0, random_mask, :4] = noise2
+
+        out = model(gnn_t, pomdp_t, mamba_t, temporal_state=ts)
+
+        l_state = F.cross_entropy(
+            out["revised_logits"].reshape(-1, N_STATES),
+            gt_t.reshape(-1),
+            weight=state_weights, reduction="none"
+        )
+        l_state = (l_state * mask_t.reshape(-1)).sum() / mask_t.sum().clamp(min=1)
+        tick_losses.append(l_state)
+
+        if t > start:
+            prev_gt = ds["states"][seq_idx, t - 1, :n_nodes].to(device)
+            direction = (gt_t[0] - prev_gt).sign().long() + 1
+            direction = direction.clamp(0, 2)
+            l_trans = F.cross_entropy(
+                out["transition"].reshape(-1, 3),
+                direction.reshape(-1), reduction="none"
+            )
+            l_trans = (l_trans * mask_t.reshape(-1)).sum() / mask_t.sum().clamp(min=1)
+            tick_losses.append(0.3 * l_trans)
+
+        ts.update(
+            out["revised_logits"].detach(),
+            out["confidence"].detach(),
+            out.get("z_fused").detach() if out.get("z_fused") is not None else None,
+        )
+
+    if not tick_losses:
+        return None
+
+    seq_loss = torch.stack(tick_losses).sum()
+    total = n_nodes * min(window, seq_len - start)
+    return seq_loss * n_nodes, total
+
+
+def _validate_temporal(model, ds, val_idx, seq_lens, device):
+    """Run validation and return (macro_f1, per_class_f1s)."""
+    model.eval()
+    tp = torch.zeros(N_STATES)
+    fp = torch.zeros(N_STATES)
+    fn = torch.zeros(N_STATES)
+
+    with torch.no_grad():
+        for seq_idx in val_idx:
+            seq_len = seq_lens[seq_idx].item()
+            n_nodes = ds["n_nodes"][seq_idx].item()
+            ts = TemporalState.cold_start(n_nodes, device=device)
+
+            for t in range(seq_len):
+                gnn_t = ds["gnn"][seq_idx, t, :n_nodes].unsqueeze(0).to(device)
+                pomdp_t = ds["pomdp"][seq_idx, t, :n_nodes].unsqueeze(0).to(device)
+                mamba_t = ds["mamba"][seq_idx, t, :n_nodes].unsqueeze(0).to(device)
+                gt_t = ds["states"][seq_idx, t, :n_nodes].to(device)
+                mask_t = ds["mask"][seq_idx, t, :n_nodes].to(device)
+
+                out = model(gnn_t, pomdp_t, mamba_t, temporal_state=ts)
+                preds = out["revised_logits"][0].argmax(dim=-1)
+                valid = mask_t > 0
+
+                for c in range(N_STATES):
+                    ct = (gt_t == c) & valid
+                    cp = (preds == c) & valid
+                    tp[c] += (ct & cp).sum().item()
+                    fp[c] += (~ct & cp).sum().item()
+                    fn[c] += (ct & ~cp).sum().item()
+
+                ts.update(out["revised_logits"].detach(), out["confidence"].detach(),
+                          out.get("z_fused", ts.prev_z).detach() if out.get("z_fused") is not None else None)
+
+    f1s = []
+    for c in range(N_STATES):
+        p = tp[c] / max(tp[c] + fp[c], 1)
+        r = tp[c] / max(tp[c] + fn[c], 1)
+        f1s.append(2 * p * r / max(p + r, 1e-8))
+    macro = sum(f1s) / N_STATES
+    return macro, f1s
+
+
+def _save_temporal_checkpoint(model, best_macro, best_f1s, best_state):
+    """Save temporal chain checkpoint."""
+    if best_state:
+        model.load_state_dict(best_state)
+    ckpt_path = Path(__file__).parent / "checkpoints" / "temporal_chain.pt"
+    ckpt_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save({
+        "model_state_dict": model.state_dict(),
+        "temporal_params": {k: v for k, v in model.state_dict().items()
+                           if "context_mixer" in k or "revision_gate" in k},
+        "macro_f1": best_macro,
+        "per_class_f1": best_f1s if best_state else [],
+    }, ckpt_path)
+    return ckpt_path
+
+
 def train(epochs: int = 80, window: int = 4, lr: float = 5e-4, device: str = "cuda"):
     print(f"\n{C_GOLD}{C_BOLD}  PROJECT PARALLAX — Temporal Chain Training{C_RESET}")
     print(f"  {C_DIM}{'═' * 50}{C_RESET}\n")
@@ -52,16 +177,12 @@ def train(epochs: int = 80, window: int = 4, lr: float = 5e-4, device: str = "cu
     ds = torch.load(data_path, weights_only=False)
 
     n_seq = ds["gnn"].size(0)
-    max_ticks = ds["max_ticks"]
-    max_nodes = ds["max_nodes"]
     seq_lens = ds["seq_len"]
 
-    # Filter to sequences with enough ticks for windowed training
     valid_mask = seq_lens >= window
     valid_idx = torch.where(valid_mask)[0]
     print(f"  {C_TEXT}Sequences: {C_BRIGHT}{n_seq}{C_RESET} total, {C_BRIGHT}{len(valid_idx)}{C_RESET} with >= {window} ticks")
 
-    # Split valid sequences
     perm = torch.randperm(len(valid_idx))
     n_train = int(len(valid_idx) * 0.8)
     train_idx = valid_idx[perm[:n_train]]
@@ -75,12 +196,9 @@ def train(epochs: int = 80, window: int = 4, lr: float = 5e-4, device: str = "cu
         ckpt = torch.load(base_ckpt_path, weights_only=False)
         base_fusion.load_state_dict(ckpt["model_state_dict"])
         print(f"  {C_TEXT}Base fusion loaded from checkpoint{C_RESET}", flush=True)
-
-    # Freeze base fusion
     for p in base_fusion.parameters():
         p.requires_grad = False
 
-    # Build temporal chain
     model = TemporalChainFusion(base_fusion).to(device)
     n_temporal = model.n_temporal_params()
     n_total = sum(p.numel() for p in model.parameters())
@@ -88,7 +206,6 @@ def train(epochs: int = 80, window: int = 4, lr: float = 5e-4, device: str = "cu
     print(f"  {C_TEXT}Temporal params: {C_BRIGHT}{n_temporal:,}{C_RESET} (of {n_total:,} total)")
     print(f"  {C_TEXT}Device: {C_BRIGHT}{device}{C_RESET}")
 
-    # Class weights
     valid_states = ds["states"][ds["mask"] > 0].long()
     state_counts = torch.bincount(valid_states, minlength=N_STATES).float().clamp(min=1)
     state_weights = (valid_states.size(0) / (N_STATES * state_counts)).clamp(max=10.0).to(device)
@@ -114,74 +231,17 @@ def train(epochs: int = 80, window: int = 4, lr: float = 5e-4, device: str = "cu
 
         perm_train = torch.randperm(len(train_idx))
 
-        for bi in range(0, len(perm_train), 16):  # batch of 16 sequences
+        for bi in range(0, len(perm_train), 16):
             batch_indices = train_idx[perm_train[bi:bi + 16]]
-
             losses = []
             total_nodes = 0
 
             for seq_idx in batch_indices:
-                seq_len = seq_lens[seq_idx].item()
-                n_nodes = ds["n_nodes"][seq_idx].item()
-
-                max_start = seq_len - window
-                start = 0 if max_start <= 0 else torch.randint(0, max_start + 1, (1,)).item()
-
-                ts = TemporalState.cold_start(n_nodes, device=device)
-
-                tick_losses = []
-                for t in range(start, min(start + window, seq_len)):
-                    gnn_t = ds["gnn"][seq_idx, t, :n_nodes].unsqueeze(0).to(device)
-                    pomdp_t = ds["pomdp"][seq_idx, t, :n_nodes].unsqueeze(0).to(device).clone()
-                    mamba_t = ds["mamba"][seq_idx, t, :n_nodes].unsqueeze(0).to(device)
-                    gt_t = ds["states"][seq_idx, t, :n_nodes].unsqueeze(0).to(device)
-                    mask_t = ds["mask"][seq_idx, t, :n_nodes].unsqueeze(0).to(device)
-
-                    # Noise hardening: 35% of steps, scramble POMDP for degraded nodes
-                    # Also corrupt 10% of random nodes
-                    if torch.rand(1).item() < 0.35:
-                        degraded_mask = (gt_t[0] == 1)  # degraded class
-                        if degraded_mask.any():
-                            noise = torch.rand(degraded_mask.sum().item(), 4, device=device)
-                            noise = noise / noise.sum(dim=-1, keepdim=True)
-                            pomdp_t[0, degraded_mask, :4] = noise
-                        random_mask = torch.rand(n_nodes, device=device) < 0.10
-                        if random_mask.any():
-                            noise2 = torch.rand(random_mask.sum().item(), 4, device=device)
-                            noise2 = noise2 / noise2.sum(dim=-1, keepdim=True)
-                            pomdp_t[0, random_mask, :4] = noise2
-
-                    out = model(gnn_t, pomdp_t, mamba_t, temporal_state=ts)
-
-                    l_state = F.cross_entropy(
-                        out["revised_logits"].reshape(-1, N_STATES),
-                        gt_t.reshape(-1),
-                        weight=state_weights, reduction="none"
-                    )
-                    l_state = (l_state * mask_t.reshape(-1)).sum() / mask_t.sum().clamp(min=1)
-                    tick_losses.append(l_state)
-
-                    if t > start:
-                        prev_gt = ds["states"][seq_idx, t - 1, :n_nodes].to(device)
-                        direction = (gt_t[0] - prev_gt).sign().long() + 1
-                        direction = direction.clamp(0, 2)
-                        l_trans = F.cross_entropy(
-                            out["transition"].reshape(-1, 3),
-                            direction.reshape(-1), reduction="none"
-                        )
-                        l_trans = (l_trans * mask_t.reshape(-1)).sum() / mask_t.sum().clamp(min=1)
-                        tick_losses.append(0.3 * l_trans)
-
-                    ts.update(
-                        out["revised_logits"].detach(),
-                        out["confidence"].detach(),
-                        out.get("z_fused").detach() if out.get("z_fused") is not None else None,
-                    )
-
-                if tick_losses:
-                    seq_loss = torch.stack(tick_losses).sum()
-                    losses.append(seq_loss * n_nodes)
-                    total_nodes += n_nodes * min(window, seq_len - start)
+                result = _train_one_sequence(model, ds, seq_idx, seq_lens, window, device, state_weights)
+                if result is not None:
+                    seq_loss, seq_total = result
+                    losses.append(seq_loss)
+                    total_nodes += seq_total
 
             if losses and total_nodes > 0:
                 avg_loss = torch.stack(losses).sum() / total_nodes
@@ -196,47 +256,10 @@ def train(epochs: int = 80, window: int = 4, lr: float = 5e-4, device: str = "cu
         train_loss = epoch_loss / max(epoch_n, 1)
         elapsed = time.time() - t0
 
-        # Validate
         if not (epoch <= 5 or epoch % 5 == 0 or epoch == epochs):
             continue
 
-        model.eval()
-        tp = torch.zeros(N_STATES); fp = torch.zeros(N_STATES); fn = torch.zeros(N_STATES)
-
-        with torch.no_grad():
-            for seq_idx in val_idx:
-                seq_len = seq_lens[seq_idx].item()
-                n_nodes = ds["n_nodes"][seq_idx].item()
-                ts = TemporalState.cold_start(n_nodes, device=device)
-
-                for t in range(seq_len):
-                    gnn_t = ds["gnn"][seq_idx, t, :n_nodes].unsqueeze(0).to(device)
-                    pomdp_t = ds["pomdp"][seq_idx, t, :n_nodes].unsqueeze(0).to(device)
-                    mamba_t = ds["mamba"][seq_idx, t, :n_nodes].unsqueeze(0).to(device)
-                    gt_t = ds["states"][seq_idx, t, :n_nodes].to(device)
-                    mask_t = ds["mask"][seq_idx, t, :n_nodes].to(device)
-
-                    out = model(gnn_t, pomdp_t, mamba_t, temporal_state=ts)
-                    preds = out["revised_logits"][0].argmax(dim=-1)
-                    valid = mask_t > 0
-
-                    for c in range(N_STATES):
-                        ct = (gt_t == c) & valid
-                        cp = (preds == c) & valid
-                        tp[c] += (ct & cp).sum().item()
-                        fp[c] += (~ct & cp).sum().item()
-                        fn[c] += (ct & ~cp).sum().item()
-
-                    ts.update(out["revised_logits"].detach(), out["confidence"].detach(),
-                              out.get("z_fused", ts.prev_z).detach() if out.get("z_fused") is not None else None)
-
-        f1s = []
-        for c in range(N_STATES):
-            p = tp[c] / max(tp[c] + fp[c], 1)
-            r = tp[c] / max(tp[c] + fn[c], 1)
-            f1s.append(2 * p * r / max(p + r, 1e-8))
-        macro = sum(f1s) / N_STATES
-
+        macro, f1s = _validate_temporal(model, ds, val_idx, seq_lens, device)
         improved = macro > best_macro + 0.001
         marker = f"{C_SUCCESS}*{C_RESET}" if improved else " "
 
@@ -261,20 +284,7 @@ def train(epochs: int = 80, window: int = 4, lr: float = 5e-4, device: str = "cu
                 break
 
     total_time = time.time() - t_start
-
-    if best_state:
-        model.load_state_dict(best_state)
-
-    # Save
-    ckpt_path = Path(__file__).parent / "checkpoints" / "temporal_chain.pt"
-    ckpt_path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save({
-        "model_state_dict": model.state_dict(),
-        "temporal_params": {k: v for k, v in model.state_dict().items()
-                           if "context_mixer" in k or "revision_gate" in k},
-        "macro_f1": best_macro,
-        "per_class_f1": best_f1s if best_state else [],
-    }, ckpt_path)
+    ckpt_path = _save_temporal_checkpoint(model, best_macro, best_f1s, best_state)
 
     print(f"\n  {C_GOLD}{C_BOLD}  Results{C_RESET}")
     print(f"  {C_DIM}{'─' * 50}{C_RESET}")

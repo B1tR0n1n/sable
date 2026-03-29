@@ -167,13 +167,13 @@ def run_gnn_analysis(thoughts, links, checkpoint_path, device="cuda"):
 
         # Score a sample of unlinked pairs
         n_nodes = len(node_ids)
-        rng = np.random.RandomState(42)
+        rng = np.random.default_rng(42)
         sample_size = min(50000, n_nodes * (n_nodes - 1) // 2)
         candidates = []
 
         for _ in range(sample_size):
-            i = rng.randint(0, n_nodes)
-            j = rng.randint(0, n_nodes)
+            i = rng.integers(0, n_nodes)
+            j = rng.integers(0, n_nodes)
             if i != j and (i, j) not in existing:
                 candidates.append((i, j))
                 existing.add((i, j))  # Don't sample same pair twice

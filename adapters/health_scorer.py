@@ -62,7 +62,7 @@ class HealthConfig:
         # Switch/Router specific
         "interface_errors": ThresholdSet(degraded=10, failed=100),
         "interface_discards": ThresholdSet(degraded=10, failed=100),
-        "bgp_state": ThresholdSet(binary=True),  # 1=established
+        "bgp_state": ThresholdSet(binary=True),
     })
 
     # How many seconds without metrics before marking unreachable

@@ -161,7 +161,7 @@ def eval_full(model, val_data, device):
 
     for ename, key in [("GNN", "gnn"), ("POMDP", "pomdp"), ("Mamba", "mamba")]:
         expert = getattr(model, f"{key}_expert")
-        results[ename] = get_f1s(lambda i,j,k=key: expert(val_data[k][i:j].to(device)))
+        results[ename] = get_f1s(lambda i, j, _k=key: expert(val_data[_k][i:j].to(device)))
 
     results["Fusion"] = get_f1s(lambda i,j: model(
         val_data["gnn"][i:j].to(device), val_data["pomdp"][i:j].to(device),
@@ -172,6 +172,87 @@ def eval_full(model, val_data, device):
         val_data["mamba"][i:j].to(device))["logits"])
 
     return results
+
+
+def _train_expert_head(expert, key, train_data, val_data, n_train, state_weights, device):
+    """Train a single expert head with early stopping on val accuracy."""
+    opt = torch.optim.AdamW(expert.parameters(), lr=0.001, weight_decay=1e-3)
+    best_acc = 0.0
+    best_state = None
+    for ep in range(1, 81):
+        expert.train()
+        perm = torch.randperm(n_train)
+        for i in range(0, n_train, 256):
+            idx = perm[i:i+256]
+            x = train_data[key][idx].to(device)
+            s = train_data["states"][idx].to(device).long()
+            m = train_data["mask"][idx].to(device)
+            logits = expert(x)
+            loss = F.cross_entropy(logits.reshape(-1, N_STATES), s.reshape(-1), weight=state_weights, reduction="none")
+            loss = (loss * m.reshape(-1)).sum() / m.sum()
+            opt.zero_grad(); loss.backward(); opt.step()
+        if ep % 10 == 0:
+            expert.eval()
+            correct = total = 0
+            with torch.no_grad():
+                for i in range(0, val_data[key].size(0), 256):
+                    x = val_data[key][i:i+256].to(device)
+                    s = val_data["states"][i:i+256].to(device).long()
+                    m = val_data["mask"][i:i+256].to(device)
+                    preds = expert(x).argmax(-1)
+                    valid = m > 0
+                    correct += ((preds==s)&valid).sum().item()
+                    total += valid.sum().item()
+            acc = correct / max(total, 1)
+            if acc > best_acc:
+                best_acc = acc
+                best_state = {k: v.clone() for k, v in expert.state_dict().items()}
+    expert.load_state_dict(best_state)
+    return best_acc
+
+
+def _train_fusion_epoch(model, train_data, n_train, state_weights, device, optimizer, trainable):
+    """Run one training epoch of Stage 2 fusion + router."""
+    model.train()
+    perm = torch.randperm(n_train)
+
+    for i in range(0, n_train, 256):
+        idx = perm[i:i+256]
+        g = train_data["gnn"][idx].to(device)
+        p = train_data["pomdp"][idx].to(device)
+        m_ = train_data["mamba"][idx].to(device)
+        s = train_data["states"][idx].to(device).long()
+        mask = train_data["mask"][idx].to(device)
+
+        out = model(g, p, m_)
+
+        main_loss = F.cross_entropy(out["logits"].reshape(-1, N_STATES), s.reshape(-1),
+                                    weight=state_weights, reduction="none")
+        main_loss = (main_loss * mask.reshape(-1)).sum() / mask.sum()
+
+        fusion_loss = F.cross_entropy(out["l_fusion"].reshape(-1, N_STATES), s.reshape(-1),
+                                      weight=state_weights, reduction="none")
+        fusion_loss = (fusion_loss * mask.reshape(-1)).sum() / mask.sum()
+
+        # Router supervision
+        with torch.no_grad():
+            all_preds = out["all_logits"].argmax(dim=-1)
+            correct_mask = (all_preds == s.unsqueeze(-1))
+            router_target = torch.full_like(s, 3)
+            for e in [0, 1, 2]:
+                router_target[correct_mask[:,:,e] & ~correct_mask[:,:,3]] = e
+            router_target[correct_mask[:,:,3]] = 3
+
+        router_loss = F.cross_entropy(out["route_logits"].reshape(-1,4),
+                                      router_target.reshape(-1), reduction="none")
+        router_loss = (router_loss * mask.reshape(-1)).sum() / mask.sum()
+
+        loss = main_loss + 0.3 * fusion_loss + 0.5 * router_loss
+
+        optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(trainable, 1.0)
+        optimizer.step()
 
 
 def run(device="cuda"):
@@ -204,38 +285,7 @@ def run(device="cuda"):
     ]
 
     for name, expert, key in experts:
-        opt = torch.optim.AdamW(expert.parameters(), lr=0.001, weight_decay=1e-3)
-        best_acc = 0.0
-        best_state = None
-        for ep in range(1, 81):
-            expert.train()
-            perm = torch.randperm(n_train)
-            for i in range(0, n_train, 256):
-                idx = perm[i:i+256]
-                x = train_data[key][idx].to(device)
-                s = train_data["states"][idx].to(device).long()
-                m = train_data["mask"][idx].to(device)
-                logits = expert(x)
-                loss = F.cross_entropy(logits.reshape(-1, N_STATES), s.reshape(-1), weight=state_weights, reduction="none")
-                loss = (loss * m.reshape(-1)).sum() / m.sum()
-                opt.zero_grad(); loss.backward(); opt.step()
-            if ep % 10 == 0:
-                expert.eval()
-                correct = total = 0
-                with torch.no_grad():
-                    for i in range(0, val_data[key].size(0), 256):
-                        x = val_data[key][i:i+256].to(device)
-                        s = val_data["states"][i:i+256].to(device).long()
-                        m = val_data["mask"][i:i+256].to(device)
-                        preds = expert(x).argmax(-1)
-                        valid = m > 0
-                        correct += ((preds==s)&valid).sum().item()
-                        total += valid.sum().item()
-                acc = correct / max(total, 1)
-                if acc > best_acc:
-                    best_acc = acc
-                    best_state = {k: v.clone() for k, v in expert.state_dict().items()}
-        expert.load_state_dict(best_state)
+        best_acc = _train_expert_head(expert, key, train_data, val_data, n_train, state_weights, device)
         print(f"    {C_TEXT}{name:6s}: acc={best_acc:.4f}{C_RESET}", flush=True)
 
     # Freeze experts
@@ -263,53 +313,7 @@ def run(device="cuda"):
 
     t0 = time.time()
     for epoch in range(1, 121):
-        model.train()
-        perm = torch.randperm(n_train)
-
-        for i in range(0, n_train, 256):
-            idx = perm[i:i+256]
-            g = train_data["gnn"][idx].to(device)
-            p = train_data["pomdp"][idx].to(device)
-            m_ = train_data["mamba"][idx].to(device)
-            s = train_data["states"][idx].to(device).long()
-            mask = train_data["mask"][idx].to(device)
-
-            out = model(g, p, m_)  # soft routing during training
-
-            # Main loss on routed output
-            main_loss = F.cross_entropy(out["logits"].reshape(-1, N_STATES), s.reshape(-1),
-                                        weight=state_weights, reduction="none")
-            main_loss = (main_loss * mask.reshape(-1)).sum() / mask.sum()
-
-            # Fusion head auxiliary
-            fusion_loss = F.cross_entropy(out["l_fusion"].reshape(-1, N_STATES), s.reshape(-1),
-                                          weight=state_weights, reduction="none")
-            fusion_loss = (fusion_loss * mask.reshape(-1)).sum() / mask.sum()
-
-            # Router supervision: encourage router to pick the expert that's actually
-            # correct for each node. This is the key fix — direct router supervision.
-            with torch.no_grad():
-                all_preds = out["all_logits"].argmax(dim=-1)  # (B, N, 4experts)
-                correct_mask = (all_preds == s.unsqueeze(-1))  # (B, N, 4experts)
-                # Target: expert that gets it right (or fusion as fallback)
-                # Priority: prefer fusion when multiple experts are correct
-                router_target = torch.full_like(s, 3)  # default fusion
-                for e in [0, 1, 2]:  # check non-fusion experts
-                    router_target[correct_mask[:,:,e] & ~correct_mask[:,:,3]] = e
-                # If fusion is correct, always prefer fusion
-                router_target[correct_mask[:,:,3]] = 3
-
-            router_loss = F.cross_entropy(out["route_logits"].reshape(-1,4),
-                                          router_target.reshape(-1), reduction="none")
-            router_loss = (router_loss * mask.reshape(-1)).sum() / mask.sum()
-
-            loss = main_loss + 0.3 * fusion_loss + 0.5 * router_loss
-
-            optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(trainable, 1.0)
-            optimizer.step()
-
+        _train_fusion_epoch(model, train_data, n_train, state_weights, device, optimizer, trainable)
         scheduler.step()
 
         if epoch % 5 == 0 or epoch <= 10 or epoch == 120:
@@ -341,7 +345,6 @@ def run(device="cuda"):
                 print(f"  {C_DIM}Early stopping at epoch {epoch}{C_RESET}")
                 break
 
-    total_time = time.time() - t0
     if best_model_state:
         model.load_state_dict(best_model_state)
 
@@ -362,7 +365,12 @@ def run(device="cuda"):
         macro = sum(f1s) / N_STATES
         is_r = name == "Routed"
         is_f = name == "Fusion"
-        c = C_SUCCESS if is_r else C_INFO if is_f else C_TEXT
+        if is_r:
+            c = C_SUCCESS
+        elif is_f:
+            c = C_INFO
+        else:
+            c = C_TEXT
         b = C_BOLD if is_r else ""
         line = f"  {c}{b}{name:<15s}{C_RESET} {macro:7.4f}"
         for f in f1s: line += f" {f:8.4f}"
@@ -378,7 +386,12 @@ def run(device="cuda"):
     print(f"\n  {C_INFO}Routed vs Fusion-only:{C_RESET}")
     for i, s in enumerate(STATE_NAMES):
         delta = routed[i] - fusion[i]
-        c = C_SUCCESS if delta > 0.01 else C_DANGER if delta < -0.01 else C_DIM
+        if delta > 0.01:
+            c = C_SUCCESS
+        elif delta < -0.01:
+            c = C_DANGER
+        else:
+            c = C_DIM
         print(f"    {c}{s:<15s} routed={routed[i]:.4f} fusion={fusion[i]:.4f} {delta:+.4f}{C_RESET}")
 
     # Router per-class

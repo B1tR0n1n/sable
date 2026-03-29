@@ -209,7 +209,7 @@ def generate_sequence(
     # Propagate tick-by-tick, capturing state at each tick
     engine = PropagationEngine.from_profile(cascade_profile, max_ticks=max_ticks, rng=rng)
 
-    for tick in range(max_ticks):
+    for _ in range(max_ticks):
         current_tick = state.tick
         changes_this_tick = []
         changed_ids = set()

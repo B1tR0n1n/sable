@@ -149,7 +149,6 @@ class TemplateGenerator:
         g.add_dependency(Dependency(core2.id, core1.id, DependencyType.NETWORK_PATH, Criticality.REDUNDANT))
         g.add_dependency(Dependency(fw1.id, core1.id, DependencyType.NETWORK_PATH, Criticality.HARD))
         g.add_dependency(Dependency(fw2.id, core2.id, DependencyType.NETWORK_PATH, Criticality.HARD))
-        cores = [core1, core2]
 
         # Access switches
         n_acc = max(4, endpoints // 50)
@@ -403,8 +402,7 @@ class TemplateGenerator:
                 ))
 
             # Monitoring
-            if comp.id != mon.id:
-                if self._rng.random() < 0.9:
-                    g.add_dependency(Dependency(
-                        comp.id, mon.id, DependencyType.MONITORING_DEPENDENCY, Criticality.SOFT,
-                    ))
+            if comp.id != mon.id and self._rng.random() < 0.9:
+                g.add_dependency(Dependency(
+                    comp.id, mon.id, DependencyType.MONITORING_DEPENDENCY, Criticality.SOFT,
+                ))

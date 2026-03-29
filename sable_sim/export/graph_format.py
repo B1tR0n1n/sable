@@ -83,7 +83,7 @@ class GraphFormatExporter:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        features, labels, types = self._encode_node_features(graph)
+        features, labels, _ = self._encode_node_features(graph)
         edge_index, edge_features = self._encode_edge_features(graph)
 
         data = Data(

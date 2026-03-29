@@ -252,7 +252,7 @@ def find_repairs(thoughts, links, model, data, device="cuda",
 
     # ── 2. Hidden connections between connected thoughts ──
     print(f"\n  {C_INFO}Finding hidden connections in connected graph...{C_RESET}")
-    rng = np.random.RandomState(42)
+    rng = np.random.default_rng(42)
     sample_size = min(30000, len(connected) * (len(connected) - 1) // 2)
 
     sampled_pairs = []
@@ -260,8 +260,8 @@ def find_repairs(thoughts, links, model, data, device="cuda",
     for _ in range(sample_size * 2):
         if len(sampled_pairs) >= sample_size:
             break
-        i = rng.randint(0, len(connected))
-        j = rng.randint(0, len(connected))
+        i = rng.integers(0, len(connected))
+        j = rng.integers(0, len(connected))
         cid_i = connected[i]
         cid_j = connected[j]
         if cid_i == cid_j or (cid_i, cid_j) in existing_edges or (cid_i, cid_j) in sampled_seen:
@@ -473,7 +473,7 @@ def main():
     # Execute if not dry run
     if args.execute:
         print(f"\n  {C_GOLD}Proceeding with execution...{C_RESET}")
-        created, failed = execute_repairs(repairs, args.limit)
+        _, _ = execute_repairs(repairs, args.limit)
 
         print(f"\n  {C_GOLD}{C_BOLD}  Post-Repair Actions{C_RESET}")
         print(f"  {C_DIM}{'─' * 45}{C_RESET}")

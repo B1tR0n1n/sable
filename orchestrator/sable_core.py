@@ -204,7 +204,6 @@ class SABLEOrchestrator:
         operator_view = fog.generate_operator_view(true_state)
 
         # ── Phase 2: Mamba cascade prediction ──
-        mamba_predictions = {}
         predicted_severity = 0.0
         predicted_affected = []
 
@@ -401,7 +400,12 @@ def run_demo(
 
     print(f"\n  {C_INFO}Pillar 3 — Temporal Prediction (Mamba):{C_RESET}")
     print(f"    {C_TEXT}Predicted severity: {C_BRIGHT}{result.predicted_severity:.3f}{C_RESET}")
-    risk_color = C_DANGER if result.cascade_risk in ("high", "critical") else C_GOLD if result.cascade_risk == "medium" else C_TEXT
+    if result.cascade_risk in ("high", "critical"):
+        risk_color = C_DANGER
+    elif result.cascade_risk == "medium":
+        risk_color = C_GOLD
+    else:
+        risk_color = C_TEXT
     print(f"    {C_TEXT}Cascade risk:       {risk_color}{C_BOLD}{result.cascade_risk}{C_RESET}")
     if result.predicted_affected:
         print(f"    {C_TEXT}Predicted affected nodes:{C_RESET}")

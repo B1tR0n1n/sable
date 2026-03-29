@@ -42,7 +42,7 @@ from cortex_gnn_model import (
 # ── KG Wrapper ────────────────────────────────────────────────────────────
 
 
-class SableGNN_KG(nn.Module):
+class SableGnnKg(nn.Module):
     """SableGNN with learnable embeddings for knowledge graph pre-training.
 
     Wraps the domain-agnostic SableGNN backbone with:
@@ -128,7 +128,7 @@ class KGConfig:
 
 @torch.no_grad()
 def compute_mrr_hits(
-    model: SableGNN_KG,
+    model: SableGnnKg,
     node_emb: torch.Tensor,
     edge_index: torch.Tensor,
     num_nodes: int,
@@ -148,7 +148,6 @@ def compute_mrr_hits(
         batch_ei = eval_ei[:, i:i + batch_size]
         B = batch_ei.size(1)
         heads = batch_ei[0]
-        tails = batch_ei[1]
 
         # Score true triples
         true_scores = model.gnn.predict_link(node_emb, batch_ei)  # [B]
@@ -204,7 +203,7 @@ def train(config: KGConfig | None = None, data_root: str | None = None):
     print(f"  {C_TEXT}device:    {C_BRIGHT}{config.device}{C_RESET}")
 
     # ── Build model ──
-    model = SableGNN_KG(
+    model = SableGnnKg(
         num_nodes=num_nodes,
         num_relations=num_relations,
         embed_dim=config.embed_dim,
@@ -541,7 +540,7 @@ def main():
         train_data = FB15k_237(root=data_root, split="train")[0]
         val_data = FB15k_237(root=data_root, split="val")[0]
 
-        model = SableGNN_KG(
+        model = SableGnnKg(
             num_nodes=cfg["num_nodes"],
             num_relations=cfg["num_relations"],
             embed_dim=cfg["embed_dim"],

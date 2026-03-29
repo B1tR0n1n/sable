@@ -52,7 +52,7 @@ BANNER = """
 \033[0m"""
 
 
-def load_scenario(name: str) -> dict:
+def load_scenario(name: str) -> dict | None:
     """Load a pre-computed scenario."""
     path = SCENARIO_DIR / f"{name}.pt"
     if not path.exists():
@@ -172,7 +172,7 @@ async def startup():
         engine.reset_state(scenario_data["n_nodes"])
         print(f"  Default scenario: {current_scenario} ({scenario_data['n_nodes']} nodes, {scenario_data['n_ticks']} ticks)")
 
-    print(f"\n  SABLE Engine running at http://localhost:8080\n", flush=True)
+    print("\n  SABLE Engine running at http://localhost:8080\n", flush=True)
 
 
 # ── REST API ──────────────────────────────────────────────────────────────
@@ -363,11 +363,11 @@ async def autoplay_loop():
         while scenario_data and engine.cycle < scenario_data["n_ticks"]:
             result = await asyncio.to_thread(run_tick)
             await broadcast({"type": "tick", **result})
-            await asyncio.sleep(1.0 / autoplay_speed)
+            await asyncio.sleep(1.0 / autoplay_speed)  # Intentional rate-limit delay for animation pacing
         # Scenario complete
         await broadcast({"type": "complete", "cycle": engine.cycle})
     except asyncio.CancelledError:
-        pass
+        raise
     finally:
         autoplay_task = None
 
@@ -515,4 +515,4 @@ async def feedback_stats():
 # ── Main ──────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="warning")
+    uvicorn.run(app, host="127.0.0.1", port=8080, log_level="warning")

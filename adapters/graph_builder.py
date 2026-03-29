@@ -117,16 +117,27 @@ def load_topology_from_netbox(
     session.headers["Authorization"] = f"Token {token}"
     session.headers["Accept"] = "application/json"
 
-    edges = []
+    base = url.rstrip("/")
+    edges = _fetch_cable_edges(session, base, site, timeout)
+    edges.extend(_fetch_circuit_edges(session, base, timeout))
 
-    # Fetch cables (physical connectivity)
+    log.info("Discovered %d edges from Netbox", len(edges))
+    return edges
+
+
+def _fetch_cable_edges(
+    session, base_url: str, site: Optional[str], timeout: float,
+) -> list[EdgeSnapshot]:
+    """Fetch physical cable connections from Netbox and convert to edges."""
+    import requests
+
     params = {"limit": 1000}
     if site:
         params["site"] = site
 
     try:
         resp = session.get(
-            f"{url.rstrip('/')}/api/dcim/cables/",
+            f"{base_url}/api/dcim/cables/",
             params=params,
             timeout=timeout,
         )
@@ -134,8 +145,9 @@ def load_topology_from_netbox(
         cables = resp.json().get("results", [])
     except requests.RequestException as e:
         log.error("Netbox cables fetch failed: %s", e)
-        return edges
+        return []
 
+    edges = []
     for cable in cables:
         a_terms = cable.get("a_terminations", [])
         b_terms = cable.get("b_terminations", [])
@@ -156,38 +168,44 @@ def load_topology_from_netbox(
             metadata={"source": "netbox", "cable_id": str(cable.get("id", ""))},
         ))
 
-    # Fetch circuits (WAN links)
+    return edges
+
+
+def _fetch_circuit_edges(session, base_url: str, timeout: float) -> list[EdgeSnapshot]:
+    """Fetch WAN circuit links from Netbox and convert to edges."""
+    import requests
+
     try:
         resp = session.get(
-            f"{url.rstrip('/')}/api/circuits/circuits/",
+            f"{base_url}/api/circuits/circuits/",
             params={"limit": 500, "status": "active"},
             timeout=timeout,
         )
         resp.raise_for_status()
         circuits = resp.json().get("results", [])
-
-        for circuit in circuits:
-            # Circuits with two terminations represent WAN links
-            term_a = circuit.get("termination_a")
-            term_z = circuit.get("termination_z")
-            if not term_a or not term_z:
-                continue
-
-            site_a = term_a.get("site", {}).get("slug", "")
-            site_z = term_z.get("site", {}).get("slug", "")
-            if site_a and site_z:
-                edges.append(EdgeSnapshot(
-                    source_id=f"wan-{site_a}",
-                    target_id=f"wan-{site_z}",
-                    dep_type="NETWORK_PATH",
-                    criticality=Criticality.HARD,
-                    confidence=0.9,
-                    metadata={"source": "netbox", "circuit": circuit.get("cid", "")},
-                ))
     except requests.RequestException as e:
         log.warning("Netbox circuits fetch failed: %s", e)
+        return []
 
-    log.info("Discovered %d edges from Netbox", len(edges))
+    edges = []
+    for circuit in circuits:
+        term_a = circuit.get("termination_a")
+        term_z = circuit.get("termination_z")
+        if not term_a or not term_z:
+            continue
+
+        site_a = term_a.get("site", {}).get("slug", "")
+        site_z = term_z.get("site", {}).get("slug", "")
+        if site_a and site_z:
+            edges.append(EdgeSnapshot(
+                source_id=f"wan-{site_a}",
+                target_id=f"wan-{site_z}",
+                dep_type="NETWORK_PATH",
+                criticality=Criticality.HARD,
+                confidence=0.9,
+                metadata={"source": "netbox", "circuit": circuit.get("cid", "")},
+            ))
+
     return edges
 
 

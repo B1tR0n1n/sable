@@ -430,7 +430,6 @@ def evaluate(model: SableGNN, data: Data, split: str, config: TrainConfig) -> di
 
     # Get split-specific edges
     split_ei = getattr(data, f"{split}_edge_index").to(device)
-    split_ea = getattr(data, f"{split}_edge_attr").to(device)
     split_labels = getattr(data, f"{split}_edge_labels").to(device)
     neg_ei = getattr(data, f"{split}_neg_edge_index").to(device)
 
@@ -525,7 +524,6 @@ def train(
     # Training loop with early stopping
     best_val_loss = float("inf")
     patience_counter = 0
-    best_metrics = {}
     checkpoint_path = Path(checkpoint_dir)
     checkpoint_path.mkdir(parents=True, exist_ok=True)
 
@@ -533,7 +531,6 @@ def train(
     print(f"  {C_DIM}{'─' * 75}{C_RESET}")
 
     for epoch in range(1, config.epochs + 1):
-        t0 = time.time()
         train_losses = train_epoch(model, data, optimizer, config, class_weights)
 
         # Evaluate every 5 epochs or last epoch

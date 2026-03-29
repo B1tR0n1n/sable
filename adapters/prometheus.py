@@ -207,23 +207,7 @@ class PrometheusAdapter(TelemetryAdapter):
         now = time.time()
 
         # Step 1: Build node map from configured mappings + auto-discovery
-        node_map = dict(self.config.node_map)
-        if self.config.auto_discover:
-            discovered = self._discover_targets()
-            for inst, mapping in discovered.items():
-                if inst not in node_map:
-                    node_map[inst] = mapping
-
-        # Detect duplicate node_ids and warn
-        seen_ids: dict[str, str] = {}  # node_id → first instance
-        for inst, mapping in node_map.items():
-            if mapping.node_id in seen_ids:
-                log.warning(
-                    "Node ID collision: '%s' mapped by both '%s' and '%s'. "
-                    "Second instance will overwrite metrics.",
-                    mapping.node_id, seen_ids[mapping.node_id], inst,
-                )
-            seen_ids[mapping.node_id] = inst
+        node_map = self._build_node_map()
 
         # Initialize nodes from map
         nodes: dict[str, NodeSnapshot] = {}
@@ -235,8 +219,44 @@ class PrometheusAdapter(TelemetryAdapter):
                 labels={"instance": inst, "job": mapping.job},
             )
 
-        # Step 2: Determine which query sets to run
-        # Classify targets by exporter type
+        # Step 2: Dispatch queries by exporter type
+        self._dispatch_queries(node_map, nodes, now)
+
+        # Step 3: Mark unreachable based on actual data received
+        self._mark_unreachable(nodes)
+
+        self._last_targets = node_map
+        return SystemSnapshot(nodes=nodes, timestamp=now, source="prometheus")
+
+    def _build_node_map(self) -> dict[str, NodeMapping]:
+        """Merge configured node mappings with auto-discovered targets."""
+        node_map = dict(self.config.node_map)
+        if self.config.auto_discover:
+            discovered = self._discover_targets()
+            for inst, mapping in discovered.items():
+                if inst not in node_map:
+                    node_map[inst] = mapping
+
+        # Detect duplicate node_ids and warn
+        seen_ids: dict[str, str] = {}
+        for inst, mapping in node_map.items():
+            if mapping.node_id in seen_ids:
+                log.warning(
+                    "Node ID collision: '%s' mapped by both '%s' and '%s'. "
+                    "Second instance will overwrite metrics.",
+                    mapping.node_id, seen_ids[mapping.node_id], inst,
+                )
+            seen_ids[mapping.node_id] = inst
+
+        return node_map
+
+    def _dispatch_queries(
+        self,
+        node_map: dict[str, NodeMapping],
+        nodes: dict[str, NodeSnapshot],
+        now: float,
+    ):
+        """Classify targets by exporter type and run the appropriate query sets."""
         snmp_instances = set()
         windows_instances = set()
         linux_instances = set()
@@ -248,35 +268,25 @@ class PrometheusAdapter(TelemetryAdapter):
             else:
                 linux_instances.add(inst)
 
-        # Run Linux queries (default)
         if linux_instances:
             self._run_queries(self.config.queries, node_map, nodes, now)
-
-        # Run Windows queries for Windows targets
         if windows_instances:
             self._run_queries(self.config.windows_queries, node_map, nodes, now)
-
-        # Run SNMP queries for SNMP targets
         if snmp_instances:
             self._run_queries(self.config.snmp_queries, node_map, nodes, now)
-
-        # Always run 'up' query (covers all targets)
         if "up" not in self.config.queries:
             self._run_queries({"up": "up"}, node_map, nodes, now)
 
-        # Step 3: Mark unreachable based on actual data received
+    @staticmethod
+    def _mark_unreachable(nodes: dict[str, NodeSnapshot]):
+        """Flag nodes as unreachable based on 'up' metric or absence of data."""
         for node in nodes.values():
             up = node.metrics.get("up")
             if up is not None and up < 1.0:
-                # Explicitly reported as down
                 node.reachable = False
             elif not node.metrics:
-                # No metrics received at all — truly unreachable
                 node.reachable = False
                 node.stale_seconds = 999.0
-
-        self._last_targets = node_map
-        return SystemSnapshot(nodes=nodes, timestamp=now, source="prometheus")
 
     def discover_topology(self) -> list[EdgeSnapshot]:
         """Prometheus doesn't know topology — returns empty.
@@ -293,7 +303,7 @@ class PrometheusAdapter(TelemetryAdapter):
         queries: dict[str, str],
         node_map: dict[str, NodeMapping],
         nodes: dict[str, NodeSnapshot],
-        now: float,
+        _now: float,
     ):
         """Execute a set of PromQL queries and populate node metrics.
 
@@ -373,6 +383,18 @@ class PrometheusAdapter(TelemetryAdapter):
 
     def _discover_targets(self) -> dict[str, NodeMapping]:
         """Auto-discover nodes from Prometheus targets API."""
+        targets = self._fetch_active_targets()
+        mappings: dict[str, NodeMapping] = {}
+
+        for target in targets:
+            mapping = self._target_to_mapping(target)
+            if mapping is not None:
+                mappings[mapping.instance] = mapping
+
+        return mappings
+
+    def _fetch_active_targets(self) -> list[dict]:
+        """Retrieve the active targets list from the Prometheus API."""
         try:
             url = urljoin(self.config.url.rstrip("/") + "/", "api/v1/targets")
             resp = self._session.get(url, timeout=self.config.timeout)
@@ -380,28 +402,26 @@ class PrometheusAdapter(TelemetryAdapter):
             data = resp.json()
         except requests.RequestException as e:
             log.warning("Target discovery failed: %s", e)
-            return {}
+            return []
 
-        targets = data.get("data", {}).get("activeTargets", [])
-        mappings: dict[str, NodeMapping] = {}
+        return data.get("data", {}).get("activeTargets", [])
 
-        for target in targets:
-            instance = target.get("labels", {}).get("instance", "")
-            job = target.get("labels", {}).get("job", "")
-            if not instance:
-                continue
+    def _target_to_mapping(self, target: dict) -> Optional[NodeMapping]:
+        """Convert a single Prometheus target dict into a NodeMapping, or None."""
+        instance = target.get("labels", {}).get("instance", "")
+        job = target.get("labels", {}).get("job", "")
+        if not instance:
+            return None
 
-            comp_type = self._infer_component_type(target)
-            node_id = self._make_node_id(instance, job)
+        comp_type = self._infer_component_type(target)
+        node_id = self._make_node_id(instance, job)
 
-            mappings[instance] = NodeMapping(
-                node_id=node_id,
-                component_type=comp_type,
-                instance=instance,
-                job=job,
-            )
-
-        return mappings
+        return NodeMapping(
+            node_id=node_id,
+            component_type=comp_type,
+            instance=instance,
+            job=job,
+        )
 
     def _infer_component_type(self, target: dict) -> str:
         """Infer SABLE component type from Prometheus target metadata."""

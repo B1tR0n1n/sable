@@ -129,13 +129,13 @@ def precision_at_k(scores: np.ndarray, labels: np.ndarray, k: int) -> float:
 
 def baseline_random(data, seed=42):
     """Random scores. The floor."""
-    rng = np.random.RandomState(seed)
+    rng = np.random.default_rng(seed)
     n_pos = data.test_edge_index.size(1)
     n_neg = data.test_neg_edge_index.size(1)
     n_all = data.edge_index.size(1)
     return {
         "link_scores": rng.random(n_pos + n_neg),
-        "type_preds": rng.randint(0, len(RELATION_TYPES), size=n_pos),
+        "type_preds": rng.integers(0, len(RELATION_TYPES), size=n_pos),
         "contra_scores": rng.random(n_all),
     }
 

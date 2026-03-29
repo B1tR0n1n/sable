@@ -249,7 +249,7 @@ def convert_to_mamba_format(raw: dict) -> dict:
     print(f"    {C_TEXT}Converted {num_scenarios:,} scenarios in {elapsed:.1f}s{C_RESET}")
 
     # Train/val/test split (80/10/10)
-    perm = np.random.RandomState(42).permutation(num_scenarios)
+    perm = np.random.default_rng(42).permutation(num_scenarios)
     n_train = int(num_scenarios * 0.8)
     n_val = int(num_scenarios * 0.1)
 

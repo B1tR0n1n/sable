@@ -312,14 +312,12 @@ class BeliefState:
             if not deps_in:
                 continue
 
-            failed_upstream = 0
             hard_failed_upstream = 0
             for dep_id in deps_in:
                 dep_belief = self.beliefs.get(dep_id)
                 if dep_belief is None:
                     continue
                 if dep_belief[2] + dep_belief[3] > 0.7:
-                    failed_upstream += 1
                     dep_edge = graph.get_dependency(cid, dep_id)
                     if dep_edge and dep_edge.criticality == Criticality.HARD:
                         hard_failed_upstream += 1
@@ -595,7 +593,7 @@ class POMCPSolver:
         self.max_depth = max_depth
         self.exploration = exploration
         self.discount = discount
-        self.rng = np.random.RandomState(seed)
+        self.rng = np.random.default_rng(seed)
         self.action_gen = ActionGenerator(graph)
 
     def plan(self, belief: BeliefState) -> tuple[DiagnosticAction, dict]:
@@ -653,7 +651,7 @@ class POMCPSolver:
         if not node.children:
             return self._rollout(belief, state, depth, actions)
 
-        action_name, child = node.best_child(self.exploration)
+        _, child = node.best_child(self.exploration)
         if child.action is None:
             return 0.0
 
@@ -699,13 +697,13 @@ class POMCPSolver:
         discount = 1.0
         b = belief.copy()
 
-        for d in range(depth, self.max_depth):
+        for _ in range(depth, self.max_depth):
             # Pick random action from priority set
             avail = self.action_gen.get_priority_actions(b, top_k=5)
             if not avail:
                 break
-            action = avail[self.rng.randint(0, len(avail))]
-            reward, obs = self._execute_action(action, b, state)
+            action = avail[self.rng.integers(0, len(avail))]
+            reward, _ = self._execute_action(action, b, state)
             total_reward += discount * reward
             discount *= self.discount
 
@@ -734,7 +732,7 @@ class POMCPSolver:
             noise_rate = max(0.02, 0.10 - 0.025 * obs_count)  # 10% → 7.5% → 5% → 2.5% → 2%
             if self.rng.random() < noise_rate:
                 noise_states = ["healthy", "degraded", "failed"]
-                true_state = noise_states[self.rng.randint(0, 3)]
+                true_state = noise_states[self.rng.integers(0, 3)]
 
             observations[cid] = true_state
             # Confidence increases with repeated observations
@@ -744,7 +742,7 @@ class POMCPSolver:
         # Propagate beliefs through graph structure
         belief.propagate_beliefs(self.graph)
         # Detect and correct structural contradictions
-        contradictions = belief.detect_structural_contradictions(self.graph)
+        belief.detect_structural_contradictions(self.graph)
         belief.actions_taken.append(action.name)
         belief.age_observations()
 
@@ -825,6 +823,112 @@ class POMCPSolver:
 
         return state
 
+    def _initialize_belief_from_fog(self, true_state, component_ids):
+        """Build initial belief state from fog-of-war observations."""
+        belief = BeliefState(component_ids)
+        operator_view = self.fog.generate_operator_view(true_state)
+
+        obs_by_component: dict[str, list] = {}
+        for obs in operator_view.get("observations", []):
+            cid = obs["component_id"]
+            obs_by_component.setdefault(cid, []).append(obs)
+
+        for cid, obs_list in obs_by_component.items():
+            obs_list.sort(key=lambda o: o.get("tick", 0))
+            self._apply_chronological_observations(belief, cid, obs_list)
+
+        for cid in operator_view.get("unobservable_components", []):
+            belief.update_from_unknown(cid)
+
+        belief.propagate_beliefs(self.graph)
+        belief.detect_structural_contradictions(self.graph)
+        return belief
+
+    def _apply_chronological_observations(self, belief, cid, obs_list):
+        """Apply observations chronologically with recency weighting and alert/trend boosting."""
+        for i, obs in enumerate(obs_list):
+            recency_weight = 0.7 + 0.3 * (i / max(len(obs_list) - 1, 1))
+            confidence = 0.75 * recency_weight
+            belief.update_from_observation(cid, obs["observed_state"], confidence=confidence)
+
+        latest = obs_list[-1]
+        for alert in latest.get("alerts", []):
+            if "CRITICAL" in alert:
+                belief.root_cause_candidates[cid] = belief.root_cause_candidates.get(cid, 0) + 3.0
+            elif "WARNING" in alert or "degraded" in alert.lower():
+                belief.root_cause_candidates[cid] = belief.root_cause_candidates.get(cid, 0) + 1.5
+
+        states_over_time = [o["observed_state"] for o in obs_list]
+        state_severity = {"healthy": 0, "degraded": 1, "failed": 2, "unreachable": 2, "unknown": 1}
+        severities = [state_severity.get(s, 0) for s in states_over_time]
+        if len(severities) >= 2 and severities[-1] > severities[0]:
+            belief.root_cause_candidates[cid] = belief.root_cause_candidates.get(cid, 0) + 2.0
+
+    def _update_root_causes(self, belief, prob_threshold=0.6, high_prob=0.85, rc_threshold=3.0):
+        """Identify new root causes from current belief state."""
+        for cid, prob in belief.most_likely_failed(5):
+            if prob > prob_threshold and cid not in belief.identified_root_causes:
+                history = belief.observation_history.get(cid, [])
+                seen_bad = any(o in ("failed", "degraded", "unreachable") for o in history)
+                rc_score = belief.root_cause_candidates.get(cid, 0)
+                if seen_bad or prob > high_prob or rc_score > rc_threshold:
+                    belief.identified_root_causes.append(cid)
+
+    def _find_unverified_hubs(self, belief, component_ids):
+        """Find high-centrality nodes that need verification."""
+        known_ids = set(belief.identified_root_causes)
+        unverified = []
+        for cid in component_ids:
+            if cid in known_ids:
+                continue
+            comp = self.graph.get_component(cid)
+            if comp is None:
+                continue
+            dependents = self.graph.get_dependents(cid)
+            n_dependents = len(dependents)
+            obs_count = len(belief.observation_history.get(cid, []))
+            b = belief.beliefs[cid]
+            bad_prob = b[1] + b[2] + b[3]
+            rc_score = belief.root_cause_candidates.get(cid, 0)
+
+            is_hub = n_dependents >= 3
+            needs_check = (obs_count == 0 or (bad_prob > 0.3 and obs_count < 3) or rc_score > 1.0)
+            if is_hub and needs_check:
+                priority = n_dependents + rc_score * 2 + bad_prob * 3
+                unverified.append((cid, priority))
+
+        unverified.sort(key=lambda x: -x[1])
+        return unverified
+
+    def _verify_hub(self, hub_id, belief, true_state, step, session_log):
+        """Execute hub verification action and log it."""
+        hub_action = DiagnosticAction(
+            name=f"verify_hub_{hub_id}",
+            action_type="test",
+            target_id=hub_id,
+            cost=2.0,
+            reveals=[hub_id] + (
+                self.graph.get_component(hub_id).dependencies_in[:2]
+                if self.graph.get_component(hub_id) else []
+            ),
+        )
+        reward, obs = self._execute_action(hub_action, belief, true_state)
+        hub_entry = {
+            "step": step + 2,
+            "action": hub_action.name,
+            "action_type": "hub_verify",
+            "target": hub_id,
+            "cost": hub_action.cost,
+            "observations": obs,
+            "reward": round(reward, 4),
+            "total_entropy": round(belief.total_entropy(), 4),
+            "top_candidates": belief.most_likely_failed(5),
+            "top_uncertain": belief.most_uncertain(3),
+            "top_action_scores": {},
+        }
+        session_log.append(hub_entry)
+        self._update_root_causes(belief, prob_threshold=0.5, high_prob=0.7, rc_threshold=2.0)
+
     def run_diagnostic_session(
         self, true_state: SystemState, max_steps: int = 10
     ) -> list[dict]:
@@ -833,75 +937,18 @@ class POMCPSolver:
         Returns a log of actions taken, observations received, and
         belief state evolution.
         """
-        # Build initial belief from fog-of-war
         component_ids = [c.id for c in self.graph.get_all_components()]
-        belief = BeliefState(component_ids)
+        belief = self._initialize_belief_from_fog(true_state, component_ids)
 
-        # Initial observation through fog
-        operator_view = self.fog.generate_operator_view(true_state)
-
-        # Update beliefs from initial observations
-        # Process in chronological order — later observations override earlier ones
-        # This handles cases where a component degrades over time
-        obs_by_component: dict[str, list] = {}
-        for obs in operator_view.get("observations", []):
-            cid = obs["component_id"]
-            obs_by_component.setdefault(cid, []).append(obs)
-
-        for cid, obs_list in obs_by_component.items():
-            # Sort by tick (chronological)
-            obs_list.sort(key=lambda o: o.get("tick", 0))
-
-            # Apply each observation, but weight later ones higher
-            for i, obs in enumerate(obs_list):
-                recency_weight = 0.7 + 0.3 * (i / max(len(obs_list) - 1, 1))
-                confidence = 0.75 * recency_weight  # Later = higher confidence
-                belief.update_from_observation(
-                    cid, obs["observed_state"], confidence=confidence,
-                )
-
-            # Use the LATEST observation for alert boosting
-            latest = obs_list[-1]
-            alerts = latest.get("alerts", [])
-            if alerts:
-                for alert in alerts:
-                    if "CRITICAL" in alert:
-                        belief.root_cause_candidates[cid] = (
-                            belief.root_cause_candidates.get(cid, 0) + 3.0
-                        )
-                    elif "WARNING" in alert or "degraded" in alert.lower():
-                        belief.root_cause_candidates[cid] = (
-                            belief.root_cause_candidates.get(cid, 0) + 1.5
-                        )
-
-            # Trend detection: if the component got WORSE over time, boost suspicion
-            states_over_time = [o["observed_state"] for o in obs_list]
-            state_severity = {"healthy": 0, "degraded": 1, "failed": 2, "unreachable": 2, "unknown": 1}
-            severities = [state_severity.get(s, 0) for s in states_over_time]
-            if len(severities) >= 2 and severities[-1] > severities[0]:
-                # Getting worse — this is a trend signal
-                belief.root_cause_candidates[cid] = (
-                    belief.root_cause_candidates.get(cid, 0) + 2.0
-                )
-        for cid in operator_view.get("unobservable_components", []):
-            belief.update_from_unknown(cid)
-
-        belief.propagate_beliefs(self.graph)
-        belief.detect_structural_contradictions(self.graph)
-
-        # Diagnostic loop
         session_log = []
 
         for step in range(max_steps):
-            # Plan next action
             action, info = self.plan(belief)
             if action is None:
                 break
 
-            # Execute against true state
             reward, obs = self._execute_action(action, belief, true_state)
 
-            # Log
             entry = {
                 "step": step + 1,
                 "action": action.name,
@@ -919,24 +966,8 @@ class POMCPSolver:
             }
             session_log.append(entry)
 
-            # Check for identified root causes
-            # A component is a confirmed root cause if:
-            #   - P(failed) > 0.9
-            #   - It's been observed as failed at least once
-            #   - OR it has dependents that are confirmed failed
-            for cid, prob in belief.most_likely_failed(5):
-                if prob > 0.6 and cid not in belief.identified_root_causes:
-                    history = belief.observation_history.get(cid, [])
-                    seen_bad = any(o in ("failed", "degraded", "unreachable") for o in history)
-                    rc_score = belief.root_cause_candidates.get(cid, 0)
-                    if seen_bad or prob > 0.85 or rc_score > 3.0:
-                        belief.identified_root_causes.append(cid)
+            self._update_root_causes(belief)
 
-            # Multi-root-cause stopping condition:
-            # Only stop if BOTH conditions are met:
-            #   1. At least one root cause identified
-            #   2. Residual entropy is low (no large unexplained uncertainty pockets)
-            #   3. Hub verification complete (high-centrality nodes checked)
             if belief.identified_root_causes:
                 known_ids = set(belief.identified_root_causes)
                 residual_uncertain = [
@@ -953,76 +984,10 @@ class POMCPSolver:
                     )
                 ]
 
-                # Hub verification: before declaring done, check high-centrality
-                # nodes that haven't been directly observed. These are force
-                # multipliers — a degraded hub hides secondary cascades.
-                unverified_hubs = []
-                for cid in component_ids:
-                    if cid in known_ids:
-                        continue
-                    comp = self.graph.get_component(cid)
-                    if comp is None:
-                        continue
-                    dependents = self.graph.get_dependents(cid)
-                    n_dependents = len(dependents)
-                    obs_count = len(belief.observation_history.get(cid, []))
-                    b = belief.beliefs[cid]
-                    bad_prob = b[1] + b[2] + b[3]
-                    rc_score = belief.root_cause_candidates.get(cid, 0)
-
-                    # Hub criteria:
-                    # 1. Has many dependents (high centrality)
-                    # 2. AND either: unobserved, OR observed-but-degraded, OR has high rc_score
-                    is_hub = n_dependents >= 3
-                    needs_check = (
-                        obs_count == 0
-                        or (bad_prob > 0.3 and obs_count < 3)
-                        or rc_score > 1.0
-                    )
-                    if is_hub and needs_check:
-                        priority = n_dependents + rc_score * 2 + bad_prob * 3
-                        unverified_hubs.append((cid, priority))
-
+                unverified_hubs = self._find_unverified_hubs(belief, component_ids)
                 if unverified_hubs and step < max_steps - 1:
-                    # Don't stop yet — verify the top unobserved hub
-                    unverified_hubs.sort(key=lambda x: -x[1])
-                    hub_id = unverified_hubs[0][0]
-                    # Force next action to check this hub
-                    hub_action = DiagnosticAction(
-                        name=f"verify_hub_{hub_id}",
-                        action_type="test",
-                        target_id=hub_id,
-                        cost=2.0,
-                        reveals=[hub_id] + (
-                            self.graph.get_component(hub_id).dependencies_in[:2]
-                            if self.graph.get_component(hub_id) else []
-                        ),
-                    )
-                    reward, obs = self._execute_action(hub_action, belief, true_state)
-                    hub_entry = {
-                        "step": step + 2,  # +1 for current, +1 for hub
-                        "action": hub_action.name,
-                        "action_type": "hub_verify",
-                        "target": hub_id,
-                        "cost": hub_action.cost,
-                        "observations": obs,
-                        "reward": round(reward, 4),
-                        "total_entropy": round(belief.total_entropy(), 4),
-                        "top_candidates": belief.most_likely_failed(5),
-                        "top_uncertain": belief.most_uncertain(3),
-                        "top_action_scores": {},
-                    }
-                    session_log.append(hub_entry)
-
-                    # Re-check for new root causes after hub verification
-                    for cid2, prob2 in belief.most_likely_failed(5):
-                        if prob2 > 0.5 and cid2 not in belief.identified_root_causes:
-                            history2 = belief.observation_history.get(cid2, [])
-                            seen_bad2 = any(o in ("failed", "degraded", "unreachable") for o in history2)
-                            rc_score2 = belief.root_cause_candidates.get(cid2, 0)
-                            if seen_bad2 or prob2 > 0.7 or rc_score2 > 2.0:
-                                belief.identified_root_causes.append(cid2)
-                    continue  # Don't break — let the loop re-evaluate
+                    self._verify_hub(unverified_hubs[0][0], belief, true_state, step, session_log)
+                    continue
 
                 if not unexplained_failures and len(residual_uncertain) < len(component_ids) * 0.3:
                     causes_str = ", ".join(belief.identified_root_causes)
@@ -1044,7 +1009,6 @@ def build_demo_scenario(seed: int = 42) -> tuple[InfrastructureGraph, SystemStat
     """
     from sable_sim.core.component import DEFAULT_PROPERTIES
 
-    rng = np.random.RandomState(seed)
     graph = InfrastructureGraph()
 
     # Components

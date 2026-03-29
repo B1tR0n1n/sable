@@ -507,7 +507,6 @@ def run(device="cuda", n_samples=8000):
 
     # Verdict
     ud = f_results["unreachable_f1"] - b_results["unreachable_f1"]
-    fd = f_results["failed_f1"] - b_results["failed_f1"]
 
     print(f"\n  {C_GOLD}{C_BOLD}  VERDICT{C_RESET}")
     print(f"  {C_DIM}{'─' * 50}{C_RESET}")

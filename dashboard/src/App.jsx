@@ -88,12 +88,17 @@ function Dashboard() {
         <div className="card">
           <div className="card-header">System Status</div>
           <div style={{ display: 'flex', gap: 24 }}>
-            {Object.entries(health).map(([k, v]) => (
-              <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span className={`status status-${v === 'ok' ? 'ok' : v === 'offline' ? 'offline' : 'error'}`} />
-                <span style={{ color: 'var(--dim)', fontSize: 11, textTransform: 'uppercase' }}>{k}</span>
-              </div>
-            ))}
+            {Object.entries(health).map(([k, v]) => {
+              let statusClass = 'error'
+              if (v === 'ok') statusClass = 'ok'
+              else if (v === 'offline') statusClass = 'offline'
+              return (
+                <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className={`status status-${statusClass}`} />
+                  <span style={{ color: 'var(--dim)', fontSize: 11, textTransform: 'uppercase' }}>{k}</span>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -214,8 +219,8 @@ function GraphView() {
           <ForceGraph2D
             ref={graphRef}
             graphData={graphData}
-            width={typeof window !== 'undefined' ? window.innerWidth - 220 - 280 - 40 : 800}
-            height={typeof window !== 'undefined' ? window.innerHeight - 140 : 600}
+            width={typeof globalThis.window !== 'undefined' ? globalThis.window.innerWidth - 220 - 280 - 40 : 800}
+            height={typeof globalThis.window !== 'undefined' ? globalThis.window.innerHeight - 140 : 600}
             nodeCanvasObjectMode={() => 'replace'}
             nodeCanvasObject={(node, ctx, globalScale) => {
               const r = node._size
@@ -224,7 +229,7 @@ function GraphView() {
               ctx.fillStyle = getNodeColor(node)
               ctx.fill()
 
-              if (selected && selected.id === node.id) {
+              if (selected?.id === node.id) {
                 ctx.strokeStyle = '#c9a227'
                 ctx.lineWidth = 1.5
                 ctx.stroke()
@@ -286,7 +291,7 @@ function GraphView() {
                 <span style={{ fontSize: 10, color: '#c9a227', letterSpacing: 1, textTransform: 'uppercase' }}>
                   {selected.type || 'thought'}
                 </span>
-                <span onClick={() => setSelected(null)} style={{ cursor: 'pointer', color: '#8a7f6e', fontSize: 14 }}>x</span>
+                <span role="button" tabIndex={0} onClick={() => setSelected(null)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelected(null); }} style={{ cursor: 'pointer', color: '#8a7f6e', fontSize: 14 }}>x</span>
               </div>
               <div style={{ fontSize: 12, color: '#c8bda0', lineHeight: 1.6, marginBottom: 12, wordBreak: 'break-word' }}>
                 {selected.content}
@@ -361,8 +366,8 @@ function GNNView() {
               </tr>
             </thead>
             <tbody>
-              {contradictions.contradictions.slice(0, 15).map((c, i) => (
-                <tr key={i}>
+              {contradictions.contradictions.slice(0, 15).map((c) => (
+                <tr key={`${c.contradiction_probability}-${c.current_relation}-${c.is_known_contradiction}`}>
                   <td style={{ color: c.contradiction_probability > 0.8 ? 'var(--danger)' : 'var(--text)' }}>
                     {c.contradiction_probability}
                   </td>

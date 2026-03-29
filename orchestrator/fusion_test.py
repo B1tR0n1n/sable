@@ -264,7 +264,7 @@ def generate_fused_dataset(count=5000, device="cuda", seed=42):
                     if src_idx is not None and tgt_idx is not None:
                         dep = graph.get_dependency(comp.id, dep_id)
                         if dep:
-                            rel_idx, feat = adapter.adapt_edge(str(dep.type), str(dep.criticality))
+                            _, feat = adapter.adapt_edge(str(dep.type), str(dep.criticality))
                             sources.append(src_idx)
                             targets.append(tgt_idx)
                             edge_feats.append(feat)
@@ -584,8 +584,6 @@ def run_fusion_test(device="cuda", n_samples=8000):
     print(f"  {C_DIM}{'─' * 50}{C_RESET}")
 
     unreachable_delta = fused_results["unreachable_f1"] - baseline_results["unreachable_f1"]
-    affected_delta = fused_results["affected_f1"] - baseline_results["affected_f1"]
-    macro_delta = fused_results["macro_f1"] - baseline_results["macro_f1"]
 
     if unreachable_delta > 0.03:
         print(f"  {C_SUCCESS}{C_BOLD}UNREACHABLE F1 LIFTED: +{unreachable_delta:.4f}{C_RESET}")

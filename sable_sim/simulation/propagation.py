@@ -201,6 +201,68 @@ class PropagationEngine:
     # Impact evaluation
     # ------------------------------------------------------------------
 
+    def _handle_monitoring_dep(self, changed, dependent, prev_state, prev_health, tick):
+        """Monitoring loss: record but don't change real state."""
+        if changed.state in (ComponentState.FAILED, ComponentState.UNREACHABLE):
+            return StateChange(
+                tick=tick, component_id=dependent.id,
+                previous_state=prev_state, new_state=prev_state,
+                previous_health=prev_health, new_health=prev_health,
+                cause="monitoring_loss", cause_component=changed.id,
+            )
+        return None
+
+    def _handle_dns_dep(self, changed, dependent, tick):
+        """DNS dependency: register delayed effect if source failed."""
+        if changed.state == ComponentState.FAILED:
+            if dependent.id not in self._pending_dns:
+                self._pending_dns[dependent.id] = tick + self.dns_cache_ttl
+                logger.debug("DNS dependency delayed for %s until tick %d",
+                             dependent.id, tick + self.dns_cache_ttl)
+        return None
+
+    def _handle_auth_dep(self, changed, dependent, tick):
+        """Auth dependency: register delayed effect if source failed."""
+        if changed.state == ComponentState.FAILED:
+            if dependent.id not in self._pending_auth:
+                self._pending_auth[dependent.id] = tick + self.session_ttl
+                logger.debug("Auth dependency delayed for %s until tick %d",
+                             dependent.id, tick + self.session_ttl)
+        return None
+
+    def _handle_network_path(self, state, changed, dependent, prev_state, prev_health, tick):
+        """Network path: check for alternate paths, mark unreachable if none."""
+        if changed.state != ComponentState.FAILED:
+            return None
+        if state.graph.has_alternate_path(dependent.id, changed.id, excluded={changed.id}):
+            logger.debug("Alternate path exists for %s around %s", dependent.id, changed.id)
+            return None
+        dependent.state = ComponentState.UNREACHABLE
+        dependent.health = 0.0
+        return StateChange(
+            tick=tick, component_id=dependent.id,
+            previous_state=prev_state, new_state=ComponentState.UNREACHABLE,
+            previous_health=prev_health, new_health=0.0,
+            cause="network_unreachable", cause_component=changed.id,
+        )
+
+    def _handle_hosting_dep(self, changed, dependent, prev_state, prev_health, tick):
+        """Hosting dependency: host dies, everything on it dies."""
+        if changed.state == ComponentState.FAILED:
+            dependent.state = ComponentState.FAILED
+            dependent.health = 0.0
+            return StateChange(
+                tick=tick, component_id=dependent.id,
+                previous_state=prev_state, new_state=ComponentState.FAILED,
+                previous_health=prev_health, new_health=0.0,
+                cause="host_failure", cause_component=changed.id,
+            )
+        elif changed.state == ComponentState.DEGRADED:
+            return self._apply_degradation(
+                dependent, prev_state, prev_health, changed.id, tick, 0.4
+            )
+        return None
+
     def _evaluate_impact(
         self,
         state: SystemState,
@@ -213,7 +275,6 @@ class PropagationEngine:
 
         Returns a StateChange if the dependent's state worsens, else None.
         """
-        # Already at worst state
         if dependent.state == ComponentState.FAILED:
             return None
 
@@ -223,92 +284,19 @@ class PropagationEngine:
         # --- special dependency-type rules first --------------------------
 
         if dep.type == DependencyType.MONITORING_DEPENDENCY:
-            # Monitoring loss doesn't change real state, but we record it
-            # so the fog-of-war system can use it.
-            if changed.state in (ComponentState.FAILED, ComponentState.UNREACHABLE):
-                return StateChange(
-                    tick=current_tick,
-                    component_id=dependent.id,
-                    previous_state=prev_state,
-                    new_state=prev_state,  # state unchanged
-                    previous_health=prev_health,
-                    new_health=prev_health,
-                    cause="monitoring_loss",
-                    cause_component=changed.id,
-                )
-            return None
+            return self._handle_monitoring_dep(changed, dependent, prev_state, prev_health, current_tick)
 
         if dep.type == DependencyType.DNS_DEPENDENCY:
-            if changed.state == ComponentState.FAILED:
-                # Register delayed effect
-                if dependent.id not in self._pending_dns:
-                    self._pending_dns[dependent.id] = current_tick + self.dns_cache_ttl
-                    logger.debug(
-                        "DNS dependency delayed for %s until tick %d",
-                        dependent.id,
-                        current_tick + self.dns_cache_ttl,
-                    )
-            return None  # actual effect applied via _process_pending_delays
+            return self._handle_dns_dep(changed, dependent, current_tick)
 
         if dep.type == DependencyType.AUTHENTICATION_DEPENDENCY:
-            if changed.state == ComponentState.FAILED:
-                if dependent.id not in self._pending_auth:
-                    self._pending_auth[dependent.id] = current_tick + self.session_ttl
-                    logger.debug(
-                        "Auth dependency delayed for %s until tick %d",
-                        dependent.id,
-                        current_tick + self.session_ttl,
-                    )
-            return None
+            return self._handle_auth_dep(changed, dependent, current_tick)
 
         if dep.type == DependencyType.NETWORK_PATH:
-            if changed.state == ComponentState.FAILED:
-                # Check if there's an alternate path
-                if state.graph.has_alternate_path(
-                    dependent.id,
-                    changed.id,
-                    excluded={changed.id},
-                ):
-                    logger.debug(
-                        "Alternate path exists for %s around %s",
-                        dependent.id,
-                        changed.id,
-                    )
-                    return None
-                # No alternate path — unreachable
-                dependent.state = ComponentState.UNREACHABLE
-                dependent.health = 0.0
-                return StateChange(
-                    tick=current_tick,
-                    component_id=dependent.id,
-                    previous_state=prev_state,
-                    new_state=ComponentState.UNREACHABLE,
-                    previous_health=prev_health,
-                    new_health=0.0,
-                    cause="network_unreachable",
-                    cause_component=changed.id,
-                )
+            return self._handle_network_path(state, changed, dependent, prev_state, prev_health, current_tick)
 
         if dep.type == DependencyType.HOSTING_DEPENDENCY:
-            # Always hard — host dies, everything on it dies
-            if changed.state == ComponentState.FAILED:
-                dependent.state = ComponentState.FAILED
-                dependent.health = 0.0
-                return StateChange(
-                    tick=current_tick,
-                    component_id=dependent.id,
-                    previous_state=prev_state,
-                    new_state=ComponentState.FAILED,
-                    previous_health=prev_health,
-                    new_health=0.0,
-                    cause="host_failure",
-                    cause_component=changed.id,
-                )
-            elif changed.state == ComponentState.DEGRADED:
-                return self._apply_degradation(
-                    dependent, prev_state, prev_health, changed.id, current_tick, 0.4
-                )
-            return None
+            return self._handle_hosting_dep(changed, dependent, prev_state, prev_health, current_tick)
 
         # --- criticality-based rules -------------------------------------
 

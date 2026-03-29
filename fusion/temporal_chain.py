@@ -203,7 +203,6 @@ class ContextMixer(nn.Module):
             nn.Linear(64, traj_summary_dim),
         )
 
-        context_dim = traj_summary_dim + Z_DIM  # 32 + 128 = 160
         self.gnn_gate = TemporalGate(GNN_DIM, traj_summary_dim)
         self.pomdp_gate = TemporalGate(POMDP_DIM, traj_summary_dim)
         self.mamba_gate = TemporalGate(MAMBA_DIM, traj_summary_dim)
@@ -307,9 +306,9 @@ class RevisionGate(nn.Module):
         for k in range(K - 1, -1, -1):
             still_same = (states[:, k] == current_state) & (trajectory[:, k, :].abs().sum(dim=-1) > 0)
             ticks_same += still_same.float()
-            # Stop counting once we hit a different state
+            # Zero out further accumulation once we hit a different state
             break_mask = (states[:, k] != current_state) & (trajectory[:, k, :].abs().sum(dim=-1) > 0)
-            ticks_same[break_mask] = ticks_same[break_mask]  # freeze
+            ticks_same *= (~break_mask).float()
         ticks_in_current = ticks_same / max(K, 1)
 
         # [2] Average past confidence

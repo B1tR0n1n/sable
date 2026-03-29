@@ -63,7 +63,6 @@ EDGE_FEAT_DIM = N_EDGE_TYPES + 1
 
 def classify_zoo_node(node_data: dict, degree: int, max_degree: int) -> int:
     """Classify a Topology Zoo node into infrastructure type by degree/role."""
-    label = str(node_data.get("label", "")).lower()
     internal = node_data.get("Internal", 1)
 
     if not internal:
@@ -112,6 +111,95 @@ def classify_ms_node(node_id: str, node_data: dict) -> int:
         return NODE_TYPES["server"]  # generic microservice
 
 
+def _build_edge_features(G, node_idx, edge_types):
+    """Build bidirectional edge index and edge feature arrays."""
+    edges = list(G.edges())
+    if not edges:
+        return np.zeros((2, 0), dtype=np.int64), np.zeros((0, EDGE_FEAT_DIM), dtype=np.float32)
+
+    edge_index = np.array([[node_idx[u], node_idx[v]] for u, v in edges], dtype=np.int64).T
+    edge_index = np.concatenate([edge_index, edge_index[::-1]], axis=1)
+
+    edge_feats = np.zeros((len(edges) * 2, EDGE_FEAT_DIM), dtype=np.float32)
+    for j, (u, v) in enumerate(edges):
+        etype = edge_types[j] if j < len(edge_types) else EDGE_TYPES["unknown"]
+        for offset in [0, len(edges)]:
+            edge_feats[j + offset, etype] = 1.0
+            edge_feats[j + offset, N_EDGE_TYPES] = 1.0
+    return edge_index, edge_feats
+
+
+def _build_node_features(n, node_types, degrees, max_degree, health_fn):
+    """Build node feature array with type one-hot, degree norm, and health."""
+    node_feats = np.zeros((n, NODE_FEAT_DIM), dtype=np.float32)
+    for i in range(n):
+        node_feats[i, node_types[i]] = 1.0
+        node_feats[i, N_NODE_TYPES] = degrees[i] / max(max_degree, 1)
+        node_feats[i, N_NODE_TYPES + 1] = health_fn(i)
+    return node_feats
+
+
+def _cascade_root_failures(health, states, fail_indices):
+    """Stage 1: Set root failure nodes to failed state."""
+    for fi in fail_indices:
+        health[fi] = 0.0
+        states[fi] = 2  # failed
+
+
+def _cascade_neighbor_degradation(nodes, adj, node_idx, health, states, fail_indices, rng):
+    """Stage 2: Direct neighbors of failed nodes degrade probabilistically."""
+    for fi in fail_indices:
+        node = nodes[fi]
+        for neighbor in adj[node]:
+            ni = node_idx[neighbor]
+            if states[ni] == 0 and rng.random() < 0.7:
+                health[ni] = rng.uniform(0.2, 0.6)
+                states[ni] = 1  # degraded
+
+
+def _cascade_2hop(n, nodes, adj, node_idx, health, states, rng):
+    """Stage 3: 2-hop cascade — degraded nodes may cause further degradation."""
+    for i in range(n):
+        if states[i] == 1:
+            node = nodes[i]
+            for neighbor in adj[node]:
+                ni = node_idx[neighbor]
+                if states[ni] == 0 and rng.random() < 0.3:
+                    health[ni] = rng.uniform(0.4, 0.8)
+                    states[ni] = 1
+
+
+def _detect_unreachable(n, nodes, adj, node_idx, health, states, degrees):
+    """Stage 4: Nodes cut off from all healthy high-degree nodes become unreachable."""
+    healthy_hubs = set(i for i in range(n) if states[i] == 0 and degrees[i] >= 3)
+    if not healthy_hubs:
+        return
+    for i in range(n):
+        if states[i] == 0:
+            node = nodes[i]
+            has_healthy_path = any(
+                node_idx[nb] in healthy_hubs or states[node_idx[nb]] == 0
+                for nb in adj[node]
+            )
+            if not has_healthy_path and degrees[i] <= 1:
+                states[i] = 3
+                health[i] = 0.0
+
+
+def _inject_oscillating(n, health, states, rng):
+    """Stage 5: Mark 2-4 nodes as oscillating in 12% of scenarios."""
+    if rng.random() >= 0.12:
+        return
+    n_osc = rng.choice([2, 2, 3, 4])
+    osc_candidates = [i for i in range(n) if states[i] in (0, 1)]
+    if len(osc_candidates) >= n_osc:
+        osc_idx = np.random.default_rng(rng.randint(0, 2**31)).choice(
+            osc_candidates, size=n_osc, replace=False)
+        for oi in osc_idx:
+            states[oi] = 4
+            health[oi] = rng.uniform(0.3, 0.7)
+
+
 def simulate_cascades(G: nx.Graph, node_types: list[int], edge_types: list[int],
                       n_scenarios: int, rng: SeededRandom) -> list[dict]:
     """Simulate failure cascades on a topology and generate labeled samples.
@@ -134,130 +222,41 @@ def simulate_cascades(G: nx.Graph, node_types: list[int], edge_types: list[int],
     samples = []
 
     for _ in range(n_scenarios):
-        # Initialize health
         health = np.ones(n, dtype=np.float32)
-        states = np.zeros(n, dtype=np.int64)  # all healthy
+        states = np.zeros(n, dtype=np.int64)
 
-        # 12% of scenarios: no injection. System must learn what normal looks like.
+        # 12% of scenarios: no injection
         if rng.random() < 0.12:
+            node_feats = _build_node_features(n, node_types, degrees, max_degree, lambda i: 1.0)
+            edge_index, edge_feats = _build_edge_features(G, node_idx, edge_types)
             samples.append({
-                "x": np.zeros((n, NODE_FEAT_DIM), dtype=np.float32),  # placeholder, filled below
-                "edge_index": np.zeros((2, 0), dtype=np.int64),
-                "edge_attr": np.zeros((0, EDGE_FEAT_DIM), dtype=np.float32),
-                "states": states,
-                "health": health,
-                "n_nodes": n,
-                "n_edges": 0,
+                "x": node_feats, "edge_index": edge_index, "edge_attr": edge_feats,
+                "states": states, "health": health, "n_nodes": n,
+                "n_edges": edge_index.shape[1] if edge_index.size else 0,
             })
-            # Fill node features for the clean scenario
-            node_feats = np.zeros((n, NODE_FEAT_DIM), dtype=np.float32)
-            for i in range(n):
-                node_feats[i, node_types[i]] = 1.0
-                node_feats[i, N_NODE_TYPES] = degrees[i] / max(max_degree, 1)
-                node_feats[i, N_NODE_TYPES + 1] = 1.0  # healthy
-            samples[-1]["x"] = node_feats
-
-            # Still need edges
-            edges = list(G.edges())
-            if edges:
-                edge_index = np.array([[node_idx[u], node_idx[v]] for u, v in edges], dtype=np.int64).T
-                edge_index = np.concatenate([edge_index, edge_index[::-1]], axis=1)
-                edge_feats = np.zeros((len(edges) * 2, EDGE_FEAT_DIM), dtype=np.float32)
-                for j, (u, v) in enumerate(edges):
-                    etype = edge_types[j] if j < len(edge_types) else EDGE_TYPES["unknown"]
-                    for offset in [0, len(edges)]:
-                        edge_feats[j + offset, etype] = 1.0
-                        edge_feats[j + offset, N_EDGE_TYPES] = 1.0
-                samples[-1]["edge_index"] = edge_index
-                samples[-1]["edge_attr"] = edge_feats
-                samples[-1]["n_edges"] = edge_index.shape[1]
             continue
 
-        # Pick failure roots (1-3, weighted by degree — high-degree failures are more impactful)
+        # Pick failure roots
         n_failures = rng.choice([1, 1, 1, 2, 2, 3])
         weights = degrees / degrees.sum()
-        fail_indices = np.random.RandomState(rng.randint(0, 2**31)).choice(n, size=min(n_failures, n), replace=False, p=weights)
+        fail_indices = np.random.default_rng(rng.randint(0, 2**31)).choice(
+            n, size=min(n_failures, n), replace=False, p=weights)
 
-        # Stage 1: Root failures
-        for fi in fail_indices:
-            health[fi] = 0.0
-            states[fi] = 2  # failed
+        _cascade_root_failures(health, states, fail_indices)
+        _cascade_neighbor_degradation(nodes, adj, node_idx, health, states, fail_indices, rng)
+        _cascade_2hop(n, nodes, adj, node_idx, health, states, rng)
+        _detect_unreachable(n, nodes, adj, node_idx, health, states, degrees)
+        _inject_oscillating(n, health, states, rng)
 
-        # Stage 2: Direct neighbors degrade
-        for fi in fail_indices:
-            node = nodes[fi]
-            for neighbor in adj[node]:
-                ni = node_idx[neighbor]
-                if states[ni] == 0:  # only if healthy
-                    # Probability of degradation depends on dependency strength
-                    if rng.random() < 0.7:
-                        health[ni] = rng.uniform(0.2, 0.6)
-                        states[ni] = 1  # degraded
-
-        # Stage 3: 2-hop cascade — degraded nodes may cause further degradation
-        for i in range(n):
-            if states[i] == 1:  # degraded
-                node = nodes[i]
-                for neighbor in adj[node]:
-                    ni = node_idx[neighbor]
-                    if states[ni] == 0 and rng.random() < 0.3:
-                        health[ni] = rng.uniform(0.4, 0.8)
-                        states[ni] = 1
-
-        # Stage 4: Unreachable — nodes cut off from all healthy high-degree nodes
-        healthy_hubs = set(i for i in range(n) if states[i] == 0 and degrees[i] >= 3)
-        if healthy_hubs:
-            for i in range(n):
-                if states[i] == 0:  # healthy
-                    node = nodes[i]
-                    has_healthy_path = any(
-                        node_idx[nb] in healthy_hubs or states[node_idx[nb]] == 0
-                        for nb in adj[node]
-                    )
-                    if not has_healthy_path and degrees[i] <= 1:
-                        states[i] = 3  # unreachable
-                        health[i] = 0.0
-
-        # Stage 5: Oscillating — 12% of scenarios: 2-4 nodes marked oscillating
-        if rng.random() < 0.12:
-            n_osc = rng.choice([2, 2, 3, 4])
-            osc_candidates = [i for i in range(n) if states[i] in (0, 1)]
-            if len(osc_candidates) >= n_osc:
-                osc_idx = np.random.RandomState(rng.randint(0, 2**31)).choice(
-                    osc_candidates, size=n_osc, replace=False)
-                for oi in osc_idx:
-                    states[oi] = 4  # oscillating
-                    health[oi] = rng.uniform(0.3, 0.7)  # unstable health
-
-        # Build node features: type_onehot + degree_norm + health
-        node_feats = np.zeros((n, NODE_FEAT_DIM), dtype=np.float32)
-        for i in range(n):
-            node_feats[i, node_types[i]] = 1.0  # type one-hot
-            node_feats[i, N_NODE_TYPES] = degrees[i] / max(max_degree, 1)  # degree norm
-            # Use PRE-cascade health for input (partial info)
-            # For failed roots, use 0. For others, use 1.0 (they haven't observed cascade yet)
-            node_feats[i, N_NODE_TYPES + 1] = 1.0 if i not in fail_indices else 0.0
-
-        # Build edge features
-        edges = list(G.edges())
-        edge_index = np.array([[node_idx[u], node_idx[v]] for u, v in edges], dtype=np.int64).T
-        # Make bidirectional
-        edge_index = np.concatenate([edge_index, edge_index[::-1]], axis=1)
-
-        edge_feats = np.zeros((len(edges) * 2, EDGE_FEAT_DIM), dtype=np.float32)
-        for j, (u, v) in enumerate(edges):
-            etype = edge_types[j] if j < len(edge_types) else EDGE_TYPES["unknown"]
-            for offset in [0, len(edges)]:
-                edge_feats[j + offset, etype] = 1.0  # type one-hot
-                edge_feats[j + offset, N_EDGE_TYPES] = 1.0  # weight
+        fail_set = set(fail_indices)
+        node_feats = _build_node_features(
+            n, node_types, degrees, max_degree,
+            lambda i: 1.0 if i not in fail_set else 0.0)
+        edge_index, edge_feats = _build_edge_features(G, node_idx, edge_types)
 
         samples.append({
-            "x": node_feats,
-            "edge_index": edge_index,
-            "edge_attr": edge_feats,
-            "states": states,
-            "health": health,
-            "n_nodes": n,
+            "x": node_feats, "edge_index": edge_index, "edge_attr": edge_feats,
+            "states": states, "health": health, "n_nodes": n,
             "n_edges": edge_index.shape[1],
         })
 
