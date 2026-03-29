@@ -9,14 +9,25 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
-# Engine needs access to the model definitions
-ENGINE_DIR = Path(__file__).parent / "engine"
-sys.path.insert(0, str(ENGINE_DIR))
-sys.path.insert(0, str(ENGINE_DIR / "fusion"))
-sys.path.insert(0, str(ENGINE_DIR / "pillar1"))
-sys.path.insert(0, str(ENGINE_DIR / "pillar2"))
-sys.path.insert(0, str(ENGINE_DIR / "pillar3"))
-sys.path.insert(0, str(ENGINE_DIR / "sim"))
+# Resolve source paths — works both locally (../pillar1) and in Docker (engine/pillar1)
+_here = Path(__file__).parent
+_engine_dir = _here / "engine"
+if _engine_dir.exists():
+    # Docker container: build.sh copied source into engine/
+    sys.path.insert(0, str(_engine_dir))
+    sys.path.insert(0, str(_engine_dir / "fusion"))
+    sys.path.insert(0, str(_engine_dir / "pillar1"))
+    sys.path.insert(0, str(_engine_dir / "pillar2"))
+    sys.path.insert(0, str(_engine_dir / "pillar3"))
+    sys.path.insert(0, str(_engine_dir / "sim"))
+else:
+    # Local dev: import from real source
+    _root = _here.parent
+    sys.path.insert(0, str(_root))
+    sys.path.insert(0, str(_root / "fusion"))
+    sys.path.insert(0, str(_root / "pillar1"))
+    sys.path.insert(0, str(_root / "pillar2"))
+    sys.path.insert(0, str(_root / "pillar3"))
 
 from sable_sim.core.states import N_STATES, STATE_NAMES
 from temporal_chain import TemporalChainFusion, TemporalState
