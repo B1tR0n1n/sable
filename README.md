@@ -35,11 +35,11 @@ A 5.4M parameter system that classifies infrastructure node states through three
                     └───────────────────────────┘
 ```
 
-**Pillar 1 — GNN (Structural Reasoning):** EdgeConditionedGAT over infrastructure topology. 1044-dim node features (1024 embedding + 20 native infrastructure type one-hot). Learns dependency propagation patterns, contradiction detection, link prediction.
+**Pillar 1 - GNN (Structural Reasoning):** EdgeConditionedGAT over infrastructure topology. 1044-dim node features (1024 embedding + 20 native infrastructure type one-hot). Learns dependency propagation patterns, contradiction detection, link prediction.
 
-**Pillar 2 — POMDP (Decision Planning):** Monte Carlo tree search under partial observability. Given fog-of-war constraints (75% monitoring coverage, 2-tick delay, 5% false positives), plans diagnostic actions to maximize information gain toward root cause.
+**Pillar 2 - POMDP (Decision Planning):** Monte Carlo tree search under partial observability. Given fog-of-war constraints (75% monitoring coverage, 2-tick delay, 5% false positives), plans diagnostic actions to maximize information gain toward root cause.
 
-**Pillar 3 — Mamba/SSM (Temporal Prediction):** Selective state space model for cascade forecasting. Takes 2-tick system snapshots, predicts 30-tick cascade outcomes — which nodes will be affected, predicted severity, state trajectories.
+**Pillar 3 - Mamba/SSM (Temporal Prediction):** Selective state space model for cascade forecasting. Takes 2-tick system snapshots, predicts 30-tick cascade outcomes - which nodes will be affected, predicted severity, state trajectories.
 
 **Fusion:** Cross-attention weighted combination of three pillar perspectives with routed expert selection per node. Temporal chain maintains state across inference cycles for multi-step reasoning.
 
@@ -48,9 +48,9 @@ A 5.4M parameter system that classifies infrastructure node states through three
 ```
 sable/
 ├── sable_sim/          # Infrastructure simulator (foundation)
-├── pillar1/            # GNN — structural reasoning
-├── pillar2/            # POMDP — decision planning
-├── pillar3/            # Mamba — temporal prediction
+├── pillar1/            # GNN - structural reasoning
+├── pillar2/            # POMDP - decision planning
+├── pillar3/            # Mamba - temporal prediction
 ├── fusion/             # Three-pillar fusion + temporal chain
 ├── orchestrator/       # Integration layer
 ├── adapters/           # Telemetry adapters (Prometheus, health scoring, encoding)
