@@ -167,6 +167,7 @@ def generate_sequence(
     max_ticks: int = 30,
     min_nodes: int = 15,
     max_nodes: int = 40,
+    cascade_profile: str = "fast",
 ) -> dict | None:
     """Generate a single temporal sequence from a simulation run.
 
@@ -206,7 +207,7 @@ def generate_sequence(
     states.append(encode_system_state(graph, component_ids))
 
     # Propagate tick-by-tick, capturing state at each tick
-    engine = PropagationEngine(max_ticks=max_ticks)
+    engine = PropagationEngine.from_profile(cascade_profile, max_ticks=max_ticks, rng=rng)
 
     for tick in range(max_ticks):
         current_tick = state.tick
@@ -239,10 +240,18 @@ def generate_sequence(
                 changes_this_tick.append(sc)
                 changed_ids.add(sc.component_id)
 
+        # Recovery and secondary failures (slow/realistic profiles)
+        if engine.recovery_enabled and engine._rng is not None:
+            recovery = engine._process_recovery(state, current_tick, changed_ids)
+            changes_this_tick.extend(recovery)
+        if engine.secondary_failure_probability > 0 and engine._rng is not None:
+            secondary = engine._process_secondary_failures(state, current_tick, changed_ids)
+            changes_this_tick.extend(secondary)
+
         new_tick = state.advance_tick()
 
         if not changes_this_tick:
-            if state.has_reached_steady_state(lookback=2):
+            if state.has_reached_steady_state(lookback=3):
                 break
             # Snapshot unchanged state
             states.append(encode_system_state(graph, component_ids))
@@ -305,11 +314,15 @@ def generate_dataset(
     failed = 0
     t0 = time.time()
 
+    # Mix of cascade profiles: 40% fast, 30% slow, 30% realistic
+    profiles = ["fast"] * 4 + ["slow"] * 3 + ["realistic"] * 3
+
     for i in range(count * 2):  # Oversample to account for failures
         if len(sequences) >= count:
             break
 
-        seq = generate_sequence(rng, max_ticks, min_nodes, max_nodes)
+        profile = profiles[i % len(profiles)]
+        seq = generate_sequence(rng, max_ticks, min_nodes, max_nodes, cascade_profile=profile)
         if seq is None:
             failed += 1
             continue

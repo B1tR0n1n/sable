@@ -462,6 +462,7 @@ body::before {
     <select id="scenario-select" onchange="loadScenario(this.value)"></select>
     <button onclick="resetScenario()">↻ reset</button>
     <button onclick="showRecommendations()" style="background:var(--gold);color:var(--bg)">⚡ fix</button>
+    <button id="btn-mc" onclick="toggleMC()" title="MC Dropout: variance-based honest confidence">MC off</button>
     <div class="scenario-desc" id="scenario-desc"></div>
     <div class="cycle-display">Cycle <span id="cycle-num">0</span> / <span id="total-ticks">0</span></div>
   </div>
@@ -804,7 +805,32 @@ function updateDetail(idx) {
     depsHtml +
     '<div style="font-family:var(--mono);font-size:9px;color:var(--dim-gold);margin-top:12px;letter-spacing:3px">TRAJECTORY</div>' +
     '<div class="trajectory-row">' + trajectory + '</div>' +
-    '<div class="trend" style="color:' + trendColor + '">Trend: ' + node.trend.toUpperCase() + ' ' + trendArrow + '</div>';
+    '<div class="trend" style="color:' + trendColor + '">Trend: ' + node.trend.toUpperCase() + ' ' + trendArrow + '</div>' +
+    '<div style="font-family:var(--mono);font-size:9px;color:var(--dim-gold);margin-top:14px;letter-spacing:3px">CORRECT STATE</div>' +
+    '<div style="display:flex;gap:3px;margin-top:4px;flex-wrap:wrap">' +
+    STATE_NAMES.map((s, si) => {
+      const colors = ['var(--success)','var(--gold)','var(--danger)','var(--dim)','var(--gold)'];
+      const isCurrent = si === node.state_idx;
+      return '<button onclick="submitCorrection(' + idx + ',\'' + s + '\')" style="' +
+        'font-family:var(--mono);font-size:8px;padding:3px 6px;border:1px solid ' +
+        (isCurrent ? colors[si] : 'var(--border)') + ';background:' +
+        (isCurrent ? 'transparent' : 'var(--panel)') + ';color:' + colors[si] +
+        ';cursor:pointer;border-radius:2px;letter-spacing:1px">' + STATE_ABBREV[si] + '</button>';
+    }).join('') +
+    '</div>' +
+    '<div id="feedback-msg" style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:4px"></div>';
+}
+
+async function submitCorrection(nodeIdx, correctState) {
+  const result = await api('feedback', 'POST', {
+    node_idx: nodeIdx,
+    correct_state: correctState,
+  });
+  if (result.recorded) {
+    const msg = document.getElementById('feedback-msg');
+    if (msg) msg.textContent = 'Recorded: ' + result.node + ' -> ' + result.corrected_to;
+    setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
+  }
 }
 
 // ── Controls ──
@@ -842,6 +868,16 @@ async function loadScenario(name) {
 
   const status = await api('status');
   document.getElementById('scenario-desc').textContent = status.scenario_description || '';
+}
+
+let mcEnabled = false;
+async function toggleMC() {
+  mcEnabled = !mcEnabled;
+  const samples = mcEnabled ? 5 : 0;
+  await api('mc_dropout', 'POST', { samples });
+  document.getElementById('btn-mc').textContent = mcEnabled ? 'MC 5x' : 'MC off';
+  document.getElementById('btn-mc').style.borderColor = mcEnabled ? 'var(--gold)' : 'var(--border)';
+  document.getElementById('btn-mc').style.color = mcEnabled ? 'var(--gold)' : 'var(--text)';
 }
 
 async function resetScenario() {

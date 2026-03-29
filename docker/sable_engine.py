@@ -89,33 +89,45 @@ class SableEngine:
 
     @torch.no_grad()
     def infer(self, gnn: torch.Tensor, pomdp: torch.Tensor, mamba: torch.Tensor,
-              ground_truth: torch.Tensor | None = None) -> dict:
+              ground_truth: torch.Tensor | None = None,
+              mc_samples: int = 0) -> dict:
         """Run one inference cycle. Temporal state updates automatically.
 
         Args:
-            gnn:   (1, N, GNN_DIM) — GNN node embeddings
-            pomdp: (1, N, POMDP_DIM) — POMDP belief vectors
-            mamba: (1, N, NODE_FEAT_DIM) — Mamba state features
-            ground_truth: (N,) long — optional, for accuracy tracking
+            gnn:   (1, N, GNN_DIM) - GNN node embeddings
+            pomdp: (1, N, POMDP_DIM) - POMDP belief vectors
+            mamba: (1, N, NODE_FEAT_DIM) - Mamba state features
+            ground_truth: (N,) long - optional, for accuracy tracking
+            mc_samples: int - if > 0, run MC dropout with this many forward
+                         passes for variance-based confidence. The standard
+                         eval-mode pass still runs for routing/transition/
+                         temporal state. MC adds ~5ms per sample.
+                         0 = standard single-pass inference (default).
 
         Returns:
-            dict with per-node predictions, confidence, routing, transitions
+            dict with per-node predictions, confidence, routing, transitions.
+            When mc_samples > 0, mc_agreement and mc_variance fields are added.
         """
         gnn = gnn.to(self.device)
         pomdp = pomdp.to(self.device)
         mamba = mamba.to(self.device)
 
+        # Standard eval-mode forward pass (always runs)
+        # Provides routing, transition, temporal state update
         out = self.model(gnn, pomdp, mamba, temporal_state=self.temporal_state)
-
-        # Extract predictions
         logits = out["revised_logits"][0]  # (N, N_STATES)
         probs = torch.softmax(logits, dim=-1)  # (N, N_STATES)
         preds = probs.argmax(dim=-1)  # (N,)
-        # Confidence = max softmax probability (how decisive the prediction is)
-        # This is the most honest signal: "the model put X% on its top choice"
-        confidence = probs.max(dim=-1).values  # (N,)
         transition = torch.softmax(out["transition"][0], dim=-1)  # (N, 3)
         route_weights = out["route_weights"][0]  # (N, 4)
+
+        # Confidence: either standard (max softmax) or MC dropout (variance-based)
+        mc_meta = None
+        if mc_samples > 0:
+            confidence, mc_meta = self._mc_dropout_confidence(
+                gnn, pomdp, mamba, preds, mc_samples)
+        else:
+            confidence = probs.max(dim=-1).values  # (N,)
 
         # Class counts
         class_counts = {STATE_NAMES[c]: int((preds == c).sum().item()) for c in range(N_STATES)}
@@ -151,6 +163,9 @@ class SableEngine:
                 "trend": ["improving", "stable", "deteriorating"][transition[i].argmax().item()],
                 "routing": {expert_names[j]: float(route_weights[i, j].item()) for j in range(4)},
             }
+            if mc_meta:
+                node["mc_agreement"] = float(mc_meta["agreement"][i].item())
+                node["mc_variance"] = float(mc_meta["variance"][i].item())
             nodes.append(node)
 
         # Accuracy if ground truth provided
@@ -177,6 +192,11 @@ class SableEngine:
             "accuracy": accuracy,
         }
 
+        if mc_meta:
+            tick_record["mc_samples"] = mc_samples
+            tick_record["mc_avg_agreement"] = float(mc_meta["agreement"].mean().item())
+            tick_record["mc_avg_variance"] = float(mc_meta["variance"].mean().item())
+
         # Store history
         self.history.append({
             "cycle": self.cycle,
@@ -195,6 +215,63 @@ class SableEngine:
         self.cycle += 1
 
         return tick_record
+
+    def _mc_dropout_confidence(
+        self, gnn: torch.Tensor, pomdp: torch.Tensor, mamba: torch.Tensor,
+        eval_preds: torch.Tensor, n_samples: int,
+    ) -> tuple[torch.Tensor, dict]:
+        """Run MC dropout forward passes for variance-based confidence.
+
+        Enables dropout at inference time, runs n_samples passes, measures
+        how much the predictions vary. High variance = low confidence.
+
+        Args:
+            gnn, pomdp, mamba: input tensors (already on device)
+            eval_preds: (N,) predictions from the standard eval pass
+            n_samples: number of MC forward passes
+
+        Returns:
+            confidence: (N,) tensor, 0-1 per node
+            mc_meta: dict with agreement and variance tensors
+        """
+        # Enable dropout for stochastic forward passes
+        self.model.train()
+
+        all_probs = []
+        all_preds = []
+        for _ in range(n_samples):
+            out = self.model(gnn, pomdp, mamba, temporal_state=self.temporal_state)
+            logits = out["revised_logits"][0]  # (N, N_STATES)
+            p = torch.softmax(logits, dim=-1)
+            all_probs.append(p)
+            all_preds.append(p.argmax(dim=-1))
+
+        # Back to eval mode
+        self.model.eval()
+
+        # Stack: (n_samples, N, N_STATES)
+        probs_stack = torch.stack(all_probs)
+        preds_stack = torch.stack(all_preds)  # (n_samples, N)
+
+        # Mean probability across samples
+        mean_probs = probs_stack.mean(dim=0)  # (N, N_STATES)
+
+        # Variance of predicted probabilities per node (mean across states)
+        prob_variance = probs_stack.var(dim=0).mean(dim=-1)  # (N,)
+
+        # Agreement: fraction of MC samples that agree with the eval prediction
+        agreement = (preds_stack == eval_preds.unsqueeze(0)).float().mean(dim=0)  # (N,)
+
+        # Confidence: combine agreement and inverse variance
+        # High agreement + low variance = high confidence
+        # Scale variance to [0, 1] range (max theoretical variance for uniform 5-class = 0.04)
+        norm_variance = (prob_variance / 0.04).clamp(0, 1)
+        confidence = (0.6 * agreement + 0.4 * (1.0 - norm_variance)).clamp(0, 1)
+
+        return confidence, {
+            "agreement": agreement,
+            "variance": prob_variance,
+        }
 
     def get_node_report(self, node_idx: int) -> dict:
         """Get detailed report for a specific node including trajectory."""

@@ -6,6 +6,7 @@ Serves the dashboard + WebSocket for live inference streaming.
 
 import asyncio
 import json
+import sqlite3
 import sys
 import time
 from pathlib import Path
@@ -31,6 +32,7 @@ state_lock = asyncio.Lock()  # Protects engine state from concurrent access
 _scenario_cache: list[dict] | None = None  # Cached scenario metadata
 _topo_nodes: list[dict] = []  # Topology node metadata, indexed by position
 _topo_edges: list[dict] = []  # Topology edges
+mc_dropout_samples: int = 0   # 0 = off, >0 = MC dropout enabled with N samples
 
 SCENARIO_DIR = Path(__file__).parent / "scenarios"
 CHECKPOINT_DIR = Path(__file__).parent / "checkpoints"
@@ -158,6 +160,10 @@ async def startup():
     # Load topology for node labeling
     _load_topology_metadata()
 
+    # Initialize feedback database
+    _init_feedback_db()
+    print(f"  Feedback DB: {FEEDBACK_DB}")
+
     # Pre-load Monday Morning
     global current_scenario, scenario_data
     scenario_data = load_scenario("monday_morning")
@@ -189,6 +195,8 @@ async def status():
         "total_ticks": scenario_data["n_ticks"] if scenario_data else 0,
         "autoplay": autoplay_task is not None,
         "autoplay_speed": autoplay_speed,
+        "mc_dropout": mc_dropout_samples > 0,
+        "mc_samples": mc_dropout_samples,
         **engine.get_summary(),
     }
 
@@ -377,9 +385,131 @@ def run_tick() -> dict:
     mamba = scenario_data["mamba"][:, t, :n, :].to(engine.device)    # (1, N, NODE_FEAT_DIM)
     gt = scenario_data["ground_truth"][t, :n]                         # (N,)
 
-    result = engine.infer(gnn, pomdp, mamba, ground_truth=gt)
+    result = engine.infer(gnn, pomdp, mamba, ground_truth=gt, mc_samples=mc_dropout_samples)
     result["inference_ms"] = round((time.time() - t0) * 1000, 2)
     return enrich_tick(result)
+
+
+@app.post("/api/mc_dropout")
+async def set_mc_dropout(body: dict):
+    """Toggle MC dropout for honest confidence estimates."""
+    global mc_dropout_samples
+    mc_dropout_samples = max(0, min(20, int(body.get("samples", 0))))
+    return {"mc_dropout": mc_dropout_samples > 0, "samples": mc_dropout_samples}
+
+
+# ── Operator Feedback ────────────────────────────────────────────────────
+
+FEEDBACK_DB = Path(__file__).parent / "feedback.db"
+
+
+def _init_feedback_db():
+    """Create feedback table if it doesn't exist."""
+    conn = sqlite3.connect(str(FEEDBACK_DB))
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS corrections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            node_idx INTEGER NOT NULL,
+            node_id TEXT,
+            predicted_state TEXT NOT NULL,
+            correct_state TEXT NOT NULL,
+            cycle INTEGER,
+            scenario TEXT,
+            operator TEXT DEFAULT '',
+            timestamp REAL NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+@app.post("/api/feedback")
+async def submit_feedback(body: dict):
+    """Submit an operator correction for a node's predicted state.
+
+    Body: {
+        node_idx: int,
+        correct_state: "healthy" | "degraded" | "failed" | "unreachable" | "oscillating",
+        operator: str (optional)
+    }
+    """
+    node_idx = int(body.get("node_idx", -1))
+    correct_state = body.get("correct_state", "")
+    operator = body.get("operator", "")
+
+    valid_states = ["healthy", "degraded", "failed", "unreachable", "oscillating"]
+    if correct_state not in valid_states:
+        return JSONResponse({"error": f"Invalid state. Must be one of: {valid_states}"}, status_code=400)
+    if node_idx < 0 or node_idx >= engine.n_nodes:
+        return JSONResponse({"error": f"Invalid node_idx. Must be 0-{engine.n_nodes - 1}"}, status_code=400)
+
+    # Get current prediction for this node
+    predicted = "unknown"
+    if engine.history:
+        latest = engine.history[-1]
+        from sable_sim.core.states import STATE_NAMES
+        predicted = STATE_NAMES[latest["predictions"][node_idx]]
+
+    conn = sqlite3.connect(str(FEEDBACK_DB))
+    conn.execute(
+        "INSERT INTO corrections (node_idx, node_id, predicted_state, correct_state, cycle, scenario, operator, timestamp) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (node_idx, node_id(node_idx), predicted, correct_state, engine.cycle, current_scenario, operator, time.time()),
+    )
+    conn.commit()
+    total = conn.execute("SELECT COUNT(*) FROM corrections").fetchone()[0]
+    conn.close()
+
+    return {
+        "recorded": True,
+        "node": node_label(node_idx),
+        "predicted": predicted,
+        "corrected_to": correct_state,
+        "total_corrections": total,
+    }
+
+
+@app.get("/api/feedback/stats")
+async def feedback_stats():
+    """Get feedback statistics."""
+    if not FEEDBACK_DB.exists():
+        return {"total": 0, "corrections": []}
+
+    conn = sqlite3.connect(str(FEEDBACK_DB))
+    total = conn.execute("SELECT COUNT(*) FROM corrections").fetchone()[0]
+
+    # Recent corrections
+    rows = conn.execute(
+        "SELECT node_id, predicted_state, correct_state, cycle, scenario, timestamp "
+        "FROM corrections ORDER BY timestamp DESC LIMIT 20"
+    ).fetchall()
+
+    # Accuracy by state (how often the model was wrong per state)
+    state_stats = conn.execute(
+        "SELECT predicted_state, correct_state, COUNT(*) "
+        "FROM corrections GROUP BY predicted_state, correct_state"
+    ).fetchall()
+
+    conn.close()
+
+    corrections = [
+        {"node_id": r[0], "predicted": r[1], "corrected_to": r[2],
+         "cycle": r[3], "scenario": r[4], "timestamp": r[5]}
+        for r in rows
+    ]
+
+    confusion = {}
+    for predicted, correct, count in state_stats:
+        if predicted not in confusion:
+            confusion[predicted] = {}
+        confusion[predicted][correct] = count
+
+    return {
+        "total": total,
+        "corrections": corrections,
+        "confusion": confusion,
+        "ready_for_finetune": total >= 100,
+    }
 
 
 # ── Main ──────────────────────────────────────────────────────────────────
