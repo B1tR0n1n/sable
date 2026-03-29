@@ -157,6 +157,161 @@ def encode_tick(graph, components, component_ids, gnn, device, rng, belief):
     return gnn_out, pomdp_out, mamba_out, gt
 
 
+def encode_tick_noisy(graph, components, component_ids, gnn, device, rng, belief, noise_cfg):
+    """Encode one tick with realistic telemetry noise injected.
+
+    Wraps encode_tick then corrupts the features to simulate real monitoring:
+      - metric_jitter: gaussian noise on health/feature values
+      - stale_probability: chance a node's readings are stale (frozen from previous tick)
+      - dropout_probability: chance a node has missing metrics entirely
+      - false_positive_rate: chance a healthy node gets a spurious degraded signal
+      - gradual_drift: health values drift slowly instead of snapping
+      - belief_noise: corruption of POMDP confidence/observation age
+    """
+    # Get clean features first
+    gnn_out, pomdp_out, mamba_out, gt = encode_tick(
+        graph, components, component_ids, gnn, device, rng, belief
+    )
+    n = len(component_ids)
+    cfg = noise_cfg
+
+    # --- Metric jitter: gaussian noise on GNN node features ---
+    if cfg.get("metric_jitter", 0) > 0:
+        jitter = cfg["metric_jitter"]
+        gnn_noise = torch.randn_like(gnn_out) * jitter
+        gnn_out = gnn_out + gnn_noise
+
+    # --- Mamba health jitter: perturb health values (column 0 of each node's 26-dim) ---
+    if cfg.get("health_jitter", 0) > 0:
+        for i in range(n):
+            if rng.random() < 0.8:  # Most nodes get some jitter
+                jit = rng.uniform(-cfg["health_jitter"], cfg["health_jitter"])
+                mamba_out[i, 0] = max(0.0, min(1.0, float(mamba_out[i, 0]) + jit))
+
+    # --- Stale readings: freeze some nodes (copy features don't update) ---
+    if cfg.get("stale_probability", 0) > 0:
+        for i in range(n):
+            if rng.random() < cfg["stale_probability"]:
+                # Zero out the mamba features to simulate no update
+                # The model sees a flat signal - no change from previous tick
+                mamba_out[i, 0] = max(0.3, float(mamba_out[i, 0]))  # Stale = last known, slightly degraded
+
+    # --- Metric dropout: some nodes have no readings at all ---
+    if cfg.get("dropout_probability", 0) > 0:
+        for i in range(n):
+            if rng.random() < cfg["dropout_probability"]:
+                # Zero out GNN features for this node (no monitoring data)
+                gnn_out[i] *= 0.1  # Attenuate rather than zero - total zero is a different signal
+                # POMDP confidence drops
+                pomdp_out[i, 4] = 0.2  # Low confidence
+                pomdp_out[i, 5] = 1.0  # Max observation age
+
+    # --- False positives: healthy nodes get spurious degraded signals ---
+    if cfg.get("false_positive_rate", 0) > 0:
+        for i in range(n):
+            if gt[i] == 0 and rng.random() < cfg["false_positive_rate"]:
+                # Inject degraded signal into mamba features
+                mamba_out[i, 0] = rng.uniform(0.3, 0.6)  # Health drops
+                mamba_out[i, 1] = 0.0  # Remove healthy one-hot
+                mamba_out[i, 2] = 1.0  # Set degraded one-hot
+                # POMDP belief gets confused
+                pomdp_out[i, 0] = 0.3  # P(healthy) drops
+                pomdp_out[i, 1] = 0.5  # P(degraded) rises
+
+    # --- POMDP belief noise: corrupt confidence and observation age ---
+    if cfg.get("belief_noise", 0) > 0:
+        bn = cfg["belief_noise"]
+        for i in range(n):
+            # Jitter the state probability distribution
+            noise = torch.randn(4) * bn
+            pomdp_out[i, :4] = torch.clamp(pomdp_out[i, :4] + noise, 0, 1)
+            # Renormalize probabilities
+            total = pomdp_out[i, :4].sum()
+            if total > 0:
+                pomdp_out[i, :4] /= total
+            # Jitter confidence
+            pomdp_out[i, 4] = max(0.0, min(1.0, float(pomdp_out[i, 4]) + rng.uniform(-bn, bn)))
+
+    return gnn_out, pomdp_out, mamba_out, gt
+
+
+# Noise profiles: mild (good monitoring), moderate (typical MSP), harsh (degraded monitoring)
+NOISE_PROFILES = {
+    "mild": {
+        "metric_jitter": 0.02,
+        "health_jitter": 0.05,
+        "stale_probability": 0.05,
+        "dropout_probability": 0.02,
+        "false_positive_rate": 0.03,
+        "belief_noise": 0.05,
+    },
+    "moderate": {
+        "metric_jitter": 0.05,
+        "health_jitter": 0.10,
+        "stale_probability": 0.10,
+        "dropout_probability": 0.05,
+        "false_positive_rate": 0.05,
+        "belief_noise": 0.10,
+    },
+    "harsh": {
+        "metric_jitter": 0.10,
+        "health_jitter": 0.15,
+        "stale_probability": 0.15,
+        "dropout_probability": 0.10,
+        "false_positive_rate": 0.08,
+        "belief_noise": 0.15,
+    },
+}
+
+
+def generate_noisy_scenario(name, desc, seed, n_ticks, inject_fn, gnn,
+                            noise_profile="moderate", device="cpu"):
+    """Generate a scenario with realistic telemetry noise.
+
+    Same as generate_scenario but routes through encode_tick_noisy.
+    The ground truth stays clean - only the features get corrupted.
+    This is what real deployment looks like.
+    """
+    noise_cfg = NOISE_PROFILES.get(noise_profile, NOISE_PROFILES["moderate"])
+    rng = SeededRandom(seed)
+    graph = build_random_topology(rng, 20, 40)
+    components = graph.get_all_components()
+    component_ids = [c.id for c in components]
+    n = len(component_ids)
+
+    state = SystemState(graph)
+    belief = BeliefState(component_ids)
+
+    all_gnn = torch.zeros(n_ticks, n, GNN_DIM)
+    all_pomdp = torch.zeros(n_ticks, n, POMDP_DIM)
+    all_mamba = torch.zeros(n_ticks, n, NODE_FEAT_DIM)
+    all_gt = torch.zeros(n_ticks, n, dtype=torch.long)
+
+    for tick in range(n_ticks):
+        inject_fn(graph, state, components, component_ids, rng, tick)
+
+        gnn_f, pomdp_f, mamba_f, gt = encode_tick_noisy(
+            graph, components, component_ids, gnn, device, rng, belief, noise_cfg
+        )
+
+        all_gnn[tick, :n] = gnn_f
+        all_pomdp[tick, :n] = pomdp_f
+        all_mamba[tick, :n] = mamba_f
+        all_gt[tick, :n] = gt
+
+        belief.age_observations()
+
+    return {
+        "name": name, "description": desc,
+        "n_nodes": n, "n_ticks": n_ticks,
+        "noise_profile": noise_profile,
+        "gnn": all_gnn.unsqueeze(0),
+        "pomdp": all_pomdp.unsqueeze(0),
+        "mamba": all_mamba.unsqueeze(0),
+        "ground_truth": all_gt,
+    }
+
+
 def generate_scenario(name, desc, seed, n_ticks, inject_fn, gnn, device="cpu"):
     """Generate a multi-tick scenario with training-aligned features.
 
@@ -344,10 +499,24 @@ def main():
          1234, 20, _inject_random_chaos),
     ]
 
+    # Clean scenarios (training-aligned features)
     scenarios = [
         generate_scenario(name, desc, seed, n_ticks, inject_fn, gnn)
         for name, desc, seed, n_ticks, inject_fn in scenario_defs
     ]
+
+    # Noisy scenarios (simulated real telemetry)
+    print(f"\n  {C}SABLE - Pre-computing Noisy Scenarios{R}\n", flush=True)
+    for noise_level in ["mild", "moderate", "harsh"]:
+        for name, desc, seed, n_ticks, inject_fn in scenario_defs[:3]:  # Top 3 scenarios
+            noisy_name = f"{name}_noisy_{noise_level}"
+            noisy_desc = f"{desc} [NOISY: {noise_level} telemetry]"
+            s = generate_noisy_scenario(
+                noisy_name, noisy_desc, seed + hash(noise_level) % 10000,
+                n_ticks, inject_fn, gnn, noise_profile=noise_level,
+            )
+            scenarios.append(s)
+
     _save_and_report(scenarios, out_dir)
 
 
