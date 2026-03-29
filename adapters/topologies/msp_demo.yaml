@@ -1,0 +1,470 @@
+# SABLE — Sample MSP Customer Topology
+# =========================================
+# Three-tier architecture: core → distribution → access
+# 32 nodes, typical small/mid enterprise environment
+# Use as demo config and onboarding template
+
+nodes:
+  # ── Core Layer ──────────────────────────────
+  - id: core-sw-1
+    type: CORE_SWITCH
+    label: Core Switch 1
+    tier: core
+
+  - id: core-sw-2
+    type: CORE_SWITCH
+    label: Core Switch 2
+    tier: core
+
+  - id: fw-1
+    type: FIREWALL
+    label: Perimeter Firewall
+    tier: core
+
+  - id: rtr-wan-1
+    type: ROUTER
+    label: WAN Router
+    tier: core
+
+  - id: wan-1
+    type: WAN_LINK
+    label: ISP Primary
+    tier: external
+
+  - id: igw-1
+    type: INTERNET_GATEWAY
+    label: Internet Gateway
+    tier: external
+
+  # ── Distribution / Services ─────────────────
+  - id: lb-1
+    type: LOAD_BALANCER
+    label: Application LB
+    tier: distribution
+
+  - id: dns-1
+    type: DNS_SERVER
+    label: DNS Primary
+    tier: services
+
+  - id: dns-2
+    type: DNS_SERVER
+    label: DNS Secondary
+    tier: services
+
+  - id: dhcp-1
+    type: DHCP_SERVER
+    label: DHCP Server
+    tier: services
+
+  - id: dc-1
+    type: DOMAIN_CONTROLLER
+    label: Domain Controller 1
+    tier: services
+
+  - id: dc-2
+    type: DOMAIN_CONTROLLER
+    label: Domain Controller 2
+    tier: services
+
+  - id: ca-1
+    type: CERTIFICATE_AUTHORITY
+    label: Root CA
+    tier: services
+
+  - id: mon-1
+    type: MONITORING_SERVER
+    label: Prometheus/Grafana
+    tier: services
+
+  # ── Access Layer ────────────────────────────
+  - id: acc-sw-1
+    type: ACCESS_SWITCH
+    label: Access Switch Floor 1
+    tier: access
+
+  - id: acc-sw-2
+    type: ACCESS_SWITCH
+    label: Access Switch Floor 2
+    tier: access
+
+  - id: acc-sw-3
+    type: ACCESS_SWITCH
+    label: Access Switch Floor 3
+    tier: access
+
+  # ── Compute ─────────────────────────────────
+  - id: hyp-1
+    type: HYPERVISOR
+    label: ESXi Host 1
+    tier: compute
+
+  - id: hyp-2
+    type: HYPERVISOR
+    label: ESXi Host 2
+    tier: compute
+
+  - id: vm-web-1
+    type: SERVER_VIRTUAL
+    label: Web Server 1
+    tier: compute
+
+  - id: vm-web-2
+    type: SERVER_VIRTUAL
+    label: Web Server 2
+    tier: compute
+
+  - id: vm-app-1
+    type: SERVER_VIRTUAL
+    label: App Server 1
+    tier: compute
+
+  - id: vm-app-2
+    type: SERVER_VIRTUAL
+    label: App Server 2
+    tier: compute
+
+  - id: vm-db-1
+    type: SERVER_VIRTUAL
+    label: Database Primary
+    tier: compute
+
+  - id: vm-db-2
+    type: SERVER_VIRTUAL
+    label: Database Replica
+    tier: compute
+
+  - id: srv-backup
+    type: SERVER_PHYSICAL
+    label: Backup Server
+    tier: compute
+
+  # ── Storage ─────────────────────────────────
+  - id: san-1
+    type: STORAGE_ARRAY
+    label: SAN Primary
+    tier: storage
+
+  - id: san-tgt-1
+    type: STORAGE_TARGET
+    label: SAN LUN Group 1
+    tier: storage
+
+  - id: san-tgt-2
+    type: STORAGE_TARGET
+    label: SAN LUN Group 2
+    tier: storage
+
+  # ── VDI ─────────────────────────────────────
+  - id: vdi-broker
+    type: VDI_BROKER
+    label: Horizon Broker
+    tier: vdi
+
+  - id: vdi-host-1
+    type: VDI_HOST
+    label: VDI Host 1
+    tier: vdi
+
+  - id: app-erp
+    type: APPLICATION_SERVICE
+    label: ERP Application
+    tier: application
+
+edges:
+  # ── Core Interconnects ──────────────────────
+  - source: core-sw-1
+    target: core-sw-2
+    type: NETWORK_PATH
+    criticality: HARD
+
+  - source: core-sw-1
+    target: fw-1
+    type: NETWORK_PATH
+    criticality: HARD
+
+  - source: core-sw-2
+    target: fw-1
+    type: NETWORK_PATH
+    criticality: HARD
+
+  - source: fw-1
+    target: rtr-wan-1
+    type: NETWORK_PATH
+    criticality: HARD
+
+  - source: rtr-wan-1
+    target: wan-1
+    type: NETWORK_PATH
+    criticality: HARD
+
+  - source: rtr-wan-1
+    target: igw-1
+    type: NETWORK_PATH
+    criticality: HARD
+
+  # ── Core → Distribution ─────────────────────
+  - source: core-sw-1
+    target: lb-1
+    type: NETWORK_PATH
+    criticality: HARD
+
+  - source: core-sw-1
+    target: acc-sw-1
+    type: NETWORK_PATH
+    criticality: HARD
+
+  - source: core-sw-1
+    target: acc-sw-2
+    type: NETWORK_PATH
+    criticality: HARD
+
+  - source: core-sw-2
+    target: acc-sw-3
+    type: NETWORK_PATH
+    criticality: HARD
+
+  # ── Access → Compute ────────────────────────
+  - source: acc-sw-1
+    target: hyp-1
+    type: NETWORK_PATH
+    criticality: HARD
+
+  - source: acc-sw-2
+    target: hyp-2
+    type: NETWORK_PATH
+    criticality: HARD
+
+  - source: acc-sw-3
+    target: srv-backup
+    type: NETWORK_PATH
+    criticality: SOFT
+
+  # ── Hosting Dependencies ────────────────────
+  - source: vm-web-1
+    target: hyp-1
+    type: HOSTING_DEPENDENCY
+    criticality: HARD
+
+  - source: vm-web-2
+    target: hyp-1
+    type: HOSTING_DEPENDENCY
+    criticality: HARD
+
+  - source: vm-app-1
+    target: hyp-2
+    type: HOSTING_DEPENDENCY
+    criticality: HARD
+
+  - source: vm-app-2
+    target: hyp-2
+    type: HOSTING_DEPENDENCY
+    criticality: HARD
+
+  - source: vm-db-1
+    target: hyp-1
+    type: HOSTING_DEPENDENCY
+    criticality: HARD
+
+  - source: vm-db-2
+    target: hyp-2
+    type: HOSTING_DEPENDENCY
+    criticality: HARD
+
+  # ── Service Dependencies ────────────────────
+  - source: vm-web-1
+    target: lb-1
+    type: SERVICE_DEPENDENCY
+    criticality: SOFT
+
+  - source: vm-web-2
+    target: lb-1
+    type: SERVICE_DEPENDENCY
+    criticality: SOFT
+
+  - source: vm-web-1
+    target: vm-app-1
+    type: SERVICE_DEPENDENCY
+    criticality: HARD
+
+  - source: vm-web-2
+    target: vm-app-2
+    type: SERVICE_DEPENDENCY
+    criticality: HARD
+
+  - source: vm-app-1
+    target: vm-db-1
+    type: SERVICE_DEPENDENCY
+    criticality: HARD
+
+  - source: vm-app-2
+    target: vm-db-1
+    type: SERVICE_DEPENDENCY
+    criticality: HARD
+
+  - source: app-erp
+    target: vm-app-1
+    type: SERVICE_DEPENDENCY
+    criticality: HARD
+
+  - source: app-erp
+    target: vm-db-1
+    type: SERVICE_DEPENDENCY
+    criticality: HARD
+
+  # ── Storage Dependencies ────────────────────
+  - source: hyp-1
+    target: san-1
+    type: STORAGE_DEPENDENCY
+    criticality: HARD
+
+  - source: hyp-2
+    target: san-1
+    type: STORAGE_DEPENDENCY
+    criticality: HARD
+
+  - source: san-tgt-1
+    target: san-1
+    type: STORAGE_DEPENDENCY
+    criticality: HARD
+
+  - source: san-tgt-2
+    target: san-1
+    type: STORAGE_DEPENDENCY
+    criticality: HARD
+
+  - source: srv-backup
+    target: san-tgt-2
+    type: STORAGE_DEPENDENCY
+    criticality: SOFT
+
+  # ── DNS Dependencies ────────────────────────
+  - source: vm-web-1
+    target: dns-1
+    type: DNS_DEPENDENCY
+    criticality: SOFT
+
+  - source: vm-web-2
+    target: dns-1
+    type: DNS_DEPENDENCY
+    criticality: SOFT
+
+  - source: vm-app-1
+    target: dns-1
+    type: DNS_DEPENDENCY
+    criticality: SOFT
+
+  - source: vm-app-2
+    target: dns-2
+    type: DNS_DEPENDENCY
+    criticality: SOFT
+
+  # ── Authentication Dependencies ─────────────
+  - source: vm-web-1
+    target: dc-1
+    type: AUTHENTICATION_DEPENDENCY
+    criticality: HARD
+
+  - source: vm-web-2
+    target: dc-1
+    type: AUTHENTICATION_DEPENDENCY
+    criticality: HARD
+
+  - source: vm-app-1
+    target: dc-1
+    type: AUTHENTICATION_DEPENDENCY
+    criticality: HARD
+
+  - source: vm-app-2
+    target: dc-2
+    type: AUTHENTICATION_DEPENDENCY
+    criticality: HARD
+
+  - source: vdi-broker
+    target: dc-1
+    type: AUTHENTICATION_DEPENDENCY
+    criticality: HARD
+
+  # ── Replication ─────────────────────────────
+  - source: dc-1
+    target: dc-2
+    type: REPLICATION_DEPENDENCY
+    criticality: SOFT
+
+  - source: dns-1
+    target: dns-2
+    type: REPLICATION_DEPENDENCY
+    criticality: SOFT
+
+  - source: vm-db-1
+    target: vm-db-2
+    type: REPLICATION_DEPENDENCY
+    criticality: SOFT
+
+  # ── VDI ─────────────────────────────────────
+  - source: vdi-host-1
+    target: vdi-broker
+    type: SERVICE_DEPENDENCY
+    criticality: HARD
+
+  - source: vdi-host-1
+    target: hyp-2
+    type: HOSTING_DEPENDENCY
+    criticality: HARD
+
+  # ── Monitoring ──────────────────────────────
+  - source: mon-1
+    target: core-sw-1
+    type: MONITORING_DEPENDENCY
+    criticality: REDUNDANT
+
+  - source: mon-1
+    target: hyp-1
+    type: MONITORING_DEPENDENCY
+    criticality: REDUNDANT
+
+  - source: mon-1
+    target: hyp-2
+    type: MONITORING_DEPENDENCY
+    criticality: REDUNDANT
+
+  - source: mon-1
+    target: san-1
+    type: MONITORING_DEPENDENCY
+    criticality: REDUNDANT
+
+  # ── Services → Core Network ─────────────────
+  - source: dns-1
+    target: core-sw-1
+    type: NETWORK_PATH
+    criticality: HARD
+
+  - source: dns-2
+    target: core-sw-2
+    type: NETWORK_PATH
+    criticality: HARD
+
+  - source: dc-1
+    target: core-sw-1
+    type: NETWORK_PATH
+    criticality: HARD
+
+  - source: dc-2
+    target: core-sw-2
+    type: NETWORK_PATH
+    criticality: HARD
+
+  - source: dhcp-1
+    target: core-sw-1
+    type: NETWORK_PATH
+    criticality: SOFT
+
+  - source: ca-1
+    target: core-sw-2
+    type: NETWORK_PATH
+    criticality: SOFT
+
+  - source: mon-1
+    target: core-sw-1
+    type: NETWORK_PATH
+    criticality: SOFT

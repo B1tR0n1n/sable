@@ -1,0 +1,388 @@
+#!/usr/bin/env -S python -u
+"""
+SABLE Engine — FastAPI Server
+Serves the dashboard + WebSocket for live inference streaming.
+"""
+
+import asyncio
+import json
+import sys
+import time
+from pathlib import Path
+
+import torch
+import uvicorn
+import yaml
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, JSONResponse
+
+from sable_engine import SableEngine
+
+app = FastAPI(title="SABLE Engine", version="1.0")
+
+# Global engine + state
+engine = SableEngine(device="cuda")
+current_scenario = None
+scenario_data = None
+autoplay_task = None
+autoplay_speed = 1.0
+connected_clients: list[WebSocket] = []
+state_lock = asyncio.Lock()  # Protects engine state from concurrent access
+_scenario_cache: list[dict] | None = None  # Cached scenario metadata
+_topo_nodes: list[dict] = []  # Topology node metadata, indexed by position
+_topo_edges: list[dict] = []  # Topology edges
+
+SCENARIO_DIR = Path(__file__).parent / "scenarios"
+CHECKPOINT_DIR = Path(__file__).parent / "checkpoints"
+DASHBOARD_PATH = Path(__file__).parent / "dashboard.html"
+TOPOLOGY_DIR = Path(__file__).parent.parent / "adapters" / "topologies"
+
+BANNER = """
+\033[38;2;201;162;39m
+  ┌─────────────────────────────────────────┐
+  │                                         │
+  │   S A B L E    E N G I N E    v 1.0     │
+  │                                         │
+  │   Three-Pillar Cognitive Architecture   │
+  │   Temporal Chain Active                 │
+  │                                         │
+  └─────────────────────────────────────────┘
+\033[0m"""
+
+
+def load_scenario(name: str) -> dict:
+    """Load a pre-computed scenario."""
+    path = SCENARIO_DIR / f"{name}.pt"
+    if not path.exists():
+        return None
+    return torch.load(path, weights_only=False)
+
+
+def _load_topology_metadata():
+    """Load topology YAML for node labeling."""
+    global _topo_nodes, _topo_edges
+    if not TOPOLOGY_DIR.exists():
+        return
+    for f in sorted(TOPOLOGY_DIR.glob("*.y*ml")):
+        data = yaml.safe_load(f.read_text())
+        _topo_nodes = data.get("nodes", [])
+        _topo_edges = data.get("edges", [])
+        print(f"  Topology loaded: {f.stem} ({len(_topo_nodes)} nodes, {len(_topo_edges)} edges)")
+        return
+
+
+def node_label(idx: int) -> str:
+    """Get human-readable label for a node index."""
+    if idx < len(_topo_nodes):
+        t = _topo_nodes[idx]
+        return t.get("label", t.get("id", f"Node {idx:02d}"))
+    return f"Node {idx:02d}"
+
+
+def node_id(idx: int) -> str:
+    """Get topology ID for a node index."""
+    if idx < len(_topo_nodes):
+        return _topo_nodes[idx].get("id", f"node-{idx:02d}")
+    return f"node-{idx:02d}"
+
+
+def node_type(idx: int) -> str:
+    """Get component type for a node index."""
+    if idx < len(_topo_nodes):
+        return _topo_nodes[idx].get("type", "UNKNOWN")
+    return "UNKNOWN"
+
+
+def enrich_tick(result: dict) -> dict:
+    """Add topology context to a tick result."""
+    if not _topo_nodes:
+        return result
+    for node in result.get("nodes", []):
+        i = node["id"]
+        node["label"] = node_label(i)
+        node["topo_id"] = node_id(i)
+        node["component_type"] = node_type(i)
+    return result
+
+
+def enrich_recommendations(recs: dict) -> dict:
+    """Replace generic 'Node XX' with infrastructure labels in recommendations."""
+    if not _topo_nodes:
+        return recs
+
+    for action in recs.get("actions", []):
+        # Parse node index from target string like "Node 05"
+        target = action.get("target", "")
+        if target.startswith("Node "):
+            try:
+                idx = int(target.split()[-1])
+                action["target"] = node_label(idx)
+                action["target_id"] = node_id(idx)
+                action["target_type"] = node_type(idx)
+            except (ValueError, IndexError):
+                pass
+
+        # Also enrich reason text
+        reason = action.get("reason", "")
+        for i in range(len(_topo_nodes)):
+            reason = reason.replace(f"Node {i:02d}", node_label(i))
+        action["reason"] = reason
+
+        rec = action.get("recommendation", "")
+        for i in range(len(_topo_nodes)):
+            rec = rec.replace(f"Node {i:02d}", node_label(i))
+        action["recommendation"] = rec
+
+    # Enrich summary
+    summary = recs.get("summary", "")
+    for i in range(len(_topo_nodes)):
+        summary = summary.replace(f"Node {i:02d}", node_label(i))
+    recs["summary"] = summary
+
+    # Add root cause label
+    if recs.get("root_cause") is not None:
+        recs["root_cause_label"] = node_label(recs["root_cause"])
+        recs["root_cause_id"] = node_id(recs["root_cause"])
+        recs["root_cause_type"] = node_type(recs["root_cause"])
+
+    return recs
+
+
+@app.on_event("startup")
+async def startup():
+    print(BANNER)
+    print(f"  Loading checkpoints from {CHECKPOINT_DIR}...", flush=True)
+    engine.load_checkpoints(str(CHECKPOINT_DIR))
+    print(f"  Engine ready on {engine.device}", flush=True)
+
+    # Load topology for node labeling
+    _load_topology_metadata()
+
+    # Pre-load Monday Morning
+    global current_scenario, scenario_data
+    scenario_data = load_scenario("monday_morning")
+    if scenario_data:
+        current_scenario = "monday_morning"
+        engine.reset_state(scenario_data["n_nodes"])
+        print(f"  Default scenario: {current_scenario} ({scenario_data['n_nodes']} nodes, {scenario_data['n_ticks']} ticks)")
+
+    print(f"\n  SABLE Engine running at http://localhost:8080\n", flush=True)
+
+
+# ── REST API ──────────────────────────────────────────────────────────────
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard():
+    if DASHBOARD_PATH.exists():
+        return HTMLResponse(DASHBOARD_PATH.read_text())
+    return HTMLResponse("<h1>SABLE Engine — Dashboard not found</h1>")
+
+
+@app.get("/api/status")
+async def status():
+    return {
+        "engine_loaded": engine.model is not None,
+        "scenario": current_scenario,
+        "scenario_description": scenario_data["description"] if scenario_data else None,
+        "cycle": engine.cycle,
+        "n_nodes": engine.n_nodes,
+        "total_ticks": scenario_data["n_ticks"] if scenario_data else 0,
+        "autoplay": autoplay_task is not None,
+        "autoplay_speed": autoplay_speed,
+        **engine.get_summary(),
+    }
+
+
+@app.get("/api/scenarios")
+async def list_scenarios():
+    global _scenario_cache
+    if _scenario_cache is None:
+        _scenario_cache = []
+        for f in sorted(SCENARIO_DIR.glob("*.pt")):
+            data = torch.load(f, weights_only=False)
+            _scenario_cache.append({
+                "name": f.stem,
+                "description": data.get("description", ""),
+                "n_nodes": data["n_nodes"],
+                "n_ticks": data["n_ticks"],
+            })
+    return _scenario_cache
+
+
+@app.post("/api/scenario")
+async def set_scenario(body: dict):
+    global current_scenario, scenario_data, autoplay_task
+    async with state_lock:
+        name = body.get("name", "monday_morning")
+
+        if autoplay_task:
+            autoplay_task.cancel()
+            autoplay_task = None
+
+        scenario_data = load_scenario(name)
+        if scenario_data is None:
+            return JSONResponse({"error": f"Scenario '{name}' not found"}, status_code=404)
+
+        current_scenario = name
+        engine.reset_state(scenario_data["n_nodes"])
+        return {"loaded": name, "n_nodes": scenario_data["n_nodes"], "n_ticks": scenario_data["n_ticks"]}
+
+
+@app.post("/api/tick")
+async def tick():
+    async with state_lock:
+        if scenario_data is None:
+            return JSONResponse({"error": "No scenario loaded"}, status_code=400)
+        if engine.cycle >= scenario_data["n_ticks"]:
+            return JSONResponse({"error": "Scenario complete", "cycle": engine.cycle}, status_code=400)
+
+        result = await asyncio.to_thread(run_tick)
+        return result
+
+
+@app.post("/api/autoplay")
+async def autoplay(body: dict):
+    global autoplay_task, autoplay_speed
+    async with state_lock:
+        speed = body.get("speed", 1.0)
+        action = body.get("action", "toggle")
+
+        if action == "stop" or (action == "toggle" and autoplay_task is not None):
+            if autoplay_task:
+                autoplay_task.cancel()
+                autoplay_task = None
+            return {"autoplay": False}
+
+        autoplay_speed = max(0.1, min(10.0, speed))
+        if autoplay_task is None:
+            autoplay_task = asyncio.create_task(autoplay_loop())
+        return {"autoplay": True, "speed": autoplay_speed}
+
+
+@app.get("/api/node/{idx}")
+async def get_node_detail(idx: int):
+    report = engine.get_node_report(idx)
+    report["label"] = node_label(idx)
+    report["topo_id"] = node_id(idx)
+    report["component_type"] = node_type(idx)
+    return report
+
+
+@app.get("/api/recommendations")
+async def recommendations():
+    return enrich_recommendations(engine.get_recommendations())
+
+
+@app.post("/api/reset")
+async def reset():
+    global autoplay_task
+    if autoplay_task:
+        autoplay_task.cancel()
+        autoplay_task = None
+    if scenario_data:
+        engine.reset_state(scenario_data["n_nodes"])
+    return {"reset": True, "cycle": 0}
+
+
+# ── Topology ─────────────────────────────────────────────────────────────
+
+
+@app.get("/api/topology")
+async def get_topology():
+    """Serve infrastructure topology for the dashboard overlay."""
+    # Try to find a topology file
+    if not TOPOLOGY_DIR.exists():
+        return {"nodes": [], "edges": []}
+
+    for f in sorted(TOPOLOGY_DIR.glob("*.y*ml")):
+        data = yaml.safe_load(f.read_text())
+        return {
+            "name": f.stem,
+            "nodes": data.get("nodes", []),
+            "edges": data.get("edges", []),
+        }
+    return {"nodes": [], "edges": []}
+
+
+# ── WebSocket ─────────────────────────────────────────────────────────────
+
+@app.websocket("/ws")
+async def websocket_endpoint(ws: WebSocket):
+    await ws.accept()
+    connected_clients.append(ws)
+    try:
+        # Send initial status
+        await ws.send_json({"type": "status", **await _status_dict()})
+        while True:
+            # Keep alive — client can send commands too
+            data = await ws.receive_text()
+            msg = json.loads(data)
+            if msg.get("type") == "tick":
+                result = run_tick()
+                await ws.send_json({"type": "tick", **result})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        if ws in connected_clients:
+            connected_clients.remove(ws)
+
+
+async def _status_dict():
+    return {
+        "scenario": current_scenario,
+        "cycle": engine.cycle,
+        "n_nodes": engine.n_nodes,
+        "total_ticks": scenario_data["n_ticks"] if scenario_data else 0,
+    }
+
+
+async def broadcast(data: dict):
+    """Send to all connected WebSocket clients."""
+    dead = []
+    for ws in connected_clients:
+        try:
+            await ws.send_json(data)
+        except Exception:
+            dead.append(ws)
+    for ws in dead:
+        connected_clients.remove(ws)
+
+
+async def autoplay_loop():
+    """Advance ticks automatically and stream results."""
+    global autoplay_task
+    try:
+        while scenario_data and engine.cycle < scenario_data["n_ticks"]:
+            result = await asyncio.to_thread(run_tick)
+            await broadcast({"type": "tick", **result})
+            await asyncio.sleep(1.0 / autoplay_speed)
+        # Scenario complete
+        await broadcast({"type": "complete", "cycle": engine.cycle})
+    except asyncio.CancelledError:
+        pass
+    finally:
+        autoplay_task = None
+
+
+# ── Core tick logic ───────────────────────────────────────────────────────
+
+def run_tick() -> dict:
+    """Execute one inference cycle on current scenario."""
+    t = engine.cycle
+    n = scenario_data["n_nodes"]
+
+    t0 = time.time()
+    gnn = scenario_data["gnn"][:, t, :n, :].to(engine.device)      # (1, N, GNN_DIM)
+    pomdp = scenario_data["pomdp"][:, t, :n, :].to(engine.device)   # (1, N, POMDP_DIM)
+    mamba = scenario_data["mamba"][:, t, :n, :].to(engine.device)    # (1, N, NODE_FEAT_DIM)
+    gt = scenario_data["ground_truth"][t, :n]                         # (N,)
+
+    result = engine.infer(gnn, pomdp, mamba, ground_truth=gt)
+    result["inference_ms"] = round((time.time() - t0) * 1000, 2)
+    return enrich_tick(result)
+
+
+# ── Main ──────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="warning")
