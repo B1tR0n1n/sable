@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SABLE Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0908;
+  --panel: #0f0e0b;
+  --panel-alt: #161410;
+  --border: #2a2620;
+  --text: #c8bda0;
+  --dim: #7a7060;
+  --bright: #ede5d0;
+  --gold: #c9a227;
+  --dim-gold: #8b7320;
+  --success: #4a7a45;
+  --danger: #a63d2f;
+  --serif: 'Cormorant Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Grid background texture */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 80px 80px;
+  opacity: 0.06;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  grid-template-rows: auto 1fr 1fr auto;
+  gap: 1px;
+  height: 100vh;
+  background: var(--border);
+}
+
+/* Header */
+.header {
+  grid-column: 1 / -1;
+  background: var(--bg);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header h1 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 20px;
+  color: var(--bright);
+  letter-spacing: 2px;
+}
+
+.header h1 span { color: var(--gold); }
+
+.header .status {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.header .status .live { color: var(--success); }
+
+/* Section labels */
+.section-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 5px;
+  color: var(--dim-gold);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* Panels */
+.panel {
+  background: var(--panel);
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+/* Panel 1: Topology Map */
+#topology {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.node-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 4px;
+}
+
+.node-cell {
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.3s;
+  position: relative;
+}
+
+.node-cell:hover { border-color: var(--dim-gold); }
+.node-cell.selected { border-color: var(--gold); border-width: 2px; }
+.node-cell .node-id { font-family: var(--mono); font-size: 9px; color: var(--dim); }
+.node-cell .node-state { font-family: var(--mono); font-size: 7px; margin-top: 2px; }
+
+.node-cell.state-0 { background: rgba(74, 122, 69, 0.25); }
+.node-cell.state-0 .node-state { color: var(--success); }
+.node-cell.state-1 { background: rgba(201, 162, 39, 0.25); }
+.node-cell.state-1 .node-state { color: var(--gold); }
+.node-cell.state-2 { background: rgba(166, 61, 47, 0.40); }
+.node-cell.state-2 .node-state { color: var(--danger); }
+.node-cell.state-3 { background: var(--bg); border-style: dashed; }
+.node-cell.state-3 .node-state { color: var(--dim); }
+.node-cell.state-4 { animation: oscillate 1s ease-in-out infinite; }
+.node-cell.state-4 .node-state { color: var(--gold); }
+
+@keyframes oscillate {
+  0%, 100% { background: rgba(74, 122, 69, 0.3); }
+  50% { background: rgba(166, 61, 47, 0.3); }
+}
+
+.node-cell.flash { animation: flash-gold 0.3s; }
+@keyframes flash-gold {
+  0% { border-color: var(--gold); box-shadow: 0 0 8px rgba(201,162,39,0.4); }
+  100% { border-color: var(--border); box-shadow: none; }
+}
+
+/* Panel 2: System Status */
+#status-panel {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.class-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.class-bar .label { width: 90px; color: var(--dim); }
+.class-bar .bar { height: 14px; border-radius: 2px; margin-right: 8px; transition: width 0.3s; }
+.class-bar .count { color: var(--text); min-width: 24px; }
+
+.bar-0 { background: var(--success); }
+.bar-1 { background: var(--gold); }
+.bar-2 { background: var(--danger); }
+.bar-3 { background: var(--dim); }
+.bar-4 { background: linear-gradient(90deg, var(--success), var(--danger)); }
+
+.routing-row {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+  margin-bottom: 4px;
+}
+.routing-row .expert { color: var(--bright); }
+.routing-row .weight { color: var(--dim-gold); }
+
+.confidence-block {
+  font-family: var(--mono);
+  font-size: 11px;
+  margin-top: 8px;
+}
+.confidence-block .value { color: var(--bright); font-size: 18px; }
+
+/* Panel 3: Timeline */
+#timeline {
+  grid-column: 1;
+  grid-row: 3;
+  overflow-x: auto;
+}
+
+.timeline-grid {
+  display: grid;
+  font-family: var(--mono);
+  font-size: 9px;
+  gap: 1px;
+}
+
+.timeline-grid .row-label {
+  color: var(--dim);
+  padding: 2px 6px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.timeline-grid .tick-cell {
+  width: 18px;
+  height: 16px;
+  border-radius: 1px;
+}
+
+.timeline-grid .tick-header {
+  color: var(--dim);
+  text-align: center;
+  font-size: 8px;
+}
+
+.tick-cell.s0 { background: rgba(74, 122, 69, 0.3); }
+.tick-cell.s1 { background: rgba(201, 162, 39, 0.3); }
+.tick-cell.s2 { background: rgba(166, 61, 47, 0.5); }
+.tick-cell.s3 { background: var(--bg); }
+.tick-cell.s4 { background: linear-gradient(135deg, rgba(74,122,69,0.3), rgba(166,61,47,0.3)); }
+.tick-cell.current { box-shadow: inset 2px 0 0 var(--gold); }
+
+/* Panel 4: Node Detail */
+#node-detail {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.detail-header {
+  font-family: var(--serif);
+  font-size: 18px;
+  color: var(--bright);
+  margin-bottom: 4px;
+}
+
+.detail-state {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.prob-row {
+  font-family: var(--mono);
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 3px;
+}
+.prob-row .plabel { width: 85px; color: var(--dim); }
+.prob-row .pbar { height: 10px; border-radius: 1px; margin-right: 6px; }
+.prob-row .pval { color: var(--text); }
+
+.trajectory-row {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.trajectory-row .t-entry { padding: 1px 4px; border-radius: 2px; }
+.trajectory-row .t-entry.ts0 { background: rgba(74,122,69,0.3); color: var(--success); }
+.trajectory-row .t-entry.ts1 { background: rgba(201,162,39,0.2); color: var(--gold); }
+.trajectory-row .t-entry.ts2 { background: rgba(166,61,47,0.3); color: var(--danger); }
+.trajectory-row .t-entry.ts3 { background: var(--bg); color: var(--dim); }
+.trajectory-row .t-entry.ts4 { color: var(--gold); }
+
+.trend {
+  font-family: var(--mono);
+  font-size: 11px;
+  margin-top: 8px;
+}
+
+/* Controls */
+.controls {
+  grid-column: 1 / -1;
+  background: var(--bg);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.controls button, .controls select {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s;
+}
+
+.controls button:hover { background: var(--gold); color: var(--bg); }
+.controls select { padding: 8px 12px; }
+.controls .cycle-display {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--dim);
+  margin-left: auto;
+}
+.controls .cycle-display span { color: var(--bright); }
+
+.scenario-desc {
+  font-family: var(--serif);
+  font-size: 13px;
+  color: var(--dim);
+  font-style: italic;
+  max-width: 500px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Summary overlay */
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10,9,8,0.9);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.overlay.visible { display: flex; }
+.overlay-content {
+  background: var(--panel);
+  border: 1px solid var(--gold);
+  padding: 32px 48px;
+  max-width: 500px;
+  text-align: center;
+}
+.overlay-content h2 {
+  font-family: var(--serif);
+  color: var(--gold);
+  font-size: 22px;
+  margin-bottom: 16px;
+}
+.overlay-content .stat {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.overlay-content button {
+  margin-top: 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  background: var(--gold);
+  color: var(--bg);
+  border: none;
+  padding: 10px 24px;
+  cursor: pointer;
+}
+
+.rec-item {
+  border-left: 2px solid var(--border);
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+}
+.rec-item.p1 { border-color: var(--danger); }
+.rec-item.p2 { border-color: var(--gold); }
+.rec-item .rec-action {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--bright);
+}
+.rec-item .rec-target {
+  color: var(--gold);
+  font-weight: 600;
+}
+.rec-item .rec-reason {
+  color: var(--dim);
+  margin-top: 2px;
+}
+.rec-item .rec-fix {
+  color: var(--text);
+  margin-top: 2px;
+}
+.rec-summary {
+  font-family: var(--serif);
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <h1><span>SABLE</span> Engine</h1>
+    <div class="status">
+      <span class="live">●</span> <span id="device-status">Loading...</span>
+    </div>
+  </div>
+
+  <!-- Panel 1: Topology Map -->
+  <div class="panel" id="topology">
+    <div class="section-label">01 — topology</div>
+    <div class="node-grid" id="node-grid"></div>
+  </div>
+
+  <!-- Panel 2: System Status -->
+  <div class="panel" id="status-panel">
+    <div class="section-label">02 — class distribution</div>
+    <div id="class-dist"></div>
+    <div class="section-label" style="margin-top:16px">03 — router decisions</div>
+    <div id="routing"></div>
+    <div class="section-label" style="margin-top:16px">04 — confidence</div>
+    <div class="confidence-block" id="confidence"></div>
+  </div>
+
+  <!-- Panel 3: Timeline -->
+  <div class="panel" id="timeline">
+    <div class="section-label">05 — cascade timeline</div>
+    <div class="timeline-grid" id="timeline-grid"></div>
+  </div>
+
+  <!-- Panel 4: Node Detail -->
+  <div class="panel" id="node-detail">
+    <div class="section-label">06 — node detail</div>
+    <div id="detail-content"><span style="color:var(--dim);font-family:var(--mono);font-size:11px">Click a node to inspect</span></div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button id="btn-play" onclick="togglePlay()">▶ play</button>
+    <button onclick="stepTick()">⏭ step</button>
+    <select id="speed-select" onchange="setSpeed(this.value)">
+      <option value="0.5">0.5x</option>
+      <option value="1" selected>1x</option>
+      <option value="2">2x</option>
+      <option value="5">5x</option>
+    </select>
+    <select id="scenario-select" onchange="loadScenario(this.value)"></select>
+    <button onclick="resetScenario()">↻ reset</button>
+    <button onclick="showRecommendations()" style="background:var(--gold);color:var(--bg)">⚡ fix</button>
+    <div class="scenario-desc" id="scenario-desc"></div>
+    <div class="cycle-display">Cycle <span id="cycle-num">0</span> / <span id="total-ticks">0</span></div>
+  </div>
+</div>
+
+<!-- Summary/Recommendations Overlay -->
+<div class="overlay" id="overlay">
+  <div class="overlay-content" style="max-width:650px;text-align:left">
+    <h2 id="overlay-title" style="text-align:center">Scenario Complete</h2>
+    <div id="overlay-stats"></div>
+    <div id="overlay-recs" style="margin-top:16px"></div>
+    <div style="text-align:center">
+      <button onclick="document.getElementById('overlay').classList.remove('visible')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STATE_NAMES = ['healthy','degraded','failed','unreachable','oscillating'];
+const STATE_ABBREV = ['HLT','DGR','FLD','UNR','OSC'];
+let ws = null;
+let playing = false;
+let selectedNode = null;
+let tickHistory = [];
+let nNodes = 0;
+let totalTicks = 0;
+let topoNodes = [];  // Topology metadata indexed by node position
+let topoEdges = [];  // Topology edges
+
+// Infrastructure type → color (matches adapter constants)
+const TYPE_COLORS = {
+  CORE_SWITCH: '#c9a227', ACCESS_SWITCH: '#d4b94e', FIREWALL: '#c94a3a',
+  ROUTER: '#e07040', LOAD_BALANCER: '#c084fc', SERVER_PHYSICAL: '#3a8ec9',
+  SERVER_VIRTUAL: '#5ca8d9', HYPERVISOR: '#2a6ea0', STORAGE_ARRAY: '#8a7f6e',
+  STORAGE_TARGET: '#a09585', VDI_BROKER: '#7c6fb0', VDI_HOST: '#9488c4',
+  DNS_SERVER: '#3aad6e', DHCP_SERVER: '#5cc48a', DOMAIN_CONTROLLER: '#2d8f5a',
+  CERTIFICATE_AUTHORITY: '#1a7040', MONITORING_SERVER: '#e8ddc4',
+  WAN_LINK: '#6b5b3a', INTERNET_GATEWAY: '#8a7040', APPLICATION_SERVICE: '#d4a030',
+};
+
+// ── API calls ──
+
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch('/api/' + path, opts);
+  return r.json();
+}
+
+async function init() {
+  const status = await api('status');
+  nNodes = status.n_nodes;
+  totalTicks = status.total_ticks;
+  document.getElementById('device-status').textContent = status.device + ' • ' + nNodes + ' nodes';
+  document.getElementById('total-ticks').textContent = totalTicks;
+  document.getElementById('scenario-desc').textContent = status.scenario_description || '';
+
+  // Fetch topology metadata (non-blocking — grid works without it)
+  try {
+    const topo = await api('topology');
+    topoNodes = topo.nodes || [];
+    topoEdges = topo.edges || [];
+  } catch(e) { topoNodes = []; topoEdges = []; }
+
+  // Build node grid
+  buildNodeGrid(nNodes);
+
+  // Load scenario list
+  const scenarios = await api('scenarios');
+  const sel = document.getElementById('scenario-select');
+  sel.innerHTML = '';
+  scenarios.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.name;
+    opt.textContent = s.name.replace(/_/g, ' ');
+    if (s.name === status.scenario) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  // Connect WebSocket
+  connectWS();
+}
+
+let wsReconnectDelay = 2000;
+
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(proto + '//' + location.host + '/ws');
+  ws.onopen = () => { wsReconnectDelay = 2000; };
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'tick') handleTick(msg);
+    if (msg.type === 'complete') showComplete();
+  };
+  ws.onerror = (err) => { console.error('WebSocket error:', err); };
+  ws.onclose = () => {
+    setTimeout(connectWS, wsReconnectDelay);
+    wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000);
+  };
+}
+
+function buildNodeGrid(n) {
+  const grid = document.getElementById('node-grid');
+  grid.innerHTML = '';
+  const hasTopo = topoNodes.length >= n;
+  for (let i = 0; i < n; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'node-cell state-0';
+    cell.id = 'node-' + i;
+
+    if (hasTopo && topoNodes[i]) {
+      const t = topoNodes[i];
+      const typeColor = TYPE_COLORS[t.type] || '#8a7f6e';
+      const shortLabel = (t.label || t.id || '').slice(0, 12);
+      const shortType = (t.type || '').replace(/_/g, ' ').toLowerCase().slice(0, 14);
+      cell.innerHTML =
+        '<div class="node-id" style="color:' + typeColor + '">' + shortLabel + '</div>' +
+        '<div class="node-state">HLT</div>' +
+        '<div style="font-family:var(--mono);font-size:6px;color:var(--dim);margin-top:1px">' + shortType + '</div>';
+      cell.title = t.id + ' — ' + t.type + ' [' + (t.tier || '') + ']';
+      cell.style.borderColor = typeColor + '40';
+    } else {
+      cell.innerHTML =
+        '<div class="node-id">' + String(i).padStart(2,'0') + '</div>' +
+        '<div class="node-state">HLT</div>';
+    }
+    cell.onclick = () => selectNode(i);
+    grid.appendChild(cell);
+  }
+}
+
+// ── Tick handling ──
+
+function handleTick(data) {
+  tickHistory.push(data);
+  document.getElementById('cycle-num').textContent = data.cycle;
+
+  // Update nodes
+  const prevStates = tickHistory.length > 1 ? tickHistory[tickHistory.length-2].nodes.map(n=>n.state_idx) : null;
+
+  data.nodes.forEach((node, i) => {
+    const cell = document.getElementById('node-' + i);
+    if (!cell) return;
+
+    // Remove old state class, add new
+    cell.className = 'node-cell state-' + node.state_idx;
+    if (i === selectedNode) cell.classList.add('selected');
+
+    // Flash on state change
+    if (prevStates && prevStates[i] !== node.state_idx) {
+      cell.classList.add('flash');
+      setTimeout(() => cell.classList.remove('flash'), 300);
+    }
+
+    // Confidence as opacity
+    cell.style.opacity = 0.5 + node.confidence * 0.5;
+    cell.querySelector('.node-state').textContent = STATE_ABBREV[node.state_idx];
+
+    // Update label from enriched tick data (first tick only — labels don't change)
+    if (node.label && tickHistory.length === 1) {
+      const idEl = cell.querySelector('.node-id');
+      if (idEl) idEl.textContent = node.label.slice(0, 12);
+    }
+  });
+
+  // Update class distribution
+  updateClassDist(data.class_counts);
+  updateRouting(data.routing);
+  updateConfidence(data);
+  updateTimeline();
+
+  // Update node detail if selected
+  if (selectedNode !== null) updateDetail(selectedNode);
+}
+
+function updateClassDist(counts) {
+  const el = document.getElementById('class-dist');
+  const max = Math.max(1, ...Object.values(counts));
+  el.innerHTML = STATE_NAMES.map((name, i) => {
+    const count = counts[name] || 0;
+    const width = Math.round((count / max) * 150);
+    return '<div class="class-bar"><span class="label">' + name + '</span>' +
+      '<div class="bar bar-' + i + '" style="width:' + width + 'px"></div>' +
+      '<span class="count">' + count + '</span></div>';
+  }).join('');
+}
+
+function updateRouting(routing) {
+  const el = document.getElementById('routing');
+  el.innerHTML = STATE_NAMES.map(name => {
+    const r = routing[name];
+    if (!r) return '<div class="routing-row">' + name + ' → <span class="expert">—</span></div>';
+    return '<div class="routing-row">' + name + ' → <span class="expert">' + r.expert +
+      '</span> <span class="weight">(' + Math.round(r.weight*100) + '%)</span></div>';
+  }).join('');
+}
+
+function updateConfidence(data) {
+  const el = document.getElementById('confidence');
+  el.innerHTML = '<div class="value">' + data.avg_confidence.toFixed(3) + '</div>' +
+    '<div style="margin-top:6px;font-size:10px;color:var(--dim)">Lowest: Node ' +
+    String(data.min_confidence.node).padStart(2,'0') + ' — ' + data.min_confidence.value.toFixed(3) + '</div>' +
+    '<div style="font-size:10px;color:var(--dim)">Highest: Node ' +
+    String(data.max_confidence.node).padStart(2,'0') + ' — ' + data.max_confidence.value.toFixed(3) + '</div>';
+}
+
+function updateTimeline() {
+  if (tickHistory.length === 0) return;
+
+  // Find nodes that changed state
+  const changedNodes = new Set();
+  for (let t = 1; t < tickHistory.length; t++) {
+    for (let i = 0; i < nNodes; i++) {
+      if (tickHistory[t].nodes[i].state_idx !== tickHistory[t-1].nodes[i].state_idx) {
+        changedNodes.add(i);
+      }
+    }
+  }
+
+  // Also add currently non-healthy
+  const latest = tickHistory[tickHistory.length-1];
+  latest.nodes.forEach((n,i) => { if (n.state_idx !== 0) changedNodes.add(i); });
+
+  const nodes = [...changedNodes].sort((a,b) => {
+    // Sort by first change tick
+    for (let t = 1; t < tickHistory.length; t++) {
+      const aChanged = tickHistory[t].nodes[a].state_idx !== tickHistory[t-1].nodes[a].state_idx;
+      const bChanged = tickHistory[t].nodes[b].state_idx !== tickHistory[t-1].nodes[b].state_idx;
+      if (aChanged && !bChanged) return -1;
+      if (!aChanged && bChanged) return 1;
+    }
+    return a - b;
+  });
+
+  if (nodes.length === 0) return;
+
+  const grid = document.getElementById('timeline-grid');
+  const cols = tickHistory.length + 1; // +1 for label column
+  const labelWidth = topoNodes.length > 0 ? '100px' : '60px';
+  grid.style.gridTemplateColumns = labelWidth + ' repeat(' + tickHistory.length + ', 18px)';
+
+  let html = '<div class="row-label"></div>';
+  for (let t = 0; t < tickHistory.length; t++) {
+    html += '<div class="tick-header">' + t + '</div>';
+  }
+
+  nodes.forEach(nodeIdx => {
+    const tLabel = (topoNodes[nodeIdx] && topoNodes[nodeIdx].id) ? topoNodes[nodeIdx].id : String(nodeIdx).padStart(2,'0');
+    html += '<div class="row-label">' + tLabel + '</div>';
+    for (let t = 0; t < tickHistory.length; t++) {
+      const s = tickHistory[t].nodes[nodeIdx].state_idx;
+      const isCurrent = t === tickHistory.length - 1;
+      html += '<div class="tick-cell s' + s + (isCurrent ? ' current' : '') + '"></div>';
+    }
+  });
+
+  grid.innerHTML = html;
+}
+
+// ── Node detail ──
+
+function selectNode(idx) {
+  // Deselect previous
+  if (selectedNode !== null) {
+    const prev = document.getElementById('node-' + selectedNode);
+    if (prev) prev.classList.remove('selected');
+  }
+  selectedNode = idx;
+  const cell = document.getElementById('node-' + idx);
+  if (cell) cell.classList.add('selected');
+  updateDetail(idx);
+}
+
+function updateDetail(idx) {
+  if (tickHistory.length === 0) return;
+  const latest = tickHistory[tickHistory.length - 1];
+  const node = latest.nodes[idx];
+  const el = document.getElementById('detail-content');
+
+  const probBars = STATE_NAMES.map((name, c) => {
+    const val = node.probs[name];
+    const width = Math.round(val * 120);
+    return '<div class="prob-row"><span class="plabel">' + name + '</span>' +
+      '<div class="pbar bar-' + c + '" style="width:' + width + 'px"></div>' +
+      '<span class="pval">' + val.toFixed(3) + '</span></div>';
+  }).join('');
+
+  const trajectory = tickHistory.map((t, tick) => {
+    const s = t.nodes[idx].state_idx;
+    return '<span class="t-entry ts' + s + '">' + STATE_ABBREV[s] + '</span>';
+  }).join('');
+
+  const trendArrow = node.trend === 'improving' ? '↑' : node.trend === 'deteriorating' ? '↓' : '→';
+  const trendColor = node.trend === 'improving' ? 'var(--success)' : node.trend === 'deteriorating' ? 'var(--danger)' : 'var(--dim)';
+
+  // Topology metadata header — from pre-loaded YAML or enriched tick data
+  const hasTopo = topoNodes.length > idx && topoNodes[idx];
+  const topo = hasTopo ? topoNodes[idx] : null;
+  // Fall back to enriched tick data if topology YAML wasn't pre-loaded
+  const tickType = node.component_type || (topo && topo.type) || null;
+  const typeColor = tickType ? (TYPE_COLORS[tickType] || 'var(--dim)') : 'var(--dim)';
+  const headerLabel = node.label || (topo && (topo.label || topo.id)) || 'Node ' + String(idx).padStart(2,'0');
+  const displayType = tickType || (topo && topo.type) || null;
+  const displayId = node.topo_id || (topo && topo.id) || null;
+  const displayTier = topo ? topo.tier : null;
+  const topoMeta = displayType ?
+    '<div style="font-family:var(--mono);font-size:10px;color:' + typeColor + ';margin-bottom:2px">' +
+    displayType.replace(/_/g, ' ') + '</div>' +
+    '<div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:8px">' +
+    (displayTier ? 'Tier: ' + displayTier + ' &nbsp; ' : '') +
+    (displayId ? 'ID: ' + displayId : '') + '</div>' : '';
+
+  // Connected dependencies from topology
+  let depsHtml = '';
+  if (topo) {
+    const deps = topoEdges.filter(e => e.source === topo.id || e.target === topo.id);
+    if (deps.length > 0) {
+      depsHtml = '<div style="font-family:var(--mono);font-size:9px;color:var(--dim-gold);margin-top:12px;letter-spacing:3px">DEPENDENCIES</div>';
+      deps.forEach(e => {
+        const dir = e.source === topo.id ? '→' : '←';
+        const other = e.source === topo.id ? e.target : e.source;
+        const depType = (e.type || 'NETWORK_PATH').replace(/_/g, ' ').toLowerCase();
+        const crit = e.criticality || 'SOFT';
+        const critColor = crit === 'HARD' ? 'var(--danger)' : crit === 'REDUNDANT' ? 'var(--dim)' : 'var(--gold)';
+        depsHtml += '<div style="font-family:var(--mono);font-size:9px;margin:2px 0;color:var(--text)">' +
+          dir + ' <span style="color:var(--bright)">' + other + '</span> ' +
+          '<span style="color:var(--dim)">' + depType + '</span> ' +
+          '<span style="color:' + critColor + '">' + crit + '</span></div>';
+      });
+    }
+  }
+
+  el.innerHTML =
+    '<div class="detail-header">' + headerLabel + '</div>' +
+    topoMeta +
+    '<div class="detail-state" style="color:' + ['var(--success)','var(--gold)','var(--danger)','var(--dim)','var(--gold)'][node.state_idx] + '">' +
+    node.state.toUpperCase() + '</div>' +
+    '<div style="font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:12px">Confidence: ' + node.confidence.toFixed(3) + '</div>' +
+    probBars +
+    depsHtml +
+    '<div style="font-family:var(--mono);font-size:9px;color:var(--dim-gold);margin-top:12px;letter-spacing:3px">TRAJECTORY</div>' +
+    '<div class="trajectory-row">' + trajectory + '</div>' +
+    '<div class="trend" style="color:' + trendColor + '">Trend: ' + node.trend.toUpperCase() + ' ' + trendArrow + '</div>';
+}
+
+// ── Controls ──
+
+async function togglePlay() {
+  playing = !playing;
+  document.getElementById('btn-play').textContent = playing ? '⏸ pause' : '▶ play';
+  const speed = parseFloat(document.getElementById('speed-select').value);
+  await api('autoplay', 'POST', { action: playing ? 'start' : 'stop', speed });
+}
+
+async function stepTick() {
+  const data = await api('tick', 'POST');
+  if (!data.error) handleTick(data);
+}
+
+function setSpeed(val) {
+  if (playing) api('autoplay', 'POST', { action: 'start', speed: parseFloat(val) });
+}
+
+async function loadScenario(name) {
+  playing = false;
+  document.getElementById('btn-play').textContent = '▶ play';
+  tickHistory = [];
+  selectedNode = null;
+
+  const result = await api('scenario', 'POST', { name });
+  nNodes = result.n_nodes;
+  totalTicks = result.n_ticks;
+  document.getElementById('total-ticks').textContent = totalTicks;
+  document.getElementById('cycle-num').textContent = '0';
+  buildNodeGrid(nNodes);
+  document.getElementById('timeline-grid').innerHTML = '';
+  document.getElementById('detail-content').innerHTML = '<span style="color:var(--dim);font-family:var(--mono);font-size:11px">Click a node to inspect</span>';
+
+  const status = await api('status');
+  document.getElementById('scenario-desc').textContent = status.scenario_description || '';
+}
+
+async function resetScenario() {
+  playing = false;
+  document.getElementById('btn-play').textContent = '▶ play';
+  tickHistory = [];
+  selectedNode = null;
+  await api('reset', 'POST');
+  document.getElementById('cycle-num').textContent = '0';
+  buildNodeGrid(nNodes);
+  document.getElementById('timeline-grid').innerHTML = '';
+  document.getElementById('detail-content').innerHTML = '<span style="color:var(--dim);font-family:var(--mono);font-size:11px">Click a node to inspect</span>';
+  document.getElementById('class-dist').innerHTML = '';
+  document.getElementById('routing').innerHTML = '';
+  document.getElementById('confidence').innerHTML = '';
+}
+
+function showComplete() {
+  playing = false;
+  document.getElementById('btn-play').textContent = '▶ play';
+
+  let correctTotal = 0, total = 0;
+  tickHistory.forEach(t => {
+    if (t.accuracy !== null) { correctTotal += t.accuracy * nNodes; total += nNodes; }
+  });
+  const acc = total > 0 ? (correctTotal / total).toFixed(3) : 'N/A';
+
+  document.getElementById('overlay-title').textContent = 'Scenario Complete';
+  const stats = document.getElementById('overlay-stats');
+  stats.innerHTML =
+    '<div class="stat">Cycles completed: ' + tickHistory.length + '</div>' +
+    '<div class="stat">Average accuracy: ' + acc + '</div>' +
+    '<div class="stat">Final confidence: ' + (tickHistory.length > 0 ? tickHistory[tickHistory.length-1].avg_confidence.toFixed(3) : 'N/A') + '</div>';
+
+  // Auto-fetch recommendations
+  fetchRecommendations();
+  document.getElementById('overlay').classList.add('visible');
+}
+
+async function showRecommendations() {
+  document.getElementById('overlay-title').textContent = 'Recommended Actions';
+  document.getElementById('overlay-stats').innerHTML = '';
+  await fetchRecommendations();
+  document.getElementById('overlay').classList.add('visible');
+}
+
+async function fetchRecommendations() {
+  const recs = await api('recommendations');
+  const el = document.getElementById('overlay-recs');
+
+  if (!recs.actions || recs.actions.length === 0) {
+    el.innerHTML = '<div class="rec-summary">' + recs.summary + '</div>';
+    return;
+  }
+
+  let html = '<div class="rec-summary">' + recs.summary + '</div>';
+  html += '<div class="section-label" style="margin-top:12px">07 — recommended actions</div>';
+
+  recs.actions.forEach(a => {
+    const pClass = a.priority <= 1 ? 'p1' : (a.priority <= 3 ? 'p2' : '');
+    const typeTag = a.target_type ? ' <span style="color:var(--dim);font-size:9px">[' + a.target_type.replace(/_/g,' ') + ']</span>' : '';
+    html += '<div class="rec-item ' + pClass + '">' +
+      '<div><span class="rec-action">' + a.priority + '. ' + a.action + '</span> → <span class="rec-target">' + a.target + '</span>' + typeTag + '</div>' +
+      '<div class="rec-reason">' + a.reason + '</div>' +
+      '<div class="rec-fix">↳ ' + a.recommendation + '</div>' +
+      '</div>';
+  });
+
+  el.innerHTML = html;
+}
+
+// Boot
+init();
+</script>
+</body>
+</html>

@@ -1,3 +1,4 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
@@ -5,13 +6,33 @@ __pycache__/
 dist/
 build/
 .eggs/
+
+# Model weights (large binary files — don't version)
 *.gguf
 *.bin
 *.safetensors
-data/
+*.pt
+
+# Checkpoint directories
+**/checkpoints*/
+docker/scenarios/
+
+# Training data (large, generated)
+pillar1/data/
+pillar3/data/
+/data/
+
+# External models
 models/
-*.tar.gz
+
+# Environment
 .env
-node_modules/
-.DS_Store
+*.tar.gz
 *.log
+
+# Node / Frontend
+node_modules/
+dashboard/dist/
+
+# OS
+.DS_Store
