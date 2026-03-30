@@ -92,7 +92,7 @@ Write a 2-4 sentence operational status update:"""
 
         return self._complete(prompt)
 
-    def explain_recommendations(self, recs: dict, max_tokens: int = 512) -> str:
+    def explain_recommendations(self, recs: dict, max_tokens: int = 300) -> str:
         """Generate a natural language incident report from recommendations.
 
         Args:
@@ -117,12 +117,12 @@ Write a 2-4 sentence operational status update:"""
                 facts += f"    Reason: {a['reason']}\n"
                 facts += f"    Fix: {a['recommendation']}\n"
 
-        prompt = f"""Write a brief incident report (3-4 paragraphs max) based on these findings. Use the exact component names. No placeholders. No bullet points. Plain prose only.
+        prompt = f"""Write a 2 paragraph incident report based on these findings. Use exact component names. No bullet points. No markdown. Keep it under 150 words.
 
 {facts}
 
-Incident Report:
-Automated diagnostics detected"""
+Report:
+Diagnostics detected"""
 
         return self._complete(prompt, max_tokens=max_tokens)
 
@@ -203,7 +203,18 @@ AFTER-ACTION REPORT:"""
             )
             resp.raise_for_status()
             data = resp.json()
-            return data.get("content", "").strip()
+            raw = data.get("content", "").strip()
+            return self._trim_to_sentence(raw)
         except requests.RequestException as e:
             log.warning("Nemotron completion failed: %s", e)
             return f"[Nemotron unavailable: {e}]"
+
+    @staticmethod
+    def _trim_to_sentence(text: str) -> str:
+        """Trim text to the last complete sentence."""
+        text = text.strip()
+        # Find last sentence-ending punctuation
+        for i in range(len(text) - 1, -1, -1):
+            if text[i] in '.!':
+                return text[:i + 1]
+        return text
