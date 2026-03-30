@@ -185,6 +185,58 @@ AFTER-ACTION REPORT:"""
 
         return self._complete(prompt)
 
+    def chat(self, user_message: str, sable_context: dict, history: list[dict] = None) -> str:
+        """Chat with Nemotron about SABLE's findings.
+
+        Args:
+            user_message: The operator's question
+            sable_context: Current SABLE state (recommendations, tick data, etc.)
+            history: Previous chat messages [{role, content}, ...]
+        """
+        # Build the system context from SABLE data
+        summary = sable_context.get("summary", "")
+        actions = sable_context.get("actions", [])
+
+        system = f"""You are an infrastructure operations assistant. You have access to SABLE's real-time diagnostic data for this environment. Answer the operator's questions using only the data provided. Be direct and specific. Use exact component names.
+
+Current SABLE findings:
+{summary}
+
+"""
+        if actions:
+            system += "Recommended actions:\n"
+            for a in actions[:6]:
+                system += f"  {a['priority']}. {a['action']} -> {a['target']}"
+                if a.get('target_type'):
+                    system += f" [{a['target_type']}]"
+                system += f"\n    {a['reason']}\n"
+
+        # Build messages in chat format
+        messages = [{"role": "system", "content": system}]
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": user_message})
+
+        try:
+            resp = self._session.post(
+                f"{self.llama_url}/v1/chat/completions",
+                json={
+                    "messages": messages,
+                    "max_tokens": 300,
+                    "temperature": 0.4,
+                    "top_p": 0.9,
+                    "repeat_penalty": 1.2,
+                },
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            return self._trim_to_sentence(content.strip())
+        except requests.RequestException as e:
+            log.warning("Nemotron chat failed: %s", e)
+            return f"[Nemotron unavailable: {e}]"
+
     def _complete(self, prompt: str, max_tokens: int = 512) -> str:
         """Call llama-server completion API."""
         try:

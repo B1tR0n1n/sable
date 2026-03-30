@@ -550,6 +550,29 @@ async def nemotron_report():
     }
 
 
+@app.post("/api/nemotron/chat")
+async def nemotron_chat(body: dict):
+    """Chat with Nemotron about SABLE's findings."""
+    user_message = body.get("message", "")
+    history = body.get("history", [])
+
+    if not user_message:
+        return {"error": "No message provided"}
+
+    if not engine.history:
+        return {"error": "Run at least one tick first"}
+
+    recs = enrich_recommendations(engine.get_recommendations())
+    reply = await asyncio.to_thread(
+        nemotron.chat, user_message, recs, history
+    )
+
+    return {
+        "reply": reply,
+        "nemotron_available": nemotron.is_available(),
+    }
+
+
 @app.post("/api/nemotron/after_action")
 async def nemotron_after_action():
     """Generate an after-action report from a completed or in-progress scenario."""

@@ -463,7 +463,7 @@ body::before {
     <button onclick="resetScenario()">↻ reset</button>
     <button onclick="showRecommendations()" style="background:var(--gold);color:var(--bg)">⚡ fix</button>
     <button id="btn-mc" onclick="toggleMC()" title="MC Dropout: variance-based honest confidence">MC off</button>
-    <button id="btn-nemotron" onclick="requestNemotronReport()" title="Generate natural language incident report via Nemotron" style="background:var(--panel-alt);border-color:var(--dim-gold);color:var(--dim-gold)">LLM report</button>
+    <button id="btn-chat" onclick="toggleChat()" title="Chat with Nemotron about SABLE findings" style="background:var(--panel-alt);border-color:var(--dim-gold);color:var(--dim-gold)">ASK</button>
     <div class="scenario-desc" id="scenario-desc"></div>
     <div class="cycle-display">Cycle <span id="cycle-num">0</span> / <span id="total-ticks">0</span></div>
   </div>
@@ -478,6 +478,31 @@ body::before {
     <div style="text-align:center">
       <button onclick="document.getElementById('overlay').classList.remove('visible')">Close</button>
     </div>
+  </div>
+</div>
+
+<!-- Chat Panel -->
+<div id="chat-panel" style="
+  display:none; position:fixed; bottom:60px; right:20px; width:400px; max-height:500px;
+  background:var(--panel); border:1px solid var(--gold); border-radius:6px;
+  z-index:200; flex-direction:column; font-family:var(--mono);
+">
+  <div style="padding:10px 14px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center">
+    <span style="font-size:11px; color:var(--gold); letter-spacing:2px">SABLE + NEMOTRON</span>
+    <span onclick="toggleChat()" style="cursor:pointer; color:var(--dim); font-size:14px">x</span>
+  </div>
+  <div id="chat-messages" style="flex:1; overflow-y:auto; padding:10px 14px; max-height:350px; min-height:200px">
+    <div style="color:var(--dim); font-size:11px">Ask questions about SABLE's diagnostic findings.</div>
+  </div>
+  <div style="padding:8px; border-top:1px solid var(--border); display:flex; gap:6px">
+    <input id="chat-input" type="text" placeholder="Ask about the incident..."
+      onkeydown="if(event.key==='Enter')sendChat()"
+      style="flex:1; background:var(--bg); border:1px solid var(--border); border-radius:3px;
+             padding:8px 10px; color:var(--text); font-family:var(--mono); font-size:11px; outline:none">
+    <button onclick="sendChat()" style="
+      font-family:var(--mono); font-size:10px; padding:8px 12px;
+      background:var(--gold); color:var(--bg); border:none; border-radius:3px; cursor:pointer;
+    ">SEND</button>
   </div>
 </div>
 
@@ -922,6 +947,61 @@ async function showRecommendations() {
   document.getElementById('overlay-stats').innerHTML = '';
   await fetchRecommendations();
   document.getElementById('overlay').classList.add('visible');
+}
+
+let chatHistory = [];
+let chatOpen = false;
+
+function toggleChat() {
+  chatOpen = !chatOpen;
+  const panel = document.getElementById('chat-panel');
+  panel.style.display = chatOpen ? 'flex' : 'none';
+  if (chatOpen) document.getElementById('chat-input').focus();
+}
+
+function addChatMessage(role, text) {
+  const el = document.getElementById('chat-messages');
+  const color = role === 'user' ? 'var(--bright)' : 'var(--text)';
+  const label = role === 'user' ? 'YOU' : 'NEMOTRON';
+  const labelColor = role === 'user' ? 'var(--dim)' : 'var(--gold)';
+  el.innerHTML += '<div style="margin-bottom:10px"><div style="font-size:9px;color:' + labelColor + ';letter-spacing:2px;margin-bottom:2px">' +
+    label + '</div><div style="font-size:12px;color:' + color + ';line-height:1.5;font-family:var(--serif)">' +
+    text + '</div></div>';
+  el.scrollTop = el.scrollHeight;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  input.value = '';
+  addChatMessage('user', msg);
+  chatHistory.push({role: 'user', content: msg});
+
+  addChatMessage('assistant', '<span style="color:var(--dim)">Thinking...</span>');
+
+  const result = await api('nemotron/chat', 'POST', {
+    message: msg,
+    history: chatHistory.slice(-10),
+  });
+
+  // Remove "Thinking..." message
+  const el = document.getElementById('chat-messages');
+  el.removeChild(el.lastChild);
+
+  if (result.error) {
+    addChatMessage('assistant', result.error);
+    return;
+  }
+
+  if (!result.nemotron_available) {
+    addChatMessage('assistant', 'Nemotron not running. Start llama-server on port 8081.');
+    return;
+  }
+
+  addChatMessage('assistant', result.reply);
+  chatHistory.push({role: 'assistant', content: result.reply});
 }
 
 async function requestNemotronReport() {
