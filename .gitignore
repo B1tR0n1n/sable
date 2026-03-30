@@ -38,5 +38,9 @@ dashboard/dist/
 SABLE_PLAN.md
 SABLE_PLANFULL.md
 
+# Sonar
+sonar-results.json
+.sonar/
+
 # OS
 .DS_Store
