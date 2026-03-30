@@ -69,6 +69,7 @@ class LoRALinear(nn.Module):
 
         # A: initialized with kaiming, B: initialized with zeros
         # This means LoRA starts as identity (zero contribution)
+        self.enabled = True
         self.lora_A = nn.Parameter(torch.empty(in_f, rank))
         self.lora_B = nn.Parameter(torch.zeros(rank, out_f))
         nn.init.kaiming_uniform_(self.lora_A)
@@ -79,6 +80,8 @@ class LoRALinear(nn.Module):
 
     def forward(self, x):
         base = self.frozen(x)
+        if not self.enabled:
+            return base
         lora = (x @ self.lora_A @ self.lora_B) * self.scale
         return base + lora
 
@@ -145,6 +148,13 @@ def apply_lora(model, rank: int = 8, alpha: float = 16.0):
         _wrap_sequential(rev.transition_head)
 
     return lora_params
+
+
+def set_lora_enabled(model, enabled: bool):
+    """Toggle all LoRA adapters on or off at runtime. Instant, no reload."""
+    for module in model.modules():
+        if isinstance(module, LoRALinear):
+            module.enabled = enabled
 
 
 def load_scenario_as_training_data(scenario_path: str | Path):

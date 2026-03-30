@@ -462,6 +462,7 @@ body::before {
     <select id="scenario-select" onchange="loadScenario(this.value)"></select>
     <button onclick="resetScenario()">↻ reset</button>
     <button onclick="showRecommendations()" style="background:var(--gold);color:var(--bg)">⚡ fix</button>
+    <button id="btn-lora" onclick="toggleLoRA()" title="Toggle LoRA adapter (customer fine-tuning)" style="border-color:var(--success);color:var(--success)">ADAPTER on</button>
     <button id="btn-mc" onclick="toggleMC()" title="MC Dropout: variance-based honest confidence">MC off</button>
     <button id="btn-chat" onclick="toggleChat()" title="Chat with Nemotron about SABLE findings" style="background:var(--panel-alt);border-color:var(--dim-gold);color:var(--dim-gold)">ASK</button>
     <div class="scenario-desc" id="scenario-desc"></div>
@@ -896,6 +897,16 @@ async function loadScenario(name) {
   // Reset chat
   chatHistory = [];
   document.getElementById('chat-messages').innerHTML = '<div style="color:var(--dim); font-size:11px">Ask questions about SABLE\'s diagnostic findings.</div>';
+}
+
+let loraEnabled = true;
+async function toggleLoRA() {
+  loraEnabled = !loraEnabled;
+  await api('lora', 'POST', { enabled: loraEnabled });
+  const btn = document.getElementById('btn-lora');
+  btn.textContent = loraEnabled ? 'ADAPTER on' : 'ADAPTER off';
+  btn.style.borderColor = loraEnabled ? 'var(--success)' : 'var(--danger)';
+  btn.style.color = loraEnabled ? 'var(--success)' : 'var(--danger)';
 }
 
 let mcEnabled = false;

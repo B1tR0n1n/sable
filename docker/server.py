@@ -203,6 +203,7 @@ async def status():
         "total_ticks": scenario_data["n_ticks"] if scenario_data else 0,
         "autoplay": autoplay_task is not None,
         "autoplay_speed": autoplay_speed,
+        "lora_enabled": engine.lora_active,
         "mc_dropout": mc_dropout_samples > 0,
         "mc_samples": mc_dropout_samples,
         "nemotron": nemotron.is_available(),
@@ -399,6 +400,14 @@ def run_tick() -> dict:
     result = engine.infer(gnn, pomdp, mamba, ground_truth=gt, mc_samples=mc_dropout_samples)
     result["inference_ms"] = round((time.time() - t0) * 1000, 2)
     return enrich_tick(result)
+
+
+@app.post("/api/lora")
+async def toggle_lora(body: dict):
+    """Toggle LoRA adapter on/off for before/after demo."""
+    enabled = bool(body.get("enabled", True))
+    engine.toggle_lora(enabled)
+    return {"lora_enabled": engine.lora_active}
 
 
 @app.post("/api/mc_dropout")

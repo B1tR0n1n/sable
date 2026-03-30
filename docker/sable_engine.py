@@ -101,6 +101,12 @@ class SableEngine:
         self.model = model
         return True
 
+    def toggle_lora(self, enabled: bool):
+        """Toggle LoRA adapter on/off at runtime. Instant, no reload."""
+        from lora_finetune import set_lora_enabled
+        set_lora_enabled(self.model, enabled)
+        self.lora_active = enabled
+
     def reset_state(self, n_nodes: int):
         """Reset temporal state for a new scenario."""
         self.n_nodes = n_nodes
