@@ -92,7 +92,7 @@ Write a 2-4 sentence operational status update:"""
 
         return self._complete(prompt)
 
-    def explain_recommendations(self, recs: dict, max_tokens: int = 256) -> str:
+    def explain_recommendations(self, recs: dict, max_tokens: int = 512) -> str:
         """Generate a natural language incident report from recommendations.
 
         Args:
