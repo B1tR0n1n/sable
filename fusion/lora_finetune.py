@@ -21,6 +21,7 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -92,29 +93,56 @@ class LoRALinear(nn.Module):
         return merged
 
 
-def apply_lora(model: SharpRoutedFusion, rank: int = 8, alpha: float = 16.0):
-    """Wrap the expert head linear layers with LoRA adapters.
+def apply_lora(model, rank: int = 8, alpha: float = 16.0):
+    """Wrap linear layers with LoRA adapters.
 
-    Only adapts the final classification layers in each expert + router.
-    Projection layers and cross-attention stay frozen.
+    Works on both SharpRoutedFusion (base) and TemporalChainFusion (full).
+    Adapts expert heads, router, and temporal chain components.
     """
     lora_params = []
 
-    for expert_name in ["gnn_expert", "pomdp_expert", "mamba_expert", "fusion_expert"]:
-        expert = getattr(model, expert_name)
-        # Wrap each Linear in the Sequential
-        for i, layer in enumerate(expert):
+    def _wrap_sequential(seq):
+        """Apply LoRA to all Linear layers in a Sequential."""
+        for i, layer in enumerate(seq):
             if isinstance(layer, nn.Linear):
                 lora = LoRALinear(layer, rank=rank, alpha=alpha)
-                expert[i] = lora
+                seq[i] = lora
                 lora_params.extend([lora.lora_A, lora.lora_B])
 
-    # Router too
-    for i, layer in enumerate(model.router):
+    def _wrap_linear(module, attr):
+        """Apply LoRA to a single Linear attribute."""
+        layer = getattr(module, attr)
         if isinstance(layer, nn.Linear):
             lora = LoRALinear(layer, rank=rank, alpha=alpha)
-            model.router[i] = lora
+            setattr(module, attr, lora)
             lora_params.extend([lora.lora_A, lora.lora_B])
+
+    # Get the base fusion (might be wrapped in TemporalChainFusion)
+    if hasattr(model, 'base_fusion'):
+        base = model.base_fusion
+    else:
+        base = model
+
+    # Expert heads + router
+    for name in ["gnn_expert", "pomdp_expert", "mamba_expert", "fusion_expert"]:
+        _wrap_sequential(getattr(base, name))
+    _wrap_sequential(base.router)
+
+    # Temporal chain components (if present)
+    if hasattr(model, 'context_mixer'):
+        mixer = model.context_mixer
+        _wrap_sequential(mixer.traj_encoder)
+        for gate_name in ['gnn_gate', 'pomdp_gate', 'mamba_gate']:
+            gate = getattr(mixer, gate_name)
+            _wrap_linear(gate, 'context_linear1')
+            _wrap_linear(gate, 'context_linear2')
+            _wrap_sequential(gate.gate)
+
+    if hasattr(model, 'revision_gate'):
+        rev = model.revision_gate
+        _wrap_sequential(rev.revision_head)
+        _wrap_sequential(rev.confidence_head)
+        _wrap_sequential(rev.transition_head)
 
     return lora_params
 
@@ -157,27 +185,38 @@ def train_lora(
     print(f"\n{C_GOLD}{C_BOLD}  SABLE - LoRA Fine-Tuning{C_RESET}")
     print(f"  {C_DIM}{'=' * 40}{C_RESET}\n")
 
-    # Load base model
+    # Load base fusion + temporal chain
     print(f"  {C_INFO}Loading base model...{C_RESET}")
-    base = SharpRoutedFusion(mamba_dim=NODE_FEAT_DIM)
-    ckpt = torch.load(model_path, weights_only=False, map_location=device)
+    base_fusion = SharpRoutedFusion(mamba_dim=NODE_FEAT_DIM)
+    fusion_path = Path(model_path)
+    ckpt = torch.load(str(fusion_path), weights_only=False, map_location=device)
     if "model_state_dict" in ckpt:
-        base.load_state_dict(ckpt["model_state_dict"])
+        base_fusion.load_state_dict(ckpt["model_state_dict"])
     else:
-        base.load_state_dict(ckpt)
-    base.to(device)
+        base_fusion.load_state_dict(ckpt)
+
+    # Wrap with temporal chain if checkpoint exists
+    temporal_path = fusion_path.parent / "temporal_chain.pt"
+    if temporal_path.exists():
+        model = TemporalChainFusion(base_fusion)
+        tc_ckpt = torch.load(str(temporal_path), weights_only=False, map_location=device)
+        model.load_state_dict(tc_ckpt["model_state_dict"], strict=False)
+        print(f"  {C_TEXT}Temporal chain loaded - full model LoRA{C_RESET}")
+    else:
+        model = base_fusion
+        print(f"  {C_TEXT}Fusion only (no temporal chain){C_RESET}")
+    model.to(device)
 
     # Freeze everything
-    for p in base.parameters():
+    for p in model.parameters():
         p.requires_grad = False
 
-    # Apply LoRA (after moving to device so params are on correct device)
+    # Apply LoRA to all components (fusion experts + router + temporal chain)
     print(f"  {C_INFO}Applying LoRA (rank={rank}, alpha={alpha})...{C_RESET}")
-    lora_params = apply_lora(base, rank=rank, alpha=alpha)
-    # Re-move to device since LoRA created new parameters on CPU
-    base.to(device)
+    lora_params = apply_lora(model, rank=rank, alpha=alpha)
+    model.to(device)
     n_lora = sum(p.numel() for p in lora_params)
-    n_total = sum(p.numel() for p in base.parameters())
+    n_total = sum(p.numel() for p in model.parameters())
     print(f"  {C_TEXT}LoRA parameters: {C_BRIGHT}{n_lora:,}{C_RESET} / {n_total:,} total "
           f"({n_lora/n_total*100:.1f}%)")
 
@@ -214,15 +253,24 @@ def train_lora(
         pct = class_counts[c] / gt.numel() * 100
         print(f"    {C_DIM}{STATE_NAMES[c]:12s}: {int(class_counts[c]):6d} ({pct:.1f}%){C_RESET}")
 
-    # Split: 80% train, 20% val
-    perm = torch.randperm(n_samples)
-    n_train = int(n_samples * 0.8)
-    train_idx = perm[:n_train]
-    val_idx = perm[n_train:]
+    # Keep scenarios separate for sequential temporal processing
+    # Split scenarios: 75% train, 25% val
+    n_scenarios = len(all_gnn)
+    scenario_perm = torch.randperm(n_scenarios)
+    n_train_sc = max(1, int(n_scenarios * 0.75))
+    train_sc = scenario_perm[:n_train_sc].tolist()
+    val_sc = scenario_perm[n_train_sc:].tolist()
+    if not val_sc:
+        val_sc = train_sc[-1:]  # At least 1 val scenario
+
+    is_temporal = hasattr(model, 'context_mixer')
 
     # Optimizer - only LoRA params
     optimizer = torch.optim.AdamW(lora_params, lr=lr, weight_decay=1e-4)
     loss_fn = nn.CrossEntropyLoss(weight=class_weights)
+
+    print(f"  {C_TEXT}Training mode: {C_BRIGHT}{'temporal (sequential ticks)' if is_temporal else 'per-tick (shuffled)'}{C_RESET}")
+    print(f"  {C_TEXT}Train scenarios: {C_BRIGHT}{len(train_sc)}{C_RESET}, Val: {C_BRIGHT}{len(val_sc)}{C_RESET}")
 
     # Training loop
     print(f"\n  {C_DIM}  ep    loss   v_acc  v_macro  hlthy  dgrad  faild  unrch    t{C_RESET}")
@@ -235,64 +283,124 @@ def train_lora(
 
     for epoch in range(epochs):
         t0 = time.time()
-        base.train()
-
-        # Shuffle train indices
-        shuf = train_idx[torch.randperm(len(train_idx))]
+        model.train()
         epoch_loss = 0
         n_batches = 0
 
-        for i in range(0, len(shuf), 8):
-            batch_idx = shuf[i:i + 8]
-            g = gnn[batch_idx]
-            p = pomdp[batch_idx]
-            m = mamba[batch_idx]
-            y = gt[batch_idx]
+        # Shuffle scenario order each epoch
+        np.random.shuffle(train_sc)
 
-            out = base(g, p, m)
-            logits = out["logits"]  # (B, N, N_STATES)
+        for sc_idx in train_sc:
+            sc_gnn = all_gnn[sc_idx].to(device)     # (T, N, GNN_DIM)
+            sc_pomdp = all_pomdp[sc_idx].to(device)
+            sc_mamba = all_mamba[sc_idx].to(device)
+            sc_gt = all_gt[sc_idx].to(device)        # (T, N)
+            T = sc_gnn.shape[0]
+            N = sc_gnn.shape[1]
 
-            loss = loss_fn(logits.reshape(-1, N_STATES), y.reshape(-1))
+            if is_temporal:
+                # Sequential: process ticks in order with temporal state
+                temporal_state = TemporalState.cold_start(N, device=device)
+                for t in range(T):
+                    g = sc_gnn[t:t+1]   # (1, N, D)
+                    p = sc_pomdp[t:t+1]
+                    m = sc_mamba[t:t+1]
+                    y = sc_gt[t]          # (N,)
 
-            optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(lora_params, 1.0)
-            optimizer.step()
+                    out = model(g, p, m, temporal_state=temporal_state)
+                    logits = out["revised_logits"]  # (1, N, N_STATES)
+                    loss = loss_fn(logits.reshape(-1, N_STATES), y.reshape(-1))
 
-            epoch_loss += loss.item()
-            n_batches += 1
+                    optimizer.zero_grad()
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(lora_params, 1.0)
+                    optimizer.step()
+
+                    # Update temporal state (detached - no backprop through time)
+                    with torch.no_grad():
+                        temporal_state.update(
+                            out["revised_logits"].detach(),
+                            out["confidence"].detach(),
+                            out.get("z_fused", torch.zeros(1, N, 128, device=device)).detach(),
+                        )
+
+                    epoch_loss += loss.item()
+                    n_batches += 1
+            else:
+                # Shuffled per-tick (no temporal context)
+                perm = torch.randperm(T)
+                for i in range(0, T, 8):
+                    idx = perm[i:i+8]
+                    g = sc_gnn[idx]
+                    p = sc_pomdp[idx]
+                    m = sc_mamba[idx]
+                    y = sc_gt[idx]
+
+                    out = model(g, p, m)
+                    logits = out["logits"]
+                    loss = loss_fn(logits.reshape(-1, N_STATES), y.reshape(-1))
+
+                    optimizer.zero_grad()
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(lora_params, 1.0)
+                    optimizer.step()
+
+                    epoch_loss += loss.item()
+                    n_batches += 1
 
         avg_loss = epoch_loss / max(n_batches, 1)
 
-        # Validation
-        base.eval()
+        # Validation - sequential for temporal, batched otherwise
+        model.eval()
+        all_preds = []
+        all_labels = []
         with torch.no_grad():
-            v_g = gnn[val_idx]
-            v_p = pomdp[val_idx]
-            v_m = mamba[val_idx]
-            v_y = gt[val_idx]
+            for sc_idx in val_sc:
+                v_gnn = all_gnn[sc_idx].to(device)
+                v_pomdp = all_pomdp[sc_idx].to(device)
+                v_mamba = all_mamba[sc_idx].to(device)
+                v_gt = all_gt[sc_idx].to(device)
+                T = v_gnn.shape[0]
+                N = v_gnn.shape[1]
 
-            v_out = base(v_g, v_p, v_m)
-            v_preds = v_out["logits"].argmax(dim=-1)
-            v_acc = (v_preds == v_y).float().mean().item()
+                if is_temporal:
+                    ts = TemporalState.cold_start(N, device=device)
+                    for t in range(T):
+                        out = model(v_gnn[t:t+1], v_pomdp[t:t+1], v_mamba[t:t+1], temporal_state=ts)
+                        preds = out["revised_logits"].argmax(dim=-1).reshape(-1)
+                        all_preds.append(preds)
+                        all_labels.append(v_gt[t].reshape(-1))
+                        ts.update(
+                            out["revised_logits"].detach(),
+                            out["confidence"].detach(),
+                            out.get("z_fused", torch.zeros(1, N, 128, device=device)).detach(),
+                        )
+                else:
+                    out = model(v_gnn, v_pomdp, v_mamba)
+                    preds = out["logits"].argmax(dim=-1).reshape(-1)
+                    all_preds.append(preds)
+                    all_labels.append(v_gt.reshape(-1))
 
-            # Per-class F1
-            f1s = []
-            for c in range(N_STATES):
-                tp = ((v_preds == c) & (v_y == c)).sum().float()
-                fp = ((v_preds == c) & (v_y != c)).sum().float()
-                fn = ((v_preds != c) & (v_y == c)).sum().float()
-                p = tp / max(tp + fp, 1)
-                r = tp / max(tp + fn, 1)
-                f1 = 2 * p * r / max(p + r, 1e-8)
-                f1s.append(f1.item())
-            macro_f1 = sum(f1s) / len(f1s)
+        v_preds = torch.cat(all_preds)
+        v_y = torch.cat(all_labels)
+        v_acc = (v_preds == v_y).float().mean().item()
+
+        f1s = []
+        for c in range(N_STATES):
+            tp = ((v_preds == c) & (v_y == c)).sum().float()
+            fp = ((v_preds == c) & (v_y != c)).sum().float()
+            fn = ((v_preds != c) & (v_y == c)).sum().float()
+            p_val = tp / max(tp + fp, 1)
+            r_val = tp / max(tp + fn, 1)
+            f1 = 2 * p_val * r_val / max(p_val + r_val, 1e-8)
+            f1s.append(f1.item())
+        macro_f1 = sum(f1s) / len(f1s)
 
         elapsed = time.time() - t0
         marker = ""
         if macro_f1 > best_macro:
             best_macro = macro_f1
-            best_state = {k: v.clone() for k, v in base.state_dict().items()
+            best_state = {k: v.clone() for k, v in model.state_dict().items()
                           if "lora_" in k}
             patience = 0
             marker = f" {C_SUCCESS}*{C_RESET}"

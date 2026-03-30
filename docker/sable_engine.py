@@ -62,38 +62,40 @@ class SableEngine:
         """Load fusion + temporal chain + optional LoRA adapter weights."""
         ckpt_dir = Path(checkpoint_dir)
 
-        # Build model
+        # Step 1: Build base fusion
         base = SharpRoutedFusion(mamba_dim=NODE_FEAT_DIM)
         fusion_path = ckpt_dir / "fusion.pt"
         if fusion_path.exists():
             ckpt = torch.load(fusion_path, weights_only=False, map_location=self.device)
             base.load_state_dict(ckpt["model_state_dict"])
 
-        # Apply LoRA adapter if present
-        lora_path = ckpt_dir / "lora_adapter.pt"
-        if lora_path.exists():
-            from lora_finetune import apply_lora
-            lora_ckpt = torch.load(lora_path, weights_only=False, map_location=self.device)
-            apply_lora(base, rank=lora_ckpt["rank"], alpha=lora_ckpt["alpha"])
-            # Load trained LoRA weights
-            base_state = base.state_dict()
-            for k, v in lora_ckpt["lora_state_dict"].items():
-                if k in base_state:
-                    base_state[k] = v
-            base.load_state_dict(base_state)
-            base.to(self.device)
-            self.lora_active = True
-            print(f"  LoRA adapter loaded (rank={lora_ckpt['rank']}, "
-                  f"F1={lora_ckpt.get('best_macro_f1', 0):.3f})")
-
-        for p in base.parameters():
-            p.requires_grad = False
-
+        # Step 2: Wrap with temporal chain
         model = TemporalChainFusion(base)
         temporal_path = ckpt_dir / "temporal.pt"
         if temporal_path.exists():
             ckpt = torch.load(temporal_path, weights_only=False, map_location=self.device)
             model.load_state_dict(ckpt["model_state_dict"], strict=False)
+
+        # Step 3: Apply LoRA to the FULL model (fusion + temporal chain)
+        lora_path = ckpt_dir / "lora_adapter.pt"
+        if lora_path.exists():
+            from lora_finetune import apply_lora
+            lora_ckpt = torch.load(lora_path, weights_only=False, map_location=self.device)
+            apply_lora(model, rank=lora_ckpt["rank"], alpha=lora_ckpt["alpha"])
+            # Load trained LoRA weights into the full model
+            model_state = model.state_dict()
+            loaded = 0
+            for k, v in lora_ckpt["lora_state_dict"].items():
+                if k in model_state:
+                    model_state[k] = v
+                    loaded += 1
+            model.load_state_dict(model_state)
+            self.lora_active = True
+            print(f"  LoRA adapter loaded ({loaded}/{len(lora_ckpt['lora_state_dict'])} keys, "
+                  f"rank={lora_ckpt['rank']}, F1={lora_ckpt.get('best_macro_f1', 0):.3f})")
+
+        for p in model.parameters():
+            p.requires_grad = False
 
         model.eval().to(self.device)
         self.model = model
@@ -133,8 +135,7 @@ class SableEngine:
 
         # Standard eval-mode forward pass (always runs)
         # Provides routing, transition, temporal state update
-        out = self.model(gnn, pomdp, mamba, temporal_state=self.temporal_state,
-                         bypass_temporal=self.lora_active)
+        out = self.model(gnn, pomdp, mamba, temporal_state=self.temporal_state)
         logits = out["revised_logits"][0]  # (N, N_STATES)
         probs = torch.softmax(logits, dim=-1)  # (N, N_STATES)
         preds = probs.argmax(dim=-1)  # (N,)
@@ -260,8 +261,7 @@ class SableEngine:
         all_probs = []
         all_preds = []
         for _ in range(n_samples):
-            out = self.model(gnn, pomdp, mamba, temporal_state=self.temporal_state,
-                         bypass_temporal=self.lora_active)
+            out = self.model(gnn, pomdp, mamba, temporal_state=self.temporal_state)
             logits = out["revised_logits"][0]  # (N, N_STATES)
             p = torch.softmax(logits, dim=-1)
             all_probs.append(p)

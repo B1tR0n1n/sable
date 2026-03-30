@@ -291,7 +291,7 @@ def main():
         return
 
     adapter = SMDAdapter(smd_path)
-    adapter.load(split="test", max_ticks=2000)  # First 2000 ticks
+    adapter.load(split="test", max_ticks=5000)  # Full test set
     print(f"  Loaded {len(adapter.machines)} machines, {adapter.n_ticks} ticks")
     print(f"  Topology: {len(adapter._edges)} edges")
 
@@ -299,43 +299,57 @@ def main():
     out_dir = Path(__file__).parent / "scenarios"
     out_dir.mkdir(exist_ok=True)
 
-    # Find interesting anomaly windows
+    # Find ALL anomaly windows
     print(f"  Scanning for anomaly windows...", flush=True)
-    windows = find_anomaly_windows(adapter, min_length=15)
+    windows = find_anomaly_windows(adapter, min_length=10)
     print(f"  Found {len(windows)} anomaly windows")
 
     scenarios = []
 
-    # Scenario 1: Normal operation (first 25 ticks, likely clean)
-    print(f"\n  Generating scenarios...", flush=True)
-    s = generate_smd_scenario(
-        "smd_normal", "Real server telemetry - normal operation (28 machines, 38 metrics)",
-        adapter, 0, 25, gnn,
-    )
-    scenarios.append(s)
-    print(f"    smd_normal: {s['anomaly_ticks']}/{s['n_ticks']} anomaly ticks")
+    # Normal operation windows (spread across the dataset)
+    normal_starts = [0, 50, 500, 1000, 1500, 2000, 3000, 4000]
+    for i, start in enumerate(normal_starts):
+        if start + 25 > adapter.n_ticks:
+            break
+        name = f"smd_normal_{i+1}"
+        s = generate_smd_scenario(
+            name, f"Real server telemetry - normal operation window {i+1} (tick {start})",
+            adapter, start, 25, gnn,
+        )
+        scenarios.append(s)
+        print(f"    {name}: {s['anomaly_ticks']}/{s['n_ticks']} anomaly ticks")
 
-    # Scenario 2-4: Anomaly windows
-    for i, (start, length) in enumerate(windows[:3]):
+    # ALL anomaly windows
+    for i, (start, length) in enumerate(windows):
         name = f"smd_incident_{i+1}"
-        desc = f"Real server incident - anomaly window starting at tick {start} (28 machines)"
-        s = generate_smd_scenario(name, desc, adapter, start, min(length, 25), gnn)
+        n_ticks = min(length, 30)
+        if start + n_ticks > adapter.n_ticks:
+            continue
+        s = generate_smd_scenario(
+            name, f"Real server incident {i+1} - anomaly at tick {start} (28 machines)",
+            adapter, start, n_ticks, gnn,
+        )
         scenarios.append(s)
         print(f"    {name}: {s['anomaly_ticks']}/{s['n_ticks']} anomaly ticks (start={start})")
 
-    # Scenario 5: Extended window covering multiple incidents
-    if len(windows) >= 2:
-        start = windows[0][0]
-        end = min(windows[1][0] + windows[1][1], adapter.n_ticks)
+    # Extended cascades spanning multiple windows
+    for i in range(0, len(windows) - 1, 3):
+        start = windows[i][0]
+        end_window = min(i + 2, len(windows) - 1)
+        end = min(windows[end_window][0] + windows[end_window][1], adapter.n_ticks)
         length = min(end - start, 30)
+        if length < 15:
+            continue
+        name = f"smd_cascade_{i//3 + 1}"
         s = generate_smd_scenario(
-            "smd_cascade", f"Real multi-incident cascade starting at tick {start}",
+            name, f"Real multi-incident cascade {i//3 + 1} (ticks {start}-{start+length})",
             adapter, start, length, gnn,
         )
         scenarios.append(s)
-        print(f"    smd_cascade: {s['anomaly_ticks']}/{s['n_ticks']} anomaly ticks")
+        print(f"    {name}: {s['anomaly_ticks']}/{s['n_ticks']} anomaly ticks")
 
     # Save
+    print(f"\n  Saving {len(scenarios)} scenarios...")
     for s in scenarios:
         path = out_dir / f"{s['name']}.pt"
         torch.save(s, path)
@@ -343,7 +357,7 @@ def main():
         aff = (gt != 0).sum().item()
         tot = gt.numel()
         size = path.stat().st_size // 1024
-        print(f"\n  {s['name']:<25s} {s['n_nodes']:2d}n {s['n_ticks']:2d}t "
+        print(f"  {s['name']:<25s} {s['n_nodes']:2d}n {s['n_ticks']:2d}t "
               f"{aff}/{tot} ({aff / tot * 100:.0f}%) {size}KB "
               f"[{s['anomaly_ticks']} anomaly ticks]")
 
