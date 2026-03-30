@@ -121,10 +121,10 @@ Write a 2-4 sentence operational status update:"""
 
 {facts}
 
-Report:
-Diagnostics detected"""
+Report:"""
 
-        return self._complete(prompt, max_tokens=max_tokens)
+        result = self._complete(prompt, max_tokens=max_tokens)
+        return result
 
     def explain_scenario_complete(self, tick_history: list[dict], recs: dict) -> str:
         """Generate an after-action report from a completed scenario.
@@ -197,14 +197,17 @@ AFTER-ACTION REPORT:"""
                     "top_p": 0.9,
                     "repeat_penalty": 1.3,
                     "repeat_last_n": 128,
-                    "stop": ["\n\n\n", "SABLE DIAGNOSTIC", "SABLE SCENARIO", "---"],
+                    "stop": ["\n\n\n", "SABLE", "Note:", "---", "```", "Produce", "Write"],
                 },
                 timeout=self.timeout,
             )
             resp.raise_for_status()
             data = resp.json()
             raw = data.get("content", "").strip()
-            return self._trim_to_sentence(raw)
+            trimmed = self._trim_to_sentence(raw)
+            if trimmed:
+                trimmed = trimmed[0].upper() + trimmed[1:]
+            return trimmed
         except requests.RequestException as e:
             log.warning("Nemotron completion failed: %s", e)
             return f"[Nemotron unavailable: {e}]"
