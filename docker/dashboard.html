@@ -463,6 +463,7 @@ body::before {
     <button onclick="resetScenario()">↻ reset</button>
     <button onclick="showRecommendations()" style="background:var(--gold);color:var(--bg)">⚡ fix</button>
     <button id="btn-mc" onclick="toggleMC()" title="MC Dropout: variance-based honest confidence">MC off</button>
+    <button id="btn-nemotron" onclick="requestNemotronReport()" title="Generate natural language incident report via Nemotron" style="background:var(--panel-alt);border-color:var(--dim-gold);color:var(--dim-gold)">LLM report</button>
     <div class="scenario-desc" id="scenario-desc"></div>
     <div class="cycle-display">Cycle <span id="cycle-num">0</span> / <span id="total-ticks">0</span></div>
   </div>
@@ -921,6 +922,50 @@ async function showRecommendations() {
   document.getElementById('overlay-stats').innerHTML = '';
   await fetchRecommendations();
   document.getElementById('overlay').classList.add('visible');
+}
+
+async function requestNemotronReport() {
+  document.getElementById('overlay-title').textContent = 'LLM Incident Report';
+  document.getElementById('overlay-stats').innerHTML = '<div style="color:var(--dim);font-family:var(--mono);font-size:11px">Generating report via Nemotron...</div>';
+  document.getElementById('overlay-recs').innerHTML = '';
+  document.getElementById('overlay').classList.add('visible');
+
+  const result = await api('nemotron/report', 'POST');
+  if (result.error) {
+    document.getElementById('overlay-stats').innerHTML = '<div style="color:var(--danger)">' + result.error + '</div>';
+    return;
+  }
+  if (!result.nemotron_available) {
+    document.getElementById('overlay-stats').innerHTML =
+      '<div style="color:var(--danger);font-family:var(--mono);font-size:11px">Nemotron not running. Start llama-server on port 8081.</div>' +
+      '<div style="color:var(--dim);font-family:var(--mono);font-size:10px;margin-top:8px">' +
+      'llama-server -m /mnt/vault/models/nemotron-nano/Nemotron-3-Nano-30B-A3B-UD-Q4_K_XL.gguf ' +
+      '--ctx-size 4096 --temp 0.4 -ngl 999 --port 8081</div>';
+    // Still show SABLE's structured data
+    if (result.recommendations) {
+      await fetchRecommendations();
+    }
+    return;
+  }
+
+  // Show the narrative
+  let html = '<div style="font-family:var(--serif);font-size:14px;color:var(--text);line-height:1.7;margin-bottom:16px;white-space:pre-wrap">' +
+    result.narrative + '</div>';
+
+  // Show SABLE's raw data below for verification
+  html += '<div class="section-label" style="margin-top:16px">SABLE STRUCTURED DATA</div>';
+  html += '<div class="rec-summary" style="font-size:12px">' + (result.recommendations?.summary || '') + '</div>';
+  if (result.recommendations?.actions) {
+    result.recommendations.actions.slice(0, 5).forEach(function(a) {
+      const pClass = a.priority <= 1 ? 'p1' : (a.priority <= 3 ? 'p2' : '');
+      const typeTag = a.target_type ? ' [' + a.target_type.replace(/_/g,' ') + ']' : '';
+      html += '<div class="rec-item ' + pClass + '">' +
+        '<div><span class="rec-action">' + a.priority + '. ' + a.action + '</span> -> <span class="rec-target">' + a.target + '</span>' + typeTag + '</div>' +
+        '<div class="rec-reason">' + a.reason + '</div></div>';
+    });
+  }
+
+  document.getElementById('overlay-stats').innerHTML = html;
 }
 
 async function fetchRecommendations() {

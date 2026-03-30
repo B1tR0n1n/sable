@@ -18,6 +18,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from sable_engine import SableEngine
+from nemotron_bridge import NemotronBridge
 
 app = FastAPI(title="SABLE Engine", version="1.0")
 
@@ -33,6 +34,7 @@ _scenario_cache: list[dict] | None = None  # Cached scenario metadata
 _topo_nodes: list[dict] = []  # Topology node metadata, indexed by position
 _topo_edges: list[dict] = []  # Topology edges
 mc_dropout_samples: int = 0   # 0 = off, >0 = MC dropout enabled with N samples
+nemotron = NemotronBridge()   # Nemotron LLM bridge for natural language reports
 
 SCENARIO_DIR = Path(__file__).parent / "scenarios"
 CHECKPOINT_DIR = Path(__file__).parent / "checkpoints"
@@ -203,6 +205,7 @@ async def status():
         "autoplay_speed": autoplay_speed,
         "mc_dropout": mc_dropout_samples > 0,
         "mc_samples": mc_dropout_samples,
+        "nemotron": nemotron.is_available(),
         **engine.get_summary(),
     }
 
@@ -521,6 +524,59 @@ async def feedback_stats():
 
 
 # ── Main ──────────────────────────────────────────────────────────────────
+
+# ---- Nemotron LLM Bridge ----
+
+
+@app.get("/api/nemotron/status")
+async def nemotron_status():
+    """Check if Nemotron is available."""
+    return {"available": nemotron.is_available(), "url": nemotron.llama_url}
+
+
+@app.post("/api/nemotron/report")
+async def nemotron_report():
+    """Generate a natural language incident report from current state."""
+    if not engine.history or len(engine.history) < 2:
+        return {"error": "Need at least 2 ticks for a report"}
+
+    recs = enrich_recommendations(engine.get_recommendations())
+    narrative = await asyncio.to_thread(nemotron.explain_recommendations, recs)
+
+    return {
+        "narrative": narrative,
+        "recommendations": recs,
+        "nemotron_available": nemotron.is_available(),
+    }
+
+
+@app.post("/api/nemotron/after_action")
+async def nemotron_after_action():
+    """Generate an after-action report from a completed or in-progress scenario."""
+    if not engine.history:
+        return {"error": "No data for report"}
+
+    # Build tick history summaries
+    tick_summaries = []
+    for h in engine.history:
+        tick_summaries.append({
+            "cycle": h["cycle"],
+            "class_counts": {},
+            "accuracy": None,
+        })
+
+    recs = enrich_recommendations(engine.get_recommendations())
+    narrative = await asyncio.to_thread(
+        nemotron.explain_scenario_complete, tick_summaries, recs
+    )
+
+    return {
+        "narrative": narrative,
+        "recommendations": recs,
+        "cycles_completed": len(engine.history),
+        "nemotron_available": nemotron.is_available(),
+    }
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8080, log_level="warning")
