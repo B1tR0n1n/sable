@@ -381,7 +381,7 @@ class TemporalChainFusion(nn.Module):
 
     def forward(self, gnn_raw: torch.Tensor, pomdp_raw: torch.Tensor,
                 mamba_raw: torch.Tensor, temporal_state: TemporalState | None = None,
-                hard_route: bool = False) -> dict:
+                hard_route: bool = False, bypass_temporal: bool = False) -> dict:
         """
         Args:
             gnn_raw: (B, N, GNN_DIM)
@@ -398,36 +398,50 @@ class TemporalChainFusion(nn.Module):
               'temporal_state': TemporalState for next cycle (call .update() yourself
                                or use update_temporal_state helper)
         """
-        # Step 0: Sanitize inputs — kill NaN/Inf before they propagate
+        # Step 0: Sanitize inputs
         gnn_raw = _sanitize(gnn_raw)
         pomdp_raw = _sanitize(pomdp_raw)
         mamba_raw = _sanitize(mamba_raw)
 
-        # Step 1: Augment inputs with temporal context
-        gnn_aug, pomdp_aug, mamba_aug = self.context_mixer(
-            gnn_raw, pomdp_raw, mamba_raw, temporal_state
-        )
-
-        # Step 2: Run base fusion (architecture unchanged)
-        base_out = self.base_fusion(gnn_aug, pomdp_aug, mamba_aug, hard_route)
-
-        # Step 3: Revision gate — compare verdict to trajectory
-        if temporal_state is not None and temporal_state.cycle > 0:
-            revised_logits, confidence, transition = self.revision_gate(
-                base_out["logits"], temporal_state.trajectory, temporal_state.prev_z
-            )
-        else:
-            revised_logits = base_out["logits"]
+        if bypass_temporal:
+            # LoRA mode: skip context mixing and revision gate.
+            # The LoRA adapter was trained on the base fusion directly,
+            # so temporal chain layers (trained on sable_sim) would fight it.
+            base_out = self.base_fusion(gnn_raw, pomdp_raw, mamba_raw, hard_route)
             B, N = base_out["logits"].shape[:2]
             device = base_out["logits"].device
+            revised_logits = base_out["logits"]
             confidence = torch.ones(B, N, 1, device=device) * 0.5
             transition = torch.zeros(B, N, 3, device=device)
+        else:
+            # Step 1: Augment inputs with temporal context
+            gnn_aug, pomdp_aug, mamba_aug = self.context_mixer(
+                gnn_raw, pomdp_raw, mamba_raw, temporal_state
+            )
+
+            # Step 2: Run base fusion (architecture unchanged)
+            base_out = self.base_fusion(gnn_aug, pomdp_aug, mamba_aug, hard_route)
+
+            # Step 3: Revision gate
+            if temporal_state is not None and temporal_state.cycle > 0:
+                revised_logits, confidence, transition = self.revision_gate(
+                    base_out["logits"], temporal_state.trajectory, temporal_state.prev_z
+                )
+            else:
+                revised_logits = base_out["logits"]
+                B, N = base_out["logits"].shape[:2]
+                device = base_out["logits"].device
+                confidence = torch.ones(B, N, 1, device=device) * 0.5
+                transition = torch.zeros(B, N, 3, device=device)
 
         # Step 4: Extract z_fused for state storage
-        # Re-compute from projections (base fusion doesn't return z_fused)
-        z_gnn = self.base_fusion.gnn_proj(gnn_aug)
-        z_pomdp = self.base_fusion.pomdp_proj(pomdp_aug)
-        z_mamba = self.base_fusion.mamba_proj(mamba_aug)
+        # Use augmented inputs if available, raw inputs if bypassed
+        _gnn = gnn_raw if bypass_temporal else gnn_aug
+        _pomdp = pomdp_raw if bypass_temporal else pomdp_aug
+        _mamba = mamba_raw if bypass_temporal else mamba_aug
+        z_gnn = self.base_fusion.gnn_proj(_gnn)
+        z_pomdp = self.base_fusion.pomdp_proj(_pomdp)
+        z_mamba = self.base_fusion.mamba_proj(_mamba)
         perspectives = torch.stack([z_gnn, z_pomdp, z_mamba], dim=2)
         z_fused = self.base_fusion.fusion(perspectives)  # (B, N, Z_DIM)
 

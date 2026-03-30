@@ -164,13 +164,19 @@ async def startup():
     _init_feedback_db()
     print(f"  Feedback DB: {FEEDBACK_DB}")
 
-    # Pre-load Monday Morning
+    # Pre-load default scenario (prefer real telemetry)
     global current_scenario, scenario_data
-    scenario_data = load_scenario("monday_morning")
+    default = "smd_incident_1"
+    scenario_data = load_scenario(default)
+    if scenario_data is None:
+        scenario_data = load_scenario("monday_morning")
+        default = "monday_morning"
     if scenario_data:
-        current_scenario = "monday_morning"
+        current_scenario = default
         engine.reset_state(scenario_data["n_nodes"])
-        print(f"  Default scenario: {current_scenario} ({scenario_data['n_nodes']} nodes, {scenario_data['n_ticks']} ticks)")
+        source = scenario_data.get("source", "sable_sim")
+        print(f"  Default scenario: {current_scenario} ({scenario_data['n_nodes']} nodes, "
+              f"{scenario_data['n_ticks']} ticks, source={source})")
 
     print("\n  SABLE Engine running at http://localhost:8080\n", flush=True)
 
@@ -213,8 +219,10 @@ async def list_scenarios():
                 "description": data.get("description", ""),
                 "n_nodes": data["n_nodes"],
                 "n_ticks": data["n_ticks"],
+                "source": data.get("source", "sable_sim"),
             })
-    return _scenario_cache
+    # Only show real telemetry scenarios in the demo
+    return [s for s in _scenario_cache if s["source"] == "smd"]
 
 
 @app.post("/api/scenario")
