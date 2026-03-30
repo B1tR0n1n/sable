@@ -142,51 +142,71 @@ def encode_smd_tick(snapshot, gnn, device):
         else:
             gnn_out = emb[:, :GNN_DIM]
 
-    # --- POMDP: belief vectors from health scorer output ---
+    # --- POMDP: belief vectors from RAW METRICS (not health-scored state) ---
+    # The model should predict state from observations, not be told the state.
+    # POMDP beliefs represent what monitoring sees: noisy metric signals.
     pomdp_out = torch.zeros(n, POMDP_DIM)
     for i, nid in enumerate(node_ids):
         node = snapshot.nodes[nid]
-        health = node.health if node.health is not None else 1.0
-        state = node.state or "healthy"
 
-        # State probability distribution based on health
-        probs = np.zeros(4, dtype=np.float32)
-        si = STATE_NAME_TO_IDX.get(state, 0)
-        if si < 4:
-            probs[si] = 0.7 + 0.2 * health
-            remaining = 1.0 - probs[si]
-            for j in range(4):
-                if j != si:
-                    probs[j] = remaining / 3.0
-        else:
-            probs[0] = 0.3
-            probs[1] = 0.5
-            probs[2] = 0.2
+        # Raw metric averages as observation signals (NOT the classified state)
+        cpu = node.metrics.get("cpu_utilization", 0) / 100.0
+        mem = node.metrics.get("mem_used_pct", 0) / 100.0
+        disk = node.metrics.get("disk_io_util", 0) / 100.0
+        net = node.metrics.get("net_bandwidth_util", 0) / 100.0
 
-        is_anomaly = node.labels.get("anomaly", "False") == "True"
-        confidence = 0.6 if is_anomaly else (0.8 + 0.2 * health)
-        obs_age = 0.1 if not is_anomaly else 0.3
+        # Soft state estimate from raw metrics (independent of health scorer)
+        # High utilization -> probably degraded/failed, low -> probably healthy
+        avg_util = (cpu * 1.5 + mem * 1.3 + disk * 0.8 + net * 0.7) / 4.3
+        p_healthy = max(0.0, 1.0 - avg_util * 2.0)
+        p_degraded = min(1.0, avg_util * 1.5) * (1.0 - p_healthy)
+        p_failed = max(0.0, avg_util - 0.5) * 0.5
+        p_unreachable = 0.02  # Small baseline
+        total = p_healthy + p_degraded + p_failed + p_unreachable
+        if total > 0:
+            p_healthy /= total
+            p_degraded /= total
+            p_failed /= total
+            p_unreachable /= total
+
+        # Confidence from metric consistency (jittery metrics = lower confidence)
+        confidence = max(0.3, 1.0 - avg_util * 0.5)
+        obs_age = 0.1
         hub = degrees.get(nid, 0) / max(max_deg, 1)
 
-        pomdp_out[i] = torch.tensor([probs[0], probs[1], probs[2], probs[3],
+        pomdp_out[i] = torch.tensor([p_healthy, p_degraded, p_failed, p_unreachable,
                                       confidence, obs_age, 0.0, hub])
 
     # --- Mamba: 26-dim per node (health + state_onehot + type_onehot) ---
+    # Health comes from raw metric composite, NOT the health scorer.
+    # State one-hot uses a NOISY estimate, not the ground truth classification.
     mamba_out = torch.zeros(n, NODE_FEAT_DIM)
     for i, nid in enumerate(node_ids):
         node = snapshot.nodes[nid]
-        health = node.health if node.health is not None else 1.0
-        mamba_out[i, 0] = health
 
-        # State one-hot (5 states)
-        si = STATE_NAME_TO_IDX.get(node.state or "healthy", 0)
-        mamba_out[i, 1 + si] = 1.0
+        # Raw health from metrics (different formula than health scorer)
+        cpu = node.metrics.get("cpu_utilization", 0) / 100.0
+        mem = node.metrics.get("mem_used_pct", 0) / 100.0
+        disk = node.metrics.get("disk_io_util", 0) / 100.0
+        raw_health = max(0.0, min(1.0, 1.0 - (cpu + mem + disk) / 3.0 * 1.8))
+        mamba_out[i, 0] = raw_health
+
+        # Noisy state estimate from raw health (NOT the health scorer output)
+        # This intentionally disagrees with ground truth sometimes
+        if raw_health > 0.65:
+            noisy_state = 0  # healthy
+        elif raw_health > 0.25:
+            noisy_state = 1  # degraded
+        else:
+            noisy_state = 2  # failed
+        mamba_out[i, 1 + noisy_state] = 1.0
 
         # Type one-hot (20 types)
         ti = COMPONENT_TYPE_INDEX.get(node.component_type, 0)
         mamba_out[i, 6 + ti] = 1.0
 
-    # --- Ground truth: derive from anomaly labels + health ---
+    # --- Ground truth: from the HEALTH SCORER classification ---
+    # This is what the model should predict - the definitive state assessment.
     gt = torch.zeros(n, dtype=torch.long)
     for i, nid in enumerate(node_ids):
         node = snapshot.nodes[nid]
