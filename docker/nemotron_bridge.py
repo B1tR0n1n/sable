@@ -197,7 +197,7 @@ AFTER-ACTION REPORT:"""
         summary = sable_context.get("summary", "")
         actions = sable_context.get("actions", [])
 
-        system = f"""You are an infrastructure operations assistant. You have access to SABLE's real-time diagnostic data for this environment. Answer the operator's questions using only the data provided. Be direct and specific. Use exact component names.
+        system = f"""You are a senior infrastructure engineer helping an operator diagnose an incident. SABLE's automated diagnostics detected the following. Use this data as your ground truth, but you can also reason about likely causes based on your knowledge of infrastructure components, common failure modes, and operational best practices. Be direct, specific, and actionable.
 
 Current SABLE findings:
 {summary}
@@ -222,7 +222,7 @@ Current SABLE findings:
                 f"{self.llama_url}/v1/chat/completions",
                 json={
                     "messages": messages,
-                    "max_tokens": 300,
+                    "max_tokens": 400,
                     "temperature": 0.4,
                     "top_p": 0.9,
                     "repeat_penalty": 1.2,
@@ -268,8 +268,21 @@ Current SABLE findings:
     def _trim_to_sentence(text: str) -> str:
         """Trim text to the last complete sentence."""
         text = text.strip()
-        # Find last sentence-ending punctuation
-        for i in range(len(text) - 1, -1, -1):
-            if text[i] in '.!':
-                return text[:i + 1]
+        if not text:
+            return text
+        # Already ends cleanly
+        if text[-1] in '.!?':
+            return text
+        # Find last sentence-ending punctuation followed by a space or end
+        # Skip periods inside ** markdown bold or after abbreviations
+        best = -1
+        for i in range(len(text) - 1, 0, -1):
+            if text[i] in '.!?' and (i == len(text) - 1 or text[i + 1] in ' \n'):
+                # Don't cut inside markdown bold markers
+                remaining = text[i + 1:]
+                if remaining.count('**') % 2 == 0:
+                    best = i
+                    break
+        if best > 0:
+            return text[:best + 1]
         return text
