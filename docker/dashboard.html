@@ -435,17 +435,19 @@ body::before {
     <div id="routing"></div>
     <div class="section-label" style="margin-top:16px">04 — confidence</div>
     <div class="confidence-block" id="confidence"></div>
+    <div class="section-label" style="margin-top:16px">05 — accuracy</div>
+    <div id="accuracy-readout" style="font-family:var(--mono)"></div>
   </div>
 
   <!-- Panel 3: Timeline -->
   <div class="panel" id="timeline">
-    <div class="section-label">05 — cascade timeline</div>
+    <div class="section-label">06 — cascade timeline</div>
     <div class="timeline-grid" id="timeline-grid"></div>
   </div>
 
   <!-- Panel 4: Node Detail -->
   <div class="panel" id="node-detail">
-    <div class="section-label">06 — node detail</div>
+    <div class="section-label">07 — node detail</div>
     <div id="detail-content"><span style="color:var(--dim);font-family:var(--mono);font-size:11px">Click a node to inspect</span></div>
   </div>
 
@@ -659,6 +661,7 @@ function handleTick(data) {
   updateClassDist(data.class_counts);
   updateRouting(data.routing);
   updateConfidence(data);
+  updateAccuracy(data);
   updateTimeline();
 
   // Update node detail if selected
@@ -694,6 +697,36 @@ function updateConfidence(data) {
     String(data.min_confidence.node).padStart(2,'0') + ' — ' + data.min_confidence.value.toFixed(3) + '</div>' +
     '<div style="font-size:10px;color:var(--dim)">Highest: Node ' +
     String(data.max_confidence.node).padStart(2,'0') + ' — ' + data.max_confidence.value.toFixed(3) + '</div>';
+}
+
+function updateAccuracy(data) {
+  const el = document.getElementById('accuracy-readout');
+  const thisAcc = data.accuracy;
+  if (thisAcc === null || thisAcc === undefined) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--dim)">No ground truth</div>';
+    return;
+  }
+
+  // Running average across all ticks
+  const allAccs = tickHistory.filter(t => t.accuracy !== null && t.accuracy !== undefined).map(t => t.accuracy);
+  const avg = allAccs.length > 0 ? allAccs.reduce((a, b) => a + b, 0) / allAccs.length : thisAcc;
+
+  const avgPct = (avg * 100).toFixed(1);
+  const thisPct = (thisAcc * 100).toFixed(1);
+
+  // Color based on accuracy level
+  const avgColor = avg >= 0.9 ? 'var(--success)' : avg >= 0.7 ? 'var(--gold)' : 'var(--danger)';
+  const thisColor = thisAcc >= 0.9 ? 'var(--success)' : thisAcc >= 0.7 ? 'var(--gold)' : 'var(--danger)';
+
+  el.innerHTML =
+    '<div style="display:flex;align-items:baseline;gap:8px">' +
+      '<div style="font-size:24px;font-weight:600;color:' + avgColor + '">' + avgPct + '%</div>' +
+      '<div style="font-size:10px;color:var(--dim)">avg</div>' +
+    '</div>' +
+    '<div style="margin-top:4px;font-size:10px;color:var(--dim)">' +
+      'This tick: <span style="color:' + thisColor + '">' + thisPct + '%</span>' +
+      ' &nbsp; Ticks: ' + allAccs.length +
+    '</div>';
 }
 
 function updateTimeline() {
