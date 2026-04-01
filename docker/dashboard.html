@@ -61,7 +61,12 @@ body::before {
 .header {
   grid-column: 1 / -1;
   background: var(--bg);
-  padding: 16px 24px;
+  padding: 12px 24px 0 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.header-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -70,12 +75,21 @@ body::before {
 .header h1 {
   font-family: var(--serif);
   font-weight: 600;
-  font-size: 20px;
+  font-size: 22px;
   color: var(--bright);
-  letter-spacing: 2px;
+  letter-spacing: 3px;
 }
 
 .header h1 span { color: var(--gold); }
+
+.header .tagline {
+  font-family: var(--serif);
+  font-size: 11px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  font-style: italic;
+  margin-left: 12px;
+}
 
 .header .status {
   font-family: var(--mono);
@@ -84,6 +98,39 @@ body::before {
 }
 
 .header .status .live { color: var(--success); }
+
+/* Hero Metrics Bar */
+.hero-bar {
+  display: flex;
+  gap: 2px;
+  margin-top: 10px;
+  padding-bottom: 10px;
+}
+
+.hero-metric {
+  flex: 1;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 8px 14px;
+  text-align: center;
+}
+
+.hero-metric .hero-value {
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.hero-metric .hero-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 3px;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
 
 /* Section labels */
 .section-label {
@@ -109,9 +156,37 @@ body::before {
 }
 
 .node-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  min-height: 100%;
+}
+
+.tier-row {
+  display: flex;
+  flex-wrap: wrap;
   gap: 4px;
+  justify-content: center;
+  padding: 2px 0;
+  position: relative;
+}
+
+.tier-label {
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 3px;
+  color: var(--dim);
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 1px;
+  opacity: 0.6;
+}
+
+.tier-divider {
+  border-top: 1px solid var(--border);
+  opacity: 0.3;
+  margin: 2px 0;
 }
 
 .node-cell {
@@ -136,8 +211,18 @@ body::before {
 .node-cell.state-0 .node-state { color: var(--success); }
 .node-cell.state-1 { background: rgba(201, 162, 39, 0.25); }
 .node-cell.state-1 .node-state { color: var(--gold); }
-.node-cell.state-2 { background: rgba(166, 61, 47, 0.40); }
-.node-cell.state-2 .node-state { color: var(--danger); }
+.node-cell.state-2 {
+  background: rgba(166, 61, 47, 0.40);
+  box-shadow: 0 0 12px rgba(166, 61, 47, 0.5), inset 0 0 8px rgba(166, 61, 47, 0.2);
+  border-color: var(--danger);
+  animation: pulse-danger 1.5s ease-in-out infinite;
+  z-index: 2;
+}
+.node-cell.state-2 .node-state { color: var(--danger); font-weight: 600; }
+@keyframes pulse-danger {
+  0%, 100% { box-shadow: 0 0 8px rgba(166,61,47,0.4); }
+  50% { box-shadow: 0 0 20px rgba(166,61,47,0.7), inset 0 0 12px rgba(166,61,47,0.3); }
+}
 .node-cell.state-3 { background: var(--bg); border-style: dashed; }
 .node-cell.state-3 .node-state { color: var(--dim); }
 .node-cell.state-4 { animation: oscillate 1s ease-in-out infinite; }
@@ -199,6 +284,11 @@ body::before {
   grid-column: 1;
   grid-row: 3;
   overflow-x: auto;
+  position: relative;
+}
+
+.timeline-container {
+  position: relative;
 }
 
 .timeline-grid {
@@ -206,33 +296,108 @@ body::before {
   font-family: var(--mono);
   font-size: 9px;
   gap: 1px;
+  position: relative;
 }
 
 .timeline-grid .row-label {
   color: var(--dim);
-  padding: 2px 6px;
+  padding: 3px 8px;
   text-align: right;
   white-space: nowrap;
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.row-label .root-cause-badge {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 6px rgba(201,162,39,0.6);
 }
 
 .timeline-grid .tick-cell {
-  width: 18px;
-  height: 16px;
-  border-radius: 1px;
+  width: 24px;
+  height: 22px;
+  border-radius: 2px;
+  position: relative;
+  transition: opacity 0.2s;
+}
+
+.timeline-grid .tick-cell .cell-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .timeline-grid .tick-header {
   color: var(--dim);
   text-align: center;
   font-size: 8px;
+  height: 16px;
+  line-height: 16px;
 }
 
-.tick-cell.s0 { background: rgba(74, 122, 69, 0.3); }
-.tick-cell.s1 { background: rgba(201, 162, 39, 0.3); }
-.tick-cell.s2 { background: rgba(166, 61, 47, 0.5); }
+.tick-cell.s0 { background: rgba(74, 122, 69, 0.2); }
+.tick-cell.s0 .cell-dot { background: rgba(74, 122, 69, 0.7); }
+.tick-cell.s1 { background: rgba(201, 162, 39, 0.2); }
+.tick-cell.s1 .cell-dot { background: rgba(201, 162, 39, 0.8); }
+.tick-cell.s2 { background: rgba(166, 61, 47, 0.35); }
+.tick-cell.s2 .cell-dot { background: rgba(166, 61, 47, 0.9); box-shadow: 0 0 4px rgba(166,61,47,0.5); }
 .tick-cell.s3 { background: var(--bg); }
-.tick-cell.s4 { background: linear-gradient(135deg, rgba(74,122,69,0.3), rgba(166,61,47,0.3)); }
-.tick-cell.current { box-shadow: inset 2px 0 0 var(--gold); }
+.tick-cell.s3 .cell-dot { background: var(--dim); opacity: 0.3; }
+.tick-cell.s4 { background: linear-gradient(135deg, rgba(74,122,69,0.2), rgba(166,61,47,0.2)); }
+.tick-cell.s4 .cell-dot { background: var(--gold); }
+
+.tick-cell.low-conf { opacity: 0.45; }
+.tick-cell.mid-conf { opacity: 0.7; }
+.tick-cell.high-conf { opacity: 1.0; }
+
+/* Playhead */
+.timeline-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--gold);
+  box-shadow: 0 0 8px rgba(201,162,39,0.5);
+  z-index: 5;
+  pointer-events: none;
+  transition: left 0.3s ease;
+}
+
+/* Sparkline canvas */
+.sparkline-cell {
+  position: relative;
+  height: 22px;
+  width: 100%;
+  grid-column: 2 / -1;
+}
+
+.sparkline-canvas {
+  width: 100%;
+  height: 22px;
+  display: block;
+}
+
+/* Propagation arrows (SVG overlay) */
+.timeline-arrows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+}
 
 /* Panel 4: Node Detail */
 #node-detail {
@@ -415,9 +580,36 @@ body::before {
 <div class="container">
   <!-- Header -->
   <div class="header">
-    <h1><span>SABLE</span> Engine</h1>
-    <div class="status">
-      <span class="live">●</span> <span id="device-status">Loading...</span>
+    <div class="header-top">
+      <div style="display:flex;align-items:baseline">
+        <h1><span>SABLE</span></h1>
+        <span class="tagline">Situational Awareness through Belief-driven Latent Estimation</span>
+      </div>
+      <div class="status">
+        <span class="live">●</span> <span id="device-status">Loading...</span>
+      </div>
+    </div>
+    <div class="hero-bar">
+      <div class="hero-metric">
+        <div class="hero-value" id="hero-accuracy" style="color:var(--dim)">--</div>
+        <div class="hero-label">accuracy</div>
+      </div>
+      <div class="hero-metric">
+        <div class="hero-value" id="hero-affected" style="color:var(--dim)">--</div>
+        <div class="hero-label">affected</div>
+      </div>
+      <div class="hero-metric">
+        <div class="hero-value" id="hero-confidence" style="color:var(--dim)">--</div>
+        <div class="hero-label">confidence</div>
+      </div>
+      <div class="hero-metric">
+        <div class="hero-value" id="hero-inference" style="color:var(--dim)">--</div>
+        <div class="hero-label">inference</div>
+      </div>
+      <div class="hero-metric">
+        <div class="hero-value" id="hero-router" style="color:var(--dim)">--</div>
+        <div class="hero-label">top expert</div>
+      </div>
     </div>
   </div>
 
@@ -441,8 +633,12 @@ body::before {
 
   <!-- Panel 3: Timeline -->
   <div class="panel" id="timeline">
-    <div class="section-label">06 — cascade timeline</div>
-    <div class="timeline-grid" id="timeline-grid"></div>
+    <div class="section-label">06 -- cascade timeline</div>
+    <div class="timeline-container">
+      <div class="timeline-grid" id="timeline-grid"></div>
+      <div class="timeline-playhead" id="timeline-playhead" style="display:none"></div>
+      <svg class="timeline-arrows" id="timeline-arrows"></svg>
+    </div>
   </div>
 
   <!-- Panel 4: Node Detail -->
@@ -593,34 +789,89 @@ function connectWS() {
   };
 }
 
+// Tier display order and groupings
+const TIER_ORDER = ['external', 'core', 'distribution', 'services', 'application', 'compute', 'access', 'storage', 'vdi'];
+const TIER_DISPLAY = {
+  external: 'EXTERNAL', core: 'CORE', distribution: 'DISTRIBUTION', services: 'SERVICES',
+  application: 'APPLICATION', compute: 'COMPUTE', access: 'ACCESS', storage: 'STORAGE', vdi: 'VDI'
+};
+
 function buildNodeGrid(n) {
   const grid = document.getElementById('node-grid');
   grid.innerHTML = '';
   const hasTopo = topoNodes.length >= n;
-  for (let i = 0; i < n; i++) {
-    const cell = document.createElement('div');
-    cell.className = 'node-cell state-0';
-    cell.id = 'node-' + i;
 
-    if (hasTopo && topoNodes[i]) {
+  if (hasTopo) {
+    // Group nodes by tier
+    const tierGroups = {};
+    for (let i = 0; i < n; i++) {
       const t = topoNodes[i];
-      const typeColor = TYPE_COLORS[t.type] || '#8a7f6e';
-      const shortLabel = (t.label || t.id || '').slice(0, 12);
-      const shortType = (t.type || '').replace(/_/g, ' ').toLowerCase().slice(0, 14);
-      cell.innerHTML =
-        '<div class="node-id" style="color:' + typeColor + '">' + shortLabel + '</div>' +
-        '<div class="node-state">HLT</div>' +
-        '<div style="font-family:var(--mono);font-size:6px;color:var(--dim);margin-top:1px">' + shortType + '</div>';
-      cell.title = t.id + ' — ' + t.type + ' [' + (t.tier || '') + ']';
-      cell.style.borderColor = typeColor + '40';
-    } else {
-      cell.innerHTML =
-        '<div class="node-id">' + String(i).padStart(2,'0') + '</div>' +
-        '<div class="node-state">HLT</div>';
+      const tier = (t && t.tier) || 'compute';
+      if (!tierGroups[tier]) tierGroups[tier] = [];
+      tierGroups[tier].push(i);
     }
-    cell.onclick = () => selectNode(i);
-    grid.appendChild(cell);
+
+    // Render tiers in order
+    TIER_ORDER.forEach(tier => {
+      const indices = tierGroups[tier];
+      if (!indices || indices.length === 0) return;
+
+      const label = document.createElement('div');
+      label.className = 'tier-label';
+      label.textContent = TIER_DISPLAY[tier] || tier.toUpperCase();
+      grid.appendChild(label);
+
+      const row = document.createElement('div');
+      row.className = 'tier-row';
+
+      indices.forEach(i => {
+        const cell = createNodeCell(i, hasTopo);
+        row.appendChild(cell);
+      });
+
+      grid.appendChild(row);
+
+      const divider = document.createElement('div');
+      divider.className = 'tier-divider';
+      grid.appendChild(divider);
+    });
+  } else {
+    // Fallback: flat grid for scenarios without topology
+    const row = document.createElement('div');
+    row.className = 'tier-row';
+    row.style.flexWrap = 'wrap';
+    for (let i = 0; i < n; i++) {
+      row.appendChild(createNodeCell(i, false));
+    }
+    grid.appendChild(row);
   }
+}
+
+function createNodeCell(i, hasTopo) {
+  const cell = document.createElement('div');
+  cell.className = 'node-cell state-0';
+  cell.id = 'node-' + i;
+  cell.style.width = '72px';
+  cell.style.height = '72px';
+
+  if (hasTopo && topoNodes[i]) {
+    const t = topoNodes[i];
+    const typeColor = TYPE_COLORS[t.type] || '#8a7f6e';
+    const shortLabel = (t.label || t.id || '').slice(0, 12);
+    const shortType = (t.type || '').replace(/_/g, ' ').toLowerCase().slice(0, 14);
+    cell.innerHTML =
+      '<div class="node-id" style="color:' + typeColor + '">' + shortLabel + '</div>' +
+      '<div class="node-state">HLT</div>' +
+      '<div style="font-family:var(--mono);font-size:6px;color:var(--dim);margin-top:1px">' + shortType + '</div>';
+    cell.title = t.id + ' -- ' + t.type + ' [' + (t.tier || '') + ']';
+    cell.style.borderColor = typeColor + '40';
+  } else {
+    cell.innerHTML =
+      '<div class="node-id">' + String(i).padStart(2,'0') + '</div>' +
+      '<div class="node-state">HLT</div>';
+  }
+  cell.onclick = () => selectNode(i);
+  return cell;
 }
 
 // ── Tick handling ──
@@ -663,6 +914,7 @@ function handleTick(data) {
   updateConfidence(data);
   updateAccuracy(data);
   updateTimeline();
+  updateHeroBar(data);
 
   // Update node detail if selected
   if (selectedNode !== null) updateDetail(selectedNode);
@@ -729,10 +981,53 @@ function updateAccuracy(data) {
     '</div>';
 }
 
+function updateHeroBar(data) {
+  // Accuracy
+  const accEl = document.getElementById('hero-accuracy');
+  if (data.accuracy !== null && data.accuracy !== undefined) {
+    const pct = Math.round(data.accuracy * 100);
+    accEl.textContent = pct + '%';
+    accEl.style.color = pct >= 90 ? 'var(--success)' : pct >= 70 ? 'var(--gold)' : 'var(--danger)';
+  }
+
+  // Affected nodes
+  const affected = (data.class_counts.degraded || 0) + (data.class_counts.failed || 0) +
+    (data.class_counts.unreachable || 0) + (data.class_counts.oscillating || 0);
+  const affEl = document.getElementById('hero-affected');
+  affEl.textContent = affected + '/' + nNodes;
+  affEl.style.color = affected === 0 ? 'var(--success)' : affected <= 5 ? 'var(--gold)' : 'var(--danger)';
+
+  // Confidence
+  const confEl = document.getElementById('hero-confidence');
+  const confPct = Math.round(data.avg_confidence * 100);
+  confEl.textContent = confPct + '%';
+  confEl.style.color = confPct >= 90 ? 'var(--bright)' : confPct >= 70 ? 'var(--gold)' : 'var(--danger)';
+
+  // Inference time
+  const infEl = document.getElementById('hero-inference');
+  const ms = data.inference_ms || 0;
+  infEl.textContent = ms < 1 ? '<1ms' : Math.round(ms) + 'ms';
+  infEl.style.color = ms <= 25 ? 'var(--success)' : ms <= 100 ? 'var(--gold)' : 'var(--danger)';
+
+  // Top expert (most-used router decision)
+  const routerEl = document.getElementById('hero-router');
+  const expertCounts = {GNN: 0, POMDP: 0, Mamba: 0, Fusion: 0};
+  data.nodes.forEach(n => {
+    let topExpert = 'GNN', topWeight = 0;
+    for (const [exp, w] of Object.entries(n.routing)) {
+      if (w > topWeight) { topWeight = w; topExpert = exp; }
+    }
+    expertCounts[topExpert]++;
+  });
+  const topExpert = Object.entries(expertCounts).sort((a,b) => b[1]-a[1])[0];
+  routerEl.textContent = topExpert[0];
+  routerEl.style.color = 'var(--gold)';
+}
+
 function updateTimeline() {
   if (tickHistory.length === 0) return;
 
-  // Find nodes that changed state
+  // Find nodes that changed state or are non-healthy
   const changedNodes = new Set();
   for (let t = 1; t < tickHistory.length; t++) {
     for (let i = 0; i < nNodes; i++) {
@@ -741,44 +1036,224 @@ function updateTimeline() {
       }
     }
   }
-
-  // Also add currently non-healthy
   const latest = tickHistory[tickHistory.length-1];
   latest.nodes.forEach((n,i) => { if (n.state_idx !== 0) changedNodes.add(i); });
 
-  const nodes = [...changedNodes].sort((a,b) => {
-    // Sort by first change tick
-    for (let t = 1; t < tickHistory.length; t++) {
-      const aChanged = tickHistory[t].nodes[a].state_idx !== tickHistory[t-1].nodes[a].state_idx;
-      const bChanged = tickHistory[t].nodes[b].state_idx !== tickHistory[t-1].nodes[b].state_idx;
-      if (aChanged && !bChanged) return -1;
-      if (!aChanged && bChanged) return 1;
+  // Sort by first affected tick (root cause first)
+  const firstBadTick = {};
+  changedNodes.forEach(i => {
+    for (let t = 0; t < tickHistory.length; t++) {
+      if (tickHistory[t].nodes[i].state_idx !== 0) { firstBadTick[i] = t; break; }
     }
-    return a - b;
+    if (firstBadTick[i] === undefined) firstBadTick[i] = tickHistory.length;
   });
 
+  const nodes = [...changedNodes].sort((a,b) => firstBadTick[a] - firstBadTick[b] || a - b);
   if (nodes.length === 0) return;
 
-  const grid = document.getElementById('timeline-grid');
-  const labelWidth = topoNodes.length > 0 ? '100px' : '60px';
-  grid.style.gridTemplateColumns = labelWidth + ' repeat(' + tickHistory.length + ', 18px)';
+  // Identify root cause (first node to go non-healthy)
+  const rootCauseNode = nodes.length > 0 ? nodes[0] : -1;
+  const rootCauseTick = firstBadTick[rootCauseNode] || 0;
 
+  const grid = document.getElementById('timeline-grid');
+  const cellW = 24;
+  const labelWidth = topoNodes.length > 0 ? '110px' : '70px';
+  grid.style.gridTemplateColumns = labelWidth + ' repeat(' + tickHistory.length + ', ' + cellW + 'px)';
+
+  // Header row
   let html = '<div class="row-label"></div>';
   for (let t = 0; t < tickHistory.length; t++) {
     html += '<div class="tick-header">' + t + '</div>';
   }
 
+  // Node rows with confidence opacity, root cause badge, and cell dots
   nodes.forEach(nodeIdx => {
     const tLabel = (topoNodes[nodeIdx] && topoNodes[nodeIdx].id) ? topoNodes[nodeIdx].id : String(nodeIdx).padStart(2,'0');
-    html += '<div class="row-label">' + tLabel + '</div>';
+    const isRoot = nodeIdx === rootCauseNode;
+    const badge = isRoot ? '<span class="root-cause-badge" title="Root cause"></span>' : '';
+    html += '<div class="row-label">' + badge + tLabel + '</div>';
+
     for (let t = 0; t < tickHistory.length; t++) {
-      const s = tickHistory[t].nodes[nodeIdx].state_idx;
-      const isCurrent = t === tickHistory.length - 1;
-      html += '<div class="tick-cell s' + s + (isCurrent ? ' current' : '') + '"></div>';
+      const node = tickHistory[t].nodes[nodeIdx];
+      const s = node.state_idx;
+      const conf = node.confidence || 0;
+
+      // Confidence class
+      let confClass = 'high-conf';
+      if (conf < 0.6) confClass = 'low-conf';
+      else if (conf < 0.85) confClass = 'mid-conf';
+
+      html += '<div class="tick-cell s' + s + ' ' + confClass + '" data-row="' + nodeIdx + '" data-tick="' + t + '">' +
+        '<div class="cell-dot"></div></div>';
     }
   });
 
   grid.innerHTML = html;
+
+  // Playhead position
+  updatePlayhead(tickHistory.length - 1, nodes.length, cellW, labelWidth);
+
+  // Draw propagation arrows
+  drawPropagationArrows(nodes, cellW, labelWidth);
+
+  // Draw sparklines
+  drawSparklines(nodes);
+}
+
+function updatePlayhead(currentTick, nRows, cellW, labelWidth) {
+  const playhead = document.getElementById('timeline-playhead');
+  const grid = document.getElementById('timeline-grid');
+  if (!grid || currentTick < 0) { playhead.style.display = 'none'; return; }
+
+  // Parse label width
+  const lw = parseInt(labelWidth);
+  const left = lw + (currentTick * (cellW + 1)) + cellW / 2;
+
+  playhead.style.display = 'block';
+  playhead.style.left = left + 'px';
+  playhead.style.top = '0';
+  playhead.style.height = grid.offsetHeight + 'px';
+}
+
+function drawPropagationArrows(nodes, cellW, labelWidth) {
+  const svg = document.getElementById('timeline-arrows');
+  svg.innerHTML = '';
+  if (tickHistory.length < 2 || nodes.length < 2) return;
+
+  const lw = parseInt(labelWidth);
+  const rowH = 23; // cell height + gap
+  const headerH = 17; // header row height
+
+  // For each node that transitions to non-healthy, find if a connected node
+  // transitioned one tick earlier (propagation signal)
+  const nodeRowMap = {};
+  nodes.forEach((nIdx, row) => { nodeRowMap[nIdx] = row; });
+
+  // Build edge lookup from topology
+  const connected = {};
+  topoEdges.forEach(e => {
+    // Map topo IDs to node indices
+    const srcIdx = topoNodes.findIndex(n => n && n.id === e.source);
+    const tgtIdx = topoNodes.findIndex(n => n && n.id === e.target);
+    if (srcIdx >= 0 && tgtIdx >= 0) {
+      if (!connected[srcIdx]) connected[srcIdx] = [];
+      if (!connected[tgtIdx]) connected[tgtIdx] = [];
+      connected[srcIdx].push(tgtIdx);
+      connected[tgtIdx].push(srcIdx);
+    }
+  });
+
+  let arrows = '';
+  nodes.forEach(nodeIdx => {
+    // Find the tick where this node first went non-healthy
+    for (let t = 1; t < tickHistory.length; t++) {
+      const prev = tickHistory[t-1].nodes[nodeIdx].state_idx;
+      const curr = tickHistory[t].nodes[nodeIdx].state_idx;
+      if (prev === 0 && curr !== 0) {
+        // This node just transitioned. Check if a connected node was already bad at t-1
+        const neighbors = connected[nodeIdx] || [];
+        for (const nbrIdx of neighbors) {
+          if (nodeRowMap[nbrIdx] === undefined) continue;
+          const nbrPrevState = tickHistory[t-1].nodes[nbrIdx].state_idx;
+          if (nbrPrevState !== 0) {
+            // Draw arrow from neighbor at t-1 to this node at t
+            const srcRow = nodeRowMap[nbrIdx];
+            const dstRow = nodeRowMap[nodeIdx];
+            const x1 = lw + ((t-1) * (cellW + 1)) + cellW / 2;
+            const y1 = headerH + srcRow * rowH + rowH / 2;
+            const x2 = lw + (t * (cellW + 1)) + cellW / 2;
+            const y2 = headerH + dstRow * rowH + rowH / 2;
+
+            arrows += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" ' +
+              'stroke="rgba(201,162,39,0.25)" stroke-width="1" stroke-dasharray="3,2"/>';
+            // Small arrowhead dot at destination
+            arrows += '<circle cx="' + x2 + '" cy="' + y2 + '" r="2" fill="rgba(201,162,39,0.4)"/>';
+            break; // One arrow per transition
+          }
+        }
+        break; // Only first transition per node
+      }
+    }
+  });
+
+  svg.innerHTML = arrows;
+  // Size SVG to match grid
+  const grid = document.getElementById('timeline-grid');
+  svg.setAttribute('width', grid.scrollWidth);
+  svg.setAttribute('height', grid.offsetHeight);
+}
+
+function drawSparklines(nodes) {
+  // Draw health sparklines as tiny canvas overlays per row
+  // Use a single canvas overlaid on the timeline for performance
+  const existing = document.getElementById('sparkline-overlay');
+  if (existing) existing.remove();
+
+  const grid = document.getElementById('timeline-grid');
+  if (!grid || tickHistory.length < 2) return;
+
+  const canvas = document.createElement('canvas');
+  canvas.id = 'sparkline-overlay';
+  canvas.style.position = 'absolute';
+  canvas.style.top = '0';
+  canvas.style.left = '0';
+  canvas.style.pointerEvents = 'none';
+  canvas.style.zIndex = '4';
+
+  const cellW = 24;
+  const gap = 1;
+  const rowH = 23;
+  const headerH = 17;
+  const lw = topoNodes.length > 0 ? 110 : 70;
+
+  canvas.width = grid.scrollWidth;
+  canvas.height = grid.offsetHeight;
+  canvas.style.width = canvas.width + 'px';
+  canvas.style.height = canvas.height + 'px';
+
+  const ctx = canvas.getContext('2d');
+
+  const stateToHealth = [1.0, 0.6, 0.15, 0.0, 0.4]; // healthy, degraded, failed, unreachable, oscillating
+
+  nodes.forEach((nodeIdx, row) => {
+    const y0 = headerH + row * rowH;
+    const yBottom = y0 + rowH - 2;
+    const yTop = y0 + 3;
+    const yRange = yBottom - yTop;
+
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(201,162,39,0.3)';
+    ctx.lineWidth = 1.2;
+
+    for (let t = 0; t < tickHistory.length; t++) {
+      const node = tickHistory[t].nodes[nodeIdx];
+      const health = stateToHealth[node.state_idx];
+      const x = lw + t * (cellW + gap) + cellW / 2;
+      const y = yBottom - health * yRange;
+
+      if (t === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Draw dots at state transitions
+    for (let t = 1; t < tickHistory.length; t++) {
+      const prev = tickHistory[t-1].nodes[nodeIdx].state_idx;
+      const curr = tickHistory[t].nodes[nodeIdx].state_idx;
+      if (prev !== curr) {
+        const health = stateToHealth[curr];
+        const x = lw + t * (cellW + gap) + cellW / 2;
+        const y = yBottom - health * yRange;
+        const colors = ['rgba(74,122,69,0.8)', 'rgba(201,162,39,0.8)', 'rgba(166,61,47,0.9)', 'rgba(138,127,110,0.5)', 'rgba(201,162,39,0.7)'];
+        ctx.beginPath();
+        ctx.fillStyle = colors[curr];
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  });
+
+  grid.parentElement.appendChild(canvas);
 }
 
 // ── Node detail ──

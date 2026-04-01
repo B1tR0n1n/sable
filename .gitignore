@@ -38,6 +38,23 @@ dashboard/dist/
 SABLE_PLAN.md
 SABLE_PLANFULL.md
 
+# Patent documents (filed, do not publish)
+docs/PROVISIONAL_PATENT_DRAFT.md
+docs/SABLE_PROVISIONAL_PATENT.docx
+docs/generate_patent_docx.py
+docs/generate_patent_figures.py
+docs/patent_figures/
+docs/download/
+
+# Session summaries (internal working notes)
+docs/sessions/
+
+# Dashboard backup
+docker/dashboard_backup.html
+
+# Feedback database (local state)
+docker/feedback.db
+
 # Sonar
 sonar-results.json
 .sonar/

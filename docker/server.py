@@ -6,6 +6,7 @@ Serves the dashboard + WebSocket for live inference streaming.
 
 import asyncio
 import json
+import re
 import sqlite3
 import sys
 import time
@@ -36,6 +37,9 @@ _topo_edges: list[dict] = []  # Topology edges
 mc_dropout_samples: int = 0   # 0 = off, >0 = MC dropout enabled with N samples
 nemotron = NemotronBridge()   # Nemotron LLM bridge for natural language reports
 
+# Scenario name validation: alphanumeric, hyphens, underscores only
+_SAFE_NAME = re.compile(r"^[a-zA-Z0-9_\-]+$")
+
 SCENARIO_DIR = Path(__file__).parent / "scenarios"
 CHECKPOINT_DIR = Path(__file__).parent / "checkpoints"
 DASHBOARD_PATH = Path(__file__).parent / "dashboard.html"
@@ -55,8 +59,12 @@ BANNER = """
 
 
 def load_scenario(name: str) -> dict | None:
-    """Load a pre-computed scenario."""
+    """Load a pre-computed scenario. Validates name to prevent path traversal."""
+    if not _SAFE_NAME.match(name):
+        return None
     path = SCENARIO_DIR / f"{name}.pt"
+    if not path.resolve().parent == SCENARIO_DIR.resolve():
+        return None
     if not path.exists():
         return None
     return torch.load(path, weights_only=False)
@@ -296,12 +304,13 @@ async def recommendations():
 @app.post("/api/reset")
 async def reset():
     global autoplay_task
-    if autoplay_task:
-        autoplay_task.cancel()
-        autoplay_task = None
-    if scenario_data:
-        engine.reset_state(scenario_data["n_nodes"])
-    return {"reset": True, "cycle": 0}
+    async with state_lock:
+        if autoplay_task:
+            autoplay_task.cancel()
+            autoplay_task = None
+        if scenario_data:
+            engine.reset_state(scenario_data["n_nodes"])
+        return {"reset": True, "cycle": 0}
 
 
 # ── Topology ─────────────────────────────────────────────────────────────
@@ -338,7 +347,8 @@ async def websocket_endpoint(ws: WebSocket):
             data = await ws.receive_text()
             msg = json.loads(data)
             if msg.get("type") == "tick":
-                result = run_tick()
+                async with state_lock:
+                    result = await asyncio.to_thread(run_tick)
                 await ws.send_json({"type": "tick", **result})
     except WebSocketDisconnect:
         pass
@@ -373,7 +383,8 @@ async def autoplay_loop():
     global autoplay_task
     try:
         while scenario_data and engine.cycle < scenario_data["n_ticks"]:
-            result = await asyncio.to_thread(run_tick)
+            async with state_lock:
+                result = await asyncio.to_thread(run_tick)
             await broadcast({"type": "tick", **result})
             await asyncio.sleep(1.0 / autoplay_speed)  # Intentional rate-limit delay for animation pacing
         # Scenario complete
@@ -402,6 +413,86 @@ def run_tick() -> dict:
     return enrich_tick(result)
 
 
+# ── Live Monitor Endpoint ────────────────────────────────────────────────
+
+@app.post("/api/live_tick")
+async def live_tick(body: dict):
+    """Receive pre-encoded pillar inputs from the live monitor.
+
+    The live monitor (live_monitor.py) polls Prometheus, encodes telemetry
+    into pillar tensor formats, and POSTs them here. This endpoint runs
+    inference and returns the same result format as /api/tick.
+
+    Body: {
+        gnn: [[...]]         - (N, 1044) node features as nested list
+        pomdp: {node_id: [...]} - node_id to 8-dim belief vector
+        mamba: [[[...]]]     - (1, 2, max_nodes*26) temporal input
+        node_ids: [str]      - ordered node IDs
+        n_nodes: int
+        ground_truth: [int]  - optional, state indices from health scorer
+    }
+    """
+    import numpy as np
+
+    async with state_lock:
+        n_nodes = body["n_nodes"]
+        node_ids = body["node_ids"]
+
+        # Convert lists back to tensors
+        gnn_np = np.array(body["gnn"], dtype=np.float32)  # (N, 1044)
+        gnn_t = torch.tensor(gnn_np, device=engine.device).unsqueeze(0)  # (1, N, 1044)
+
+        # POMDP: dict of beliefs -> (1, N, 8) tensor
+        pomdp_list = []
+        for nid in node_ids:
+            b = body["pomdp"].get(nid, [1, 0, 0, 0, 1, 0, 0, 0])
+            pomdp_list.append(b)
+        pomdp_t = torch.tensor(pomdp_list, dtype=torch.float32, device=engine.device).unsqueeze(0)
+
+        # Mamba: already (1, 2, max_nodes*26), but engine expects (1, N, feat_dim)
+        # Extract current tick features for each node
+        mamba_np = np.array(body["mamba"], dtype=np.float32)  # (1, 2, max_nodes*26)
+        # Reshape tick 1 (current) into per-node features
+        from adapters.encode import MAMBA_NODE_FEAT_DIM
+        tick_flat = mamba_np[0, 1, :]  # Current tick
+        n = min(n_nodes, len(tick_flat) // MAMBA_NODE_FEAT_DIM)
+        mamba_nodes = tick_flat[:n * MAMBA_NODE_FEAT_DIM].reshape(n, MAMBA_NODE_FEAT_DIM)
+        mamba_t = torch.tensor(mamba_nodes, dtype=torch.float32, device=engine.device).unsqueeze(0)
+
+        # Ground truth (optional)
+        gt = None
+        if "ground_truth" in body and body["ground_truth"]:
+            gt = torch.tensor(body["ground_truth"][:n_nodes], dtype=torch.long)
+
+        # Initialize engine state for live data if needed
+        if engine.n_nodes != n_nodes:
+            engine.reset_state(n_nodes)
+
+        # Update topology labels from node_ids
+        global _topo_nodes
+        if not _topo_nodes or len(_topo_nodes) != n_nodes:
+            _topo_nodes = [{"id": nid, "label": nid, "type": "UNKNOWN"} for nid in node_ids]
+            # Try to enrich from snapshot data if we have component types
+            # (the live monitor doesn't send these yet, but future-proof)
+
+        result = engine.infer(gnn_t, pomdp_t, mamba_t, ground_truth=gt,
+                              mc_samples=mc_dropout_samples)
+        result["source"] = "live"
+        result["inference_ms"] = result.get("inference_ms", 0)
+
+        # Enrich with node labels
+        for node in result.get("nodes", []):
+            i = node["id"]
+            if i < len(node_ids):
+                node["label"] = node_ids[i]
+                node["topo_id"] = node_ids[i]
+
+        # Broadcast to WebSocket clients
+        await broadcast({"type": "live_tick", **result})
+
+        return result
+
+
 @app.post("/api/lora")
 async def toggle_lora(body: dict):
     """Toggle LoRA adapter on/off for before/after demo."""
@@ -425,22 +516,20 @@ FEEDBACK_DB = Path(__file__).parent / "feedback.db"
 
 def _init_feedback_db():
     """Create feedback table if it doesn't exist."""
-    conn = sqlite3.connect(str(FEEDBACK_DB))
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS corrections (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            node_idx INTEGER NOT NULL,
-            node_id TEXT,
-            predicted_state TEXT NOT NULL,
-            correct_state TEXT NOT NULL,
-            cycle INTEGER,
-            scenario TEXT,
-            operator TEXT DEFAULT '',
-            timestamp REAL NOT NULL
-        )
-    """)
-    conn.commit()
-    conn.close()
+    with sqlite3.connect(str(FEEDBACK_DB)) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS corrections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                node_idx INTEGER NOT NULL,
+                node_id TEXT,
+                predicted_state TEXT NOT NULL,
+                correct_state TEXT NOT NULL,
+                cycle INTEGER,
+                scenario TEXT,
+                operator TEXT DEFAULT '',
+                timestamp REAL NOT NULL
+            )
+        """)
 
 
 @app.post("/api/feedback")
@@ -470,15 +559,14 @@ async def submit_feedback(body: dict):
         from sable_sim.core.states import STATE_NAMES
         predicted = STATE_NAMES[latest["predictions"][node_idx]]
 
-    conn = sqlite3.connect(str(FEEDBACK_DB))
-    conn.execute(
-        "INSERT INTO corrections (node_idx, node_id, predicted_state, correct_state, cycle, scenario, operator, timestamp) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (node_idx, node_id(node_idx), predicted, correct_state, engine.cycle, current_scenario, operator, time.time()),
-    )
-    conn.commit()
-    total = conn.execute("SELECT COUNT(*) FROM corrections").fetchone()[0]
-    conn.close()
+    with sqlite3.connect(str(FEEDBACK_DB)) as conn:
+        conn.execute(
+            "INSERT INTO corrections (node_idx, node_id, predicted_state, correct_state, "
+            "cycle, scenario, operator, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (node_idx, node_id(node_idx), predicted, correct_state,
+             engine.cycle, current_scenario, operator, time.time()),
+        )
+        total = conn.execute("SELECT COUNT(*) FROM corrections").fetchone()[0]
 
     return {
         "recorded": True,
@@ -495,22 +583,18 @@ async def feedback_stats():
     if not FEEDBACK_DB.exists():
         return {"total": 0, "corrections": []}
 
-    conn = sqlite3.connect(str(FEEDBACK_DB))
-    total = conn.execute("SELECT COUNT(*) FROM corrections").fetchone()[0]
+    with sqlite3.connect(str(FEEDBACK_DB)) as conn:
+        total = conn.execute("SELECT COUNT(*) FROM corrections").fetchone()[0]
 
-    # Recent corrections
-    rows = conn.execute(
-        "SELECT node_id, predicted_state, correct_state, cycle, scenario, timestamp "
-        "FROM corrections ORDER BY timestamp DESC LIMIT 20"
-    ).fetchall()
+        rows = conn.execute(
+            "SELECT node_id, predicted_state, correct_state, cycle, scenario, timestamp "
+            "FROM corrections ORDER BY timestamp DESC LIMIT 20"
+        ).fetchall()
 
-    # Accuracy by state (how often the model was wrong per state)
-    state_stats = conn.execute(
-        "SELECT predicted_state, correct_state, COUNT(*) "
-        "FROM corrections GROUP BY predicted_state, correct_state"
-    ).fetchall()
-
-    conn.close()
+        state_stats = conn.execute(
+            "SELECT predicted_state, correct_state, COUNT(*) "
+            "FROM corrections GROUP BY predicted_state, correct_state"
+        ).fetchall()
 
     corrections = [
         {"node_id": r[0], "predicted": r[1], "corrected_to": r[2],

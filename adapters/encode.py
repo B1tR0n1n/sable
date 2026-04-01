@@ -207,7 +207,7 @@ class PillarEncoder:
         emb = adapter.type_embeddings.get(comp_type, np.zeros(GNN_EMBEDDING_DIM))
 
         if health < 1.0:
-            # Deterministic perturbation seeded from node identity
+            # MD5 used as stable hash for RNG seeding only, not security-critical
             seed = int(hashlib.md5(node_id.encode()).hexdigest()[:8], 16)
             rng = np.random.default_rng(seed)
             perturbation = rng.standard_normal(GNN_EMBEDDING_DIM) * (1.0 - health) * 0.2

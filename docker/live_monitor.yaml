@@ -1,0 +1,29 @@
+# SABLE Live Monitor Configuration
+# ===================================
+# Copy this file and edit for your environment.
+
+# Prometheus instance URL
+prometheus_url: http://prometheus:9090
+
+# SABLE engine URL (server.py must be running)
+sable_url: http://localhost:8080
+
+# How often to poll Prometheus (seconds)
+poll_interval: 30
+
+# Topology file (YAML or JSON)
+# Path is relative to this config file, or absolute.
+topology: ../adapters/topologies/msp_demo.yaml
+
+# Health threshold overrides (optional)
+# Tune per environment. Defaults are conservative enterprise baselines.
+# health_overrides:
+#   cpu_utilization:
+#     degraded: 85
+#     failed: 98
+#   mem_used_pct:
+#     degraded: 90
+#     failed: 98
+#   disk_used_pct:
+#     degraded: 90
+#     failed: 98

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
-import ForceGraph2D from 'react-force-graph-2d'
+import ForceGraph3D from 'react-force-graph-3d'
+import * as THREE from 'three'
 
 const API = 'http://localhost:3001'
 
@@ -60,7 +61,7 @@ function Dashboard() {
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-value">{stats.n_thoughts}</div>
-          <div className="stat-label">Thoughts</div>
+          <div className="stat-label">Active Thoughts</div>
         </div>
         <div className="stat-card">
           <div className="stat-value">{stats.n_links}</div>
@@ -69,6 +70,10 @@ function Dashboard() {
         <div className="stat-card">
           <div className="stat-value">{stats.n_projects}</div>
           <div className="stat-label">Projects</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{stats.n_archived || 0}</div>
+          <div className="stat-label">Archived</div>
         </div>
         <div className="stat-card">
           <div className="stat-value">{stats.isolated}</div>
@@ -163,18 +168,36 @@ function Dashboard() {
 
 function GraphView() {
   const [graphData, setGraphData] = useState(null)
+  const [error, setError] = useState(null)
   const [selected, setSelected] = useState(null)
   const [colorBy, setColorBy] = useState('type')
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const graphRef = useRef()
+  const containerRef = useRef()
+
+  // Responsive sizing
+  useEffect(() => {
+    const updateSize = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect()
+        setDimensions({ width: rect.width, height: rect.height })
+      }
+    }
+    updateSize()
+    window.addEventListener('resize', updateSize)
+    return () => window.removeEventListener('resize', updateSize)
+  }, [graphData])
 
   useEffect(() => {
     fetch(`${API}/api/graph`)
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`API returned ${r.status}`)
+        return r.json()
+      })
       .then(data => {
         const nodeSet = new Set(data.nodes.map(n => n.id))
         const edges = data.edges.filter(e => nodeSet.has(e.source) && nodeSet.has(e.target))
 
-        // Pre-compute degree ONCE so we don't recalculate every frame
         const degreeMap = {}
         edges.forEach(e => {
           degreeMap[e.source] = (degreeMap[e.source] || 0) + 1
@@ -183,12 +206,11 @@ function GraphView() {
         const nodes = data.nodes.map(n => ({
           ...n,
           _degree: degreeMap[n.id] || 0,
-          // Pre-compute size: isolated=2, low=3, medium=5, hub=8+
-          _size: Math.max(2, Math.min(12, 2 + Math.sqrt(degreeMap[n.id] || 0) * 1.8)),
+          _size: Math.max(1.5, Math.min(8, 1.5 + Math.sqrt(degreeMap[n.id] || 0) * 1.2)),
         }))
         setGraphData({ nodes, links: edges })
       })
-      .catch(() => {})
+      .catch(err => setError(err.message))
   }, [])
 
   const getNodeColor = useCallback((node) => {
@@ -196,6 +218,29 @@ function GraphView() {
     return TYPE_COLORS[node.type] || '#8a7f6e'
   }, [colorBy])
 
+  // Custom 3D node objects — spheres with emissive glow for selected
+  const nodeThreeObject = useCallback((node) => {
+    const color = getNodeColor(node)
+    const geometry = new THREE.SphereGeometry(node._size, 12, 12)
+    const material = new THREE.MeshLambertMaterial({
+      color,
+      transparent: true,
+      opacity: 0.9,
+    })
+    const mesh = new THREE.Mesh(geometry, material)
+
+    // Selection ring
+    if (selected?.id === node.id) {
+      const ringGeom = new THREE.RingGeometry(node._size + 1, node._size + 2, 32)
+      const ringMat = new THREE.MeshBasicMaterial({ color: '#c9a227', side: THREE.DoubleSide })
+      const ring = new THREE.Mesh(ringGeom, ringMat)
+      mesh.add(ring)
+    }
+
+    return mesh
+  }, [getNodeColor, selected])
+
+  if (error) return <div className="loading" style={{ color: 'var(--danger)' }}>Failed to load graph: {error}</div>
   if (!graphData) return <div className="loading">Loading graph</div>
 
   return (
@@ -204,7 +249,8 @@ function GraphView() {
         <div>
           <h2>KNOWLEDGE GRAPH</h2>
           <div className="description">
-            {graphData.nodes.length} nodes, {graphData.links.length} edges
+            {graphData.nodes.length} nodes, {graphData.links.length} edges —
+            left-drag rotate, right-drag pan, scroll zoom, click node for details
           </div>
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
@@ -214,57 +260,46 @@ function GraphView() {
       </div>
 
       <div style={{ display: 'flex', gap: 0, height: 'calc(100vh - 140px)' }}>
-        {/* Graph canvas */}
-        <div style={{ flex: 1, position: 'relative', background: '#0a0908', border: '1px solid #2a2520', borderRadius: 4, overflow: 'hidden' }}>
-          <ForceGraph2D
+        {/* 3D Graph canvas */}
+        <div ref={containerRef} style={{ flex: 1, position: 'relative', background: '#0a0908', border: '1px solid #2a2520', borderRadius: 4, overflow: 'hidden' }}>
+          <ForceGraph3D
             ref={graphRef}
             graphData={graphData}
-            width={typeof globalThis.window !== 'undefined' ? globalThis.window.innerWidth - 220 - 280 - 40 : 800}
-            height={typeof globalThis.window !== 'undefined' ? globalThis.window.innerHeight - 140 : 600}
-            nodeCanvasObjectMode={() => 'replace'}
-            nodeCanvasObject={(node, ctx, globalScale) => {
-              const r = node._size
-              ctx.beginPath()
-              ctx.arc(node.x, node.y, r, 0, 2 * Math.PI)
-              ctx.fillStyle = getNodeColor(node)
-              ctx.fill()
-
-              if (selected?.id === node.id) {
-                ctx.strokeStyle = '#c9a227'
-                ctx.lineWidth = 1.5
-                ctx.stroke()
-              }
-
-              if (globalScale > 2) {
-                const label = (node.content || '').slice(0, 30)
-                ctx.font = `${Math.max(3, 10 / globalScale)}px JetBrains Mono`
-                ctx.fillStyle = '#8a7f6e'
-                ctx.textAlign = 'center'
-                ctx.fillText(label, node.x, node.y + r + 4)
+            width={dimensions.width}
+            height={dimensions.height}
+            backgroundColor="#0a0908"
+            nodeThreeObject={nodeThreeObject}
+            nodeThreeObjectExtend={false}
+            onNodeClick={(node) => {
+              setSelected(node)
+              // Fly camera to clicked node
+              const distance = 120
+              const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z)
+              if (graphRef.current) {
+                graphRef.current.cameraPosition(
+                  { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
+                  node,
+                  1000
+                )
               }
             }}
-            nodePointerAreaPaint={(node, color, ctx, globalScale) => {
-              // Hit area must be large enough to click at any zoom level
-              // At low zoom (globalScale < 1), nodes are tiny — need bigger hit area
-              const minHit = 12 / Math.max(globalScale, 0.3)
-              ctx.fillStyle = color
-              ctx.beginPath()
-              ctx.arc(node.x, node.y, Math.max(node._size, minHit), 0, 2 * Math.PI)
-              ctx.fill()
+            onNodeHover={(node) => {
+              if (containerRef.current) {
+                containerRef.current.style.cursor = node ? 'pointer' : 'default'
+              }
             }}
             linkColor={link => {
               const rel = link.relation || 'related'
-              return (REL_COLORS[rel] || '#2a2520') + '30'
+              return (REL_COLORS[rel] || '#2a2520') + '40'
             }}
-            linkWidth={0.4}
-            backgroundColor="#0a0908"
-            onNodeClick={(node) => setSelected(node)}
+            linkWidth={0.3}
+            linkOpacity={0.2}
             enableNodeDrag={true}
             cooldownTicks={100}
             warmupTicks={50}
           />
 
-          {/* Legend — bottom left, inside canvas */}
+          {/* Legend — bottom left, overlaid on 3D canvas */}
           <div style={{
             position: 'absolute', bottom: 10, left: 10,
             background: 'rgba(10,9,8,0.92)', border: '1px solid #2a2520',
@@ -279,7 +314,7 @@ function GraphView() {
           </div>
         </div>
 
-        {/* Detail panel — fixed sidebar on right, always visible */}
+        {/* Detail panel — fixed sidebar on right */}
         <div style={{
           width: 280, flexShrink: 0, background: '#151311',
           borderLeft: '1px solid #2a2520', padding: 16,

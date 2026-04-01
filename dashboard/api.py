@@ -37,7 +37,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://lqpvskwevanpgywdksqu.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxcHZza3dldmFucGd5d2Rrc3F1Iiwi"
+    "cm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDA0ODQ0MSwiZXhwIjoyMDg5"
+    "NjI0NDQxfQ.2urXziUOfXC-lMwl1tz4RzsNuaMM_iL4A1I_hefwEJs"
+))
 GNN_SERVER = "http://localhost:5070"
 
 app = FastAPI(title="SABLE Dashboard API", version="1.0.0")
@@ -61,7 +66,7 @@ def supabase_headers():
 async def get_graph():
     """Pull CORTEX graph for visualization."""
     async with httpx.AsyncClient(timeout=60) as client:
-        # Thoughts
+        # Thoughts (exclude archived)
         thoughts = []
         offset = 0
         while True:
@@ -69,6 +74,7 @@ async def get_graph():
                 f"{SUPABASE_URL}/rest/v1/thoughts",
                 headers=supabase_headers(),
                 params={"select": "id,content,metadata,created_at",
+                        "archived": "eq.false",
                         "order": "created_at.asc", "offset": offset, "limit": 1000},
             )
             batch = resp.json()
@@ -176,10 +182,24 @@ async def get_stats():
     degrees = list(adj.values()) if adj else [0]
     isolated = sum(1 for n in nodes if n["id"] not in adj)
 
+    # Get archived count
+    archived_count = 0
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            resp = await client.get(
+                f"{SUPABASE_URL}/rest/v1/thoughts",
+                headers={**supabase_headers(), "Prefer": "count=exact"},
+                params={"select": "id", "archived": "eq.true", "limit": 0},
+            )
+            archived_count = int(resp.headers.get("content-range", "*/0").split("/")[-1])
+        except Exception:
+            pass
+
     return {
         "n_thoughts": len(nodes),
         "n_links": len(edges),
         "n_projects": len(graph["projects"]),
+        "n_archived": archived_count,
         "isolated": isolated,
         "avg_degree": round(sum(degrees) / max(len(degrees), 1), 2),
         "max_degree": max(degrees),
