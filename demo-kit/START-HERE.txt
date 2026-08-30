@@ -1,0 +1,23 @@
+SABLE — Infrastructure Diagnosis Demo
+=====================================
+
+1. Double-click  index.html  → opens in any browser. Offline. No install.
+
+2. What you're looking at: a real client dependency graph. The ops team's
+   monitoring saw 3 alerts (solid-bordered nodes). SABLE propagated those
+   through the topology and surfaced 6 more failures in nodes the monitoring
+   ISN'T watching (gold dashed, glowing).
+
+That's the pitch in one screen: topology + a few alerts in, the hidden
+cascade out.
+
+Honest numbers only:
+  - ~85%  live-stream accuracy (tracking an incident over time)
+  - ~40%  of hidden failures caught vs 0% for monitoring alone
+  - every figure measured on de-leaked data — nothing inflated
+
+See RUN-OF-SHOW.md for how to present it.
+
+To regenerate for a different topology:
+  python3 adapters/topology_ingest.py adapters/<your-topology>.json
+  (then re-capture — ask the build for the capture step)

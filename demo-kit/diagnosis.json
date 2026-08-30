@@ -1,0 +1,319 @@
+{
+  "name": "monday-morning-meltdown",
+  "n_nodes": 18,
+  "n_observed": 8,
+  "n_hidden": 10,
+  "n_inferred_problems": 6,
+  "nodes": [
+    {
+      "id": "gw-1",
+      "type": "INTERNET_GATEWAY",
+      "label": "Internet GW",
+      "tier": "external",
+      "observed": true,
+      "observed_state": "healthy",
+      "state": "healthy",
+      "confidence": 0.999,
+      "inferred_problem": false
+    },
+    {
+      "id": "fw-1",
+      "type": "FIREWALL",
+      "label": "Firewall",
+      "tier": "core",
+      "observed": true,
+      "observed_state": "healthy",
+      "state": "healthy",
+      "confidence": 0.997,
+      "inferred_problem": false
+    },
+    {
+      "id": "core-sw-1",
+      "type": "CORE_SWITCH",
+      "label": "Core Switch",
+      "tier": "core",
+      "observed": true,
+      "observed_state": "healthy",
+      "state": "healthy",
+      "confidence": 0.998,
+      "inferred_problem": false
+    },
+    {
+      "id": "core-sw-2",
+      "type": "CORE_SWITCH",
+      "label": "Core Switch",
+      "tier": "core",
+      "observed": true,
+      "observed_state": "healthy",
+      "state": "healthy",
+      "confidence": 0.998,
+      "inferred_problem": false
+    },
+    {
+      "id": "access-sw-1",
+      "type": "ACCESS_SWITCH",
+      "label": "Access Switch",
+      "tier": "access",
+      "observed": true,
+      "observed_state": "healthy",
+      "state": "healthy",
+      "confidence": 0.999,
+      "inferred_problem": false
+    },
+    {
+      "id": "access-sw-2",
+      "type": "ACCESS_SWITCH",
+      "label": "Access Switch",
+      "tier": "access",
+      "observed": false,
+      "observed_state": null,
+      "state": "degraded",
+      "confidence": 0.49,
+      "inferred_problem": true
+    },
+    {
+      "id": "hyp-1",
+      "type": "HYPERVISOR",
+      "label": "Hypervisor",
+      "tier": "compute",
+      "observed": false,
+      "observed_state": null,
+      "state": "healthy",
+      "confidence": 0.359,
+      "inferred_problem": false
+    },
+    {
+      "id": "hyp-2",
+      "type": "HYPERVISOR",
+      "label": "Hypervisor",
+      "tier": "compute",
+      "observed": false,
+      "observed_state": null,
+      "state": "healthy",
+      "confidence": 0.359,
+      "inferred_problem": false
+    },
+    {
+      "id": "stor-primary",
+      "type": "STORAGE_ARRAY",
+      "label": "Storage Array",
+      "tier": "storage",
+      "observed": true,
+      "observed_state": "degraded",
+      "state": "degraded",
+      "confidence": 0.999,
+      "inferred_problem": false
+    },
+    {
+      "id": "vm-web-1",
+      "type": "SERVER_VIRTUAL",
+      "label": "VM",
+      "tier": "compute",
+      "observed": false,
+      "observed_state": null,
+      "state": "degraded",
+      "confidence": 0.286,
+      "inferred_problem": true
+    },
+    {
+      "id": "vm-app-1",
+      "type": "SERVER_VIRTUAL",
+      "label": "VM",
+      "tier": "compute",
+      "observed": false,
+      "observed_state": null,
+      "state": "degraded",
+      "confidence": 0.286,
+      "inferred_problem": true
+    },
+    {
+      "id": "vm-db-1",
+      "type": "SERVER_VIRTUAL",
+      "label": "VM",
+      "tier": "compute",
+      "observed": false,
+      "observed_state": null,
+      "state": "degraded",
+      "confidence": 0.286,
+      "inferred_problem": true
+    },
+    {
+      "id": "vm-util-1",
+      "type": "SERVER_VIRTUAL",
+      "label": "VM",
+      "tier": "compute",
+      "observed": false,
+      "observed_state": null,
+      "state": "degraded",
+      "confidence": 0.286,
+      "inferred_problem": true
+    },
+    {
+      "id": "dns-1",
+      "type": "DNS_SERVER",
+      "label": "DNS",
+      "tier": "services",
+      "observed": false,
+      "observed_state": null,
+      "state": "failed",
+      "confidence": 0.47,
+      "inferred_problem": true
+    },
+    {
+      "id": "dc-1",
+      "type": "DOMAIN_CONTROLLER",
+      "label": "Domain Ctrl",
+      "tier": "services",
+      "observed": false,
+      "observed_state": null,
+      "state": "healthy",
+      "confidence": 0.413,
+      "inferred_problem": false
+    },
+    {
+      "id": "app-portal",
+      "type": "APPLICATION_SERVICE",
+      "label": "App Service",
+      "tier": "application",
+      "observed": true,
+      "observed_state": "failed",
+      "state": "failed",
+      "confidence": 0.998,
+      "inferred_problem": false
+    },
+    {
+      "id": "app-email",
+      "type": "APPLICATION_SERVICE",
+      "label": "App Service",
+      "tier": "application",
+      "observed": true,
+      "observed_state": "failed",
+      "state": "failed",
+      "confidence": 0.994,
+      "inferred_problem": false
+    },
+    {
+      "id": "app-erp",
+      "type": "APPLICATION_SERVICE",
+      "label": "App Service",
+      "tier": "application",
+      "observed": false,
+      "observed_state": null,
+      "state": "healthy",
+      "confidence": 0.349,
+      "inferred_problem": false
+    }
+  ],
+  "edges": [
+    {
+      "source": "fw-1",
+      "target": "gw-1",
+      "type": "NETWORK_PATH"
+    },
+    {
+      "source": "core-sw-1",
+      "target": "fw-1",
+      "type": "NETWORK_PATH"
+    },
+    {
+      "source": "core-sw-2",
+      "target": "fw-1",
+      "type": "NETWORK_PATH"
+    },
+    {
+      "source": "access-sw-1",
+      "target": "core-sw-1",
+      "type": "NETWORK_PATH"
+    },
+    {
+      "source": "access-sw-2",
+      "target": "core-sw-1",
+      "type": "NETWORK_PATH"
+    },
+    {
+      "source": "hyp-1",
+      "target": "access-sw-1",
+      "type": "NETWORK_PATH"
+    },
+    {
+      "source": "hyp-2",
+      "target": "access-sw-2",
+      "type": "NETWORK_PATH"
+    },
+    {
+      "source": "vm-web-1",
+      "target": "hyp-1",
+      "type": "HOSTING_DEPENDENCY"
+    },
+    {
+      "source": "vm-web-1",
+      "target": "stor-primary",
+      "type": "STORAGE_DEPENDENCY"
+    },
+    {
+      "source": "vm-app-1",
+      "target": "hyp-1",
+      "type": "HOSTING_DEPENDENCY"
+    },
+    {
+      "source": "vm-app-1",
+      "target": "stor-primary",
+      "type": "STORAGE_DEPENDENCY"
+    },
+    {
+      "source": "vm-db-1",
+      "target": "hyp-2",
+      "type": "HOSTING_DEPENDENCY"
+    },
+    {
+      "source": "vm-db-1",
+      "target": "stor-primary",
+      "type": "STORAGE_DEPENDENCY"
+    },
+    {
+      "source": "vm-util-1",
+      "target": "hyp-2",
+      "type": "HOSTING_DEPENDENCY"
+    },
+    {
+      "source": "vm-util-1",
+      "target": "stor-primary",
+      "type": "STORAGE_DEPENDENCY"
+    },
+    {
+      "source": "dns-1",
+      "target": "vm-util-1",
+      "type": "HOSTING_DEPENDENCY"
+    },
+    {
+      "source": "dc-1",
+      "target": "hyp-1",
+      "type": "HOSTING_DEPENDENCY"
+    },
+    {
+      "source": "app-portal",
+      "target": "vm-web-1",
+      "type": "SERVICE_DEPENDENCY"
+    },
+    {
+      "source": "app-portal",
+      "target": "dns-1",
+      "type": "DNS_DEPENDENCY"
+    },
+    {
+      "source": "app-portal",
+      "target": "dc-1",
+      "type": "AUTHENTICATION_DEPENDENCY"
+    },
+    {
+      "source": "app-email",
+      "target": "vm-app-1",
+      "type": "SERVICE_DEPENDENCY"
+    },
+    {
+      "source": "app-erp",
+      "target": "vm-db-1",
+      "type": "SERVICE_DEPENDENCY"
+    }
+  ]
+}
