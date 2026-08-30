@@ -61,3 +61,23 @@ sonar-results.json
 
 # OS
 .DS_Store
+
+# ── Cleanup 2026-08-30 ──
+# feed/ is a separate sub-project (React Native app + backend) — keep it out of this repo
+/feed/
+
+# SQLite state
+*.db
+*.db-wal
+*.db-shm
+
+# Torch RNG / misc state
+*.pth
+
+# Vendored Grafana plugins (third-party) — keep only the custom SABLE panel
+grafana/plugins/*
+!grafana/plugins/sable-topology-panel/
+grafana/data/
+
+# LoRA adapter training checkpoints (large/regenerable) — keep only final adapter config
+lora-adapt/**/checkpoint-*/
