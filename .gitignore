@@ -84,3 +84,7 @@ lora-adapt/**/checkpoint-*/
 
 # Auto-discovered network layouts (host-specific, may reveal internal IPs)
 adapters/discovered_*.json
+
+# demo-kit USB build artifacts
+demo-kit/SABLE-DEMO-USB/
+demo-kit/SABLE-DEMO-USB.zip
