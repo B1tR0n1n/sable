@@ -8,6 +8,7 @@ and the real model infers the hidden failures through the dependency graph.
 
 Run:   python3 serve.py      →   open http://localhost:8760
 """
+import json
 import sys
 from pathlib import Path
 
@@ -122,6 +123,28 @@ def topologies():
 @app.post("/api/diagnose")
 def api_diagnose(req: DiagReq):
     return JSONResponse(diagnose(req.topology, req.observations))
+
+
+class ScanReq(BaseModel):
+    community: str | None = None   # SNMP community for L2 (LLDP/CDP); None = skip
+
+
+@app.post("/api/scan")
+def api_scan(req: ScanReq):
+    """Live-scan the network, build a SABLE topology, save it, and diagnose."""
+    import network_discovery as ND
+    topo = ND.discover(community=req.community)
+    clean = {
+        "name": topo["name"],
+        "components": [{"id": c["id"], "type": c["type"]} for c in topo["components"]],
+        "dependencies": [{k: e[k] for k in ("source", "target", "type") if k in e}
+                         for e in topo["dependencies"]],
+        "observations": topo["observations"],
+    }
+    (TOPO_DIR / "discovered_topology.json").write_text(json.dumps(clean))
+    result = diagnose("discovered_topology", None)
+    result["scanned"] = topo["meta"]
+    return JSONResponse(result)
 
 
 @app.get("/", response_class=HTMLResponse)

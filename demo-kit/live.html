@@ -65,7 +65,10 @@
     <select id="topo"></select>
     <button class="go" id="run">▶ Diagnose</button>
     <button id="reset">↺ Reset to scenario</button>
-    <span class="hint">Click any node to cycle what monitoring observes: unobserved → healthy → degraded → failed. Then Diagnose.</span>
+    <button id="scan">⟳ Scan Network</button>
+    <input id="community" placeholder="SNMP community (optional)" spellcheck="false"
+           style="width:190px;font-size:13px" />
+    <span class="hint">Click a node to set what monitoring sees (unobserved → healthy → degraded → failed), then Diagnose. Or scan your real network.</span>
     <span class="hint" id="status" style="margin-left:auto;color:var(--gold)"></span>
   </div>
 
@@ -180,8 +183,26 @@ function cycle(id){
   if(nx===null)delete obs[id]; else obs[id]=nx;
   setStatus('inputs changed — hit Diagnose'); render(lastData);
 }
+async function scanNetwork(){
+  var c=document.getElementById('community').value.trim()||null;
+  var btn=document.getElementById('scan'); btn.disabled=true;
+  setStatus('scanning your network — nmap + SNMP, this takes ~1-2 min…');
+  try{
+    var d=await api('/api/scan',{community:c});
+    var sel=document.getElementById('topo');
+    if(![].some.call(sel.options,function(o){return o.value==='discovered_topology';})){
+      var o=document.createElement('option');o.value='discovered_topology';o.textContent='● discovered network';sel.appendChild(o);
+    }
+    sel.value='discovered_topology'; topo='discovered_topology';
+    obs=Object.assign({},d.default_observations||{}); lastData=d; render(d);
+    var meta=d.scanned||{};
+    setStatus('scanned '+(meta.n_hosts||d.nodes.length)+' hosts'+(meta.l2_edges?(' · '+meta.l2_edges+' L2 edges'):'')+' — click a node + Diagnose');
+  }catch(e){ setStatus('scan failed: '+e); }
+  btn.disabled=false;
+}
 document.getElementById('run').addEventListener('click',runDiagnosis);
 document.getElementById('reset').addEventListener('click',loadScenario);
+document.getElementById('scan').addEventListener('click',scanNetwork);
 document.getElementById('topo').addEventListener('change',function(e){topo=e.target.value;loadScenario();});
 boot();
 </script>
