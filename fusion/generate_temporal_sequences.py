@@ -122,7 +122,7 @@ def encode_gnn_features(graph, components, component_ids, gnn, device, rng=None)
         for dep_id in comp.dependencies_in:
             ti = cid_to_idx.get(dep_id)
             if ti is not None:
-                dep = graph.get_dependency(comp.id, dep_id)
+                dep = graph.get_dependency(dep_id, comp.id)
                 if dep:
                     etype = DEP_TYPE_MAP.get(str(dep.type), EDGE_TYPES["unknown"])
                     feat = np.zeros(INFRA_EDGE_FEAT_DIM, dtype=np.float32)

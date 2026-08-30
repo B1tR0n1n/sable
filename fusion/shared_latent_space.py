@@ -688,12 +688,19 @@ def generate_fusion_data(count: int, device: str = "cuda", seed: int = 42):
                     comp.state = ComponentState.DEGRADED
                     comp.health = rng.uniform(0.25, 0.45)
 
-        # Snapshot PRE-propagation state (what the operator sees early)
-        pre_prop_state = encode_system_state(graph, component_ids)
-
         # Propagate to get ground truth OUTCOME
         engine = PropagationEngine(max_ticks=30, soft_impact_factor=0.4 if use_deg else 0.3)
         engine.propagate(state)
+
+        # Partial observation (fog-of-war) — shared basis for ALL channels so
+        # unobserved nodes are hidden from GNN/POMDP/Mamba alike (audit fix #1).
+        fog = FogOfWar(monitoring_coverage=0.75, rng=SeededRandom(seed + generated))
+        operator_view = fog.generate_operator_view(state)
+        observed_ids = {o["component_id"] for o in operator_view.get("observations", [])}
+        belief = BeliefState(component_ids)
+        for obs in operator_view.get("observations", []):
+            belief.update_from_observation(obs["component_id"], obs["observed_state"], 0.85)
+        belief.propagate_beliefs(graph)
 
         # 1. GNN embeddings — infra-native 10-dim features matching trained GNN
         cid_to_idx = {cid: i for i, cid in enumerate(component_ids)}
@@ -703,14 +710,15 @@ def generate_fusion_data(count: int, device: str = "cuda", seed: int = 42):
         max_deg = max(degrees.values()) if degrees else 1
 
         node_features = np.zeros((n, INFRA_NODE_FEAT_DIM), dtype=np.float32)
-        pre_healths = []
         for i, comp in enumerate(components):
-            pre_health = pre_prop_state[i * NODE_FEAT_DIM]
-            pre_healths.append(pre_health)
+            # Observation-gated health: observed nodes reveal health, unobserved
+            # are unknown (0.5) — the GNN must infer their state from observed
+            # neighbours through the graph (audit fix #1).
+            health = float(comp.health) if comp.id in observed_ids else 0.5
             ntype = COMP_TYPE_MAP.get(str(comp.type), NODE_TYPES["unknown"])
             node_features[i, ntype] = 1.0  # type one-hot
             node_features[i, N_NODE_TYPES] = degrees[comp.id] / max(max_deg, 1)  # degree norm
-            node_features[i, N_NODE_TYPES + 1] = pre_health  # health
+            node_features[i, N_NODE_TYPES + 1] = health  # observed health
         x = torch.tensor(node_features, dtype=torch.float32).to(device)
 
         sources, targets, edge_feats = [], [], []
@@ -719,7 +727,7 @@ def generate_fusion_data(count: int, device: str = "cuda", seed: int = 42):
             for dep_id in comp.dependencies_in:
                 ti = cid_to_idx.get(dep_id)
                 if ti is not None:
-                    dep = graph.get_dependency(comp.id, dep_id)
+                    dep = graph.get_dependency(dep_id, comp.id)
                     if dep:
                         etype = DEP_TYPE_MAP.get(str(dep.type), EDGE_TYPES["unknown"])
                         feat = np.zeros(INFRA_EDGE_FEAT_DIM, dtype=np.float32)
@@ -743,15 +751,7 @@ def generate_fusion_data(count: int, device: str = "cuda", seed: int = 42):
             else:
                 all_gnn[generated, :n] = emb_cpu[:, :GNN_DIM]
 
-        # 2. POMDP belief vectors
-        fog = FogOfWar(monitoring_coverage=0.75, rng=SeededRandom(seed + generated))
-        operator_view = fog.generate_operator_view(state)
-
-        belief = BeliefState(component_ids)
-        for obs in operator_view.get("observations", []):
-            belief.update_from_observation(obs["component_id"], obs["observed_state"], 0.85)
-        belief.propagate_beliefs(graph)
-
+        # 2. POMDP belief vectors (belief computed once, above)
         for i, cid in enumerate(component_ids):
             b = belief.beliefs[cid]
             conf = 1.0 - belief.entropy(cid) / 2.0  # Normalize entropy to confidence
