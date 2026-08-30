@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SABLE — Live Infrastructure Diagnosis</title>
+<style>
+  :root{
+    --bg:#0a0908; --gold:#c9a227; --text:#c8bda0; --dim:#8a7f6e; --border:#2a2520;
+    --card:#151311; --danger:#c94a3a; --success:#3aad6e; --bright:#e8ddc4;
+    --mono:'JetBrains Mono','Courier New',monospace; --serif:'Cormorant Garamond',Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--serif);
+    background-image:radial-gradient(circle at 12% -8%,rgba(201,162,39,.06),transparent 42%);}
+  .wrap{width:96vw;max-width:2000px;margin:0 auto;padding:26px 40px 36px;min-height:100vh}
+  .kicker{font-family:var(--mono);font-size:14px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold)}
+  h1{font-size:48px;font-weight:600;margin:6px 0 2px;color:var(--bright);letter-spacing:.5px}
+  .sub{font-size:22px;color:var(--dim);margin-bottom:18px}
+  .toolbar{display:flex;gap:14px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
+  select,button{font-family:var(--mono);font-size:15px;background:#0f0d0b;color:var(--text);
+    border:1px solid var(--border);border-radius:5px;padding:11px 16px;cursor:pointer}
+  select{color:var(--gold)}
+  button.go{background:var(--gold);color:#0a0908;border-color:var(--gold);font-weight:600;letter-spacing:.05em}
+  button.go:hover{filter:brightness(1.1)}
+  button:hover{border-color:var(--gold)}
+  .hint{font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .grid{display:grid;grid-template-columns:1fr 540px;gap:30px;align-items:stretch}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:7px}
+  .graph-panel{padding:10px 10px 4px;display:flex;flex-direction:column}
+  svg{width:100%;height:100%;flex:1;display:block;min-height:68vh}
+  .legend{display:flex;gap:24px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;color:var(--dim);padding:12px 18px 6px}
+  .legend span{display:inline-flex;align-items:center;gap:8px}
+  .dot{width:14px;height:14px;border-radius:3px;display:inline-block}
+  .side{padding:0;display:flex;flex-direction:column}
+  .block{padding:20px 24px;border-bottom:1px solid var(--border)}
+  .block:last-child{border-bottom:none}
+  .label{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+  .story{font-size:22px;line-height:1.5}
+  .story b{color:var(--bright)}
+  .flag{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;font-size:19px;border-bottom:1px dashed var(--border)}
+  .flag:last-child{border-bottom:none}
+  .flag .n{color:var(--bright);font-family:var(--mono);font-size:14px}
+  .flag .s{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em}
+  .metric{display:flex;justify-content:space-between;align-items:center;padding:8px 0}
+  .metric .v{font-size:40px;font-weight:600;color:var(--gold);line-height:1}
+  .metric .k{color:var(--dim);max-width:290px;text-align:right;font-family:var(--mono);font-size:12px;line-height:1.5}
+  .honest{font-family:var(--mono);font-size:12.5px;line-height:1.7;color:var(--dim)}
+  .honest b{color:var(--text)}
+  .tierlbl{font-family:var(--mono);font-size:12px;letter-spacing:.16em;fill:var(--dim);text-transform:uppercase}
+  .nodelbl{font-family:var(--mono);font-size:13px;fill:var(--bright)}
+  .nodesub{font-family:var(--mono);font-size:10px;fill:var(--dim)}
+  .node{cursor:pointer}
+  .foot{margin-top:20px;font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--dim);
+    text-transform:uppercase;border-top:1px solid var(--border);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">Field Systems Division · SABLE · LIVE</div>
+  <h1>Live Infrastructure Diagnosis</h1>
+  <div class="sub">Set what your monitoring sees. SABLE infers the rest.</div>
+
+  <div class="toolbar">
+    <select id="topo"></select>
+    <button class="go" id="run">▶ Diagnose</button>
+    <button id="reset">↺ Reset to scenario</button>
+    <span class="hint">Click any node to cycle what monitoring observes: unobserved → healthy → degraded → failed. Then Diagnose.</span>
+    <span class="hint" id="status" style="margin-left:auto;color:var(--gold)"></span>
+  </div>
+
+  <div class="grid">
+    <div class="panel graph-panel">
+      <div class="legend">
+        <span><i class="dot" style="background:#4a5240"></i>healthy</span>
+        <span><i class="dot" style="background:var(--gold)"></i>degraded</span>
+        <span><i class="dot" style="background:var(--danger)"></i>failed / unreachable</span>
+        <span><i class="dot" style="border:2px solid var(--text);background:transparent"></i>observed (you set)</span>
+        <span><i class="dot" style="border:2px dashed var(--gold);background:transparent;box-shadow:0 0 8px var(--gold)"></i>SABLE inferred (hidden)</span>
+      </div>
+      <svg id="svg" viewBox="0 0 1040 720" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+
+    <div class="panel side">
+      <div class="block"><div class="label">The incident</div><div class="story" id="story">Loading…</div></div>
+      <div class="block"><div class="label">Surfaced in unmonitored nodes</div><div id="flags"></div></div>
+      <div class="block">
+        <div class="label">Measured performance (de-leaked, honest)</div>
+        <div class="metric"><span class="v">~85%</span><span class="k">live-stream accuracy tracking an incident over time</span></div>
+        <div class="metric"><span class="v">~40%</span><span class="k">of hidden failures caught vs 0% for monitoring alone</span></div>
+        <div class="metric"><span class="v" id="thiscatch">–</span><span class="k">hidden failures surfaced right now</span></div>
+      </div>
+      <div class="block" style="margin-top:auto"><div class="honest">
+        <b>Live output from the honest, de-leaked model.</b> Every prediction here is
+        the real network running on your inputs — no replay, no inflated numbers.
+      </div></div>
+    </div>
+  </div>
+  <div class="foot">SABLE · Structural intelligence for infrastructure · b1tr0n1n</div>
+</div>
+
+<script>
+var COL={healthy:'#4a5240',degraded:'#c9a227',failed:'#c94a3a',unreachable:'#7a2a22',oscillating:'#c084fc'};
+var CYCLE=[null,'healthy','degraded','failed'];   // click-through states
+var obs={};        // user-set observations {id: state}
+var topo=null, lastData=null;
+
+function api(path,body){return fetch(path,{method:body?'POST':'GET',
+  headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):null}).then(function(r){return r.json();});}
+
+function setStatus(t){document.getElementById('status').textContent=t;}
+
+async function boot(){
+  var list=await api('/api/topologies');
+  var sel=document.getElementById('topo'); sel.innerHTML='';
+  list.forEach(function(n){var o=document.createElement('option');o.value=n;o.textContent=n.replace(/_/g,' ');sel.appendChild(o);});
+  topo=list.indexOf('monday_morning')>=0?'monday_morning':list[0]; sel.value=topo;
+  await loadScenario();
+}
+async function loadScenario(){
+  setStatus('running model…');
+  var d=await api('/api/diagnose',{topology:topo,observations:null});
+  obs=Object.assign({},d.default_observations||{});
+  lastData=d; render(d); setStatus('diagnosed');
+}
+async function runDiagnosis(){
+  setStatus('running model…');
+  var d=await api('/api/diagnose',{topology:topo,observations:obs});
+  lastData=d; render(d); setStatus('diagnosed');
+}
+
+function render(D){
+  document.getElementById('thiscatch').textContent=D.n_inferred_problems;
+  var obsAlerts=D.nodes.filter(function(n){return n.observed&&n.state!=='healthy'});
+  document.getElementById('story').innerHTML= obsAlerts.length
+    ? "Monitoring sees <b>"+obsAlerts.length+" alert(s)</b>: "+obsAlerts.map(function(n){return n.label+' '+(obs[n.id]||n.state)}).join(', ')+
+      ". SABLE surfaces <b>"+D.n_inferred_problems+" problem(s)</b> across the <b>"+D.n_hidden+" unmonitored nodes</b>."
+    : "No alerts set. Click nodes to tell SABLE what your monitoring sees, then Diagnose.";
+  var hidden=D.nodes.filter(function(n){return n.inferred_problem}).sort(function(a,b){return b.confidence-a.confidence});
+  document.getElementById('flags').innerHTML= hidden.length? hidden.map(function(n){
+    return '<div class="flag"><span class="n">'+n.label+' · '+n.id+'</span><span class="s" style="color:'+COL[n.state]+'">'+n.state+'</span></div>';
+  }).join('') : '<div class="hint">— none —</div>';
+
+  var TIERS=['external','core','access','storage','compute','services','application'];
+  var byTier={}; D.nodes.forEach(function(n){(byTier[n.tier]=byTier[n.tier]||[]).push(n);});
+  var used=TIERS.filter(function(t){return byTier[t]&&byTier[t].length});
+  var W=1040,H=720,padX=115,topY=44,rowH=(H-topY-24)/used.length,pos={};
+  used.forEach(function(t,ri){var row=byTier[t],y=topY+ri*rowH+rowH*0.55,span=W-2*padX,
+    step=row.length>1?span/(row.length-1):0,x0=row.length>1?padX:W/2;
+    row.forEach(function(n,ci){pos[n.id]={x:x0+ci*step,y:y};});});
+
+  var svg=document.getElementById('svg'),NS='http://www.w3.org/2000/svg'; svg.innerHTML='';
+  function el(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);return e;}
+  D.edges.forEach(function(e){var s=pos[e.source],d=pos[e.target];if(!s||!d)return;
+    svg.appendChild(el('line',{x1:s.x,y1:s.y,x2:d.x,y2:d.y,stroke:'#2f2a22','stroke-width':1.2}));});
+  used.forEach(function(t,ri){svg.appendChild(el('text',{x:10,y:topY+ri*rowH+rowH*0.55+4,class:'tierlbl'})).textContent=t.toUpperCase();});
+
+  D.nodes.forEach(function(n){
+    var p=pos[n.id];if(!p)return;
+    var userSet=obs[n.id];                       // pending click state
+    var shownState=userSet||n.state;
+    var col=COL[shownState]||'#4a5240',prob=shownState!=='healthy';
+    var g=el('g',{class:'node'}); g.addEventListener('click',function(){cycle(n.id);});
+    var w=124,h=52;
+    var rect=el('rect',{x:p.x-w/2,y:p.y-h/2,width:w,height:h,rx:5,
+      fill:prob?col:'#161512','fill-opacity':prob?0.22:1,
+      stroke:n.inferred_problem?col:(n.observed?'#7a7058':'#38341f'),
+      'stroke-width':n.inferred_problem?2.4:1.3,'stroke-dasharray':n.inferred_problem?'6 3':'0'});
+    if(n.inferred_problem)rect.setAttribute('style','filter:drop-shadow(0 0 7px '+col+')');
+    g.appendChild(rect);
+    g.appendChild(el('text',{x:p.x,y:p.y-3,'text-anchor':'middle',class:'nodelbl'})).textContent=n.label;
+    var sub=n.observed?('obs · '+shownState):(n.inferred_problem?('INFERRED '+Math.round(n.confidence*100)+'%'):'ok');
+    var t2=el('text',{x:p.x,y:p.y+14,'text-anchor':'middle',class:'nodesub',
+      style:'fill:'+(n.inferred_problem?col:'#6b6250')}); t2.textContent=sub; g.appendChild(t2);
+    svg.appendChild(g);
+  });
+}
+function cycle(id){
+  var cur=obs[id]||null, i=CYCLE.indexOf(cur), nx=CYCLE[(i+1)%CYCLE.length];
+  if(nx===null)delete obs[id]; else obs[id]=nx;
+  setStatus('inputs changed — hit Diagnose'); render(lastData);
+}
+document.getElementById('run').addEventListener('click',runDiagnosis);
+document.getElementById('reset').addEventListener('click',loadScenario);
+document.getElementById('topo').addEventListener('change',function(e){topo=e.target.value;loadScenario();});
+boot();
+</script>
+</body>
+</html>

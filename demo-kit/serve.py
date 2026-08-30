@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+"""
+SABLE — live interactive demo server.
+
+Loads the honest (de-leaked) model once and diagnoses topologies on demand.
+Pick a scenario, click nodes to set what monitoring observes, hit Diagnose,
+and the real model infers the hidden failures through the dependency graph.
+
+Run:   python3 serve.py      →   open http://localhost:8760
+"""
+import sys
+from pathlib import Path
+
+import torch
+import uvicorn
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel
+
+SABLE = Path(__file__).resolve().parent.parent
+for p in [SABLE / "adapters", SABLE / "fusion", SABLE / "pillar1", SABLE / "pillar3",
+          SABLE / "pillar1/archive/cortex-moved-2026-04-08"]:
+    sys.path.insert(0, str(p))
+
+import topology_ingest as TI
+from staged_fusion_v3 import SharpRoutedFusion
+from cortex_gnn_model import SableGNN
+from generate_temporal_data import NODE_FEAT_DIM
+from sable_sim.core.states import STATE_NAMES
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+TIER = {
+    "INTERNET_GATEWAY": "external", "WAN_LINK": "external",
+    "FIREWALL": "core", "CORE_SWITCH": "core",
+    "ACCESS_SWITCH": "access", "LOAD_BALANCER": "access",
+    "HYPERVISOR": "compute", "SERVER_PHYSICAL": "compute",
+    "SERVER_VIRTUAL": "compute", "VDI_HOST": "compute",
+    "STORAGE_ARRAY": "storage", "STORAGE_TARGET": "storage",
+    "DNS_SERVER": "services", "DHCP_SERVER": "services", "DOMAIN_CONTROLLER": "services",
+    "CERTIFICATE_AUTHORITY": "services", "MONITORING_SERVER": "services", "VDI_BROKER": "services",
+    "APPLICATION_SERVICE": "application",
+}
+LABEL = {
+    "INTERNET_GATEWAY": "Internet GW", "FIREWALL": "Firewall", "CORE_SWITCH": "Core Switch",
+    "ACCESS_SWITCH": "Access Switch", "HYPERVISOR": "Hypervisor", "SERVER_VIRTUAL": "VM",
+    "STORAGE_ARRAY": "Storage Array", "STORAGE_TARGET": "Storage Tgt", "DNS_SERVER": "DNS",
+    "DOMAIN_CONTROLLER": "Domain Ctrl", "APPLICATION_SERVICE": "App Service",
+    "MONITORING_SERVER": "Monitoring", "INTERNET_GATEWAY ": "Internet GW",
+}
+
+# ── load models once ──
+print(f"  Loading honest SABLE model on {DEVICE}...")
+_gck = torch.load(SABLE / "pillar1/checkpoints/best_model.pt", weights_only=False, map_location=DEVICE)
+_mc = _gck["config"]
+GNN = SableGNN(in_dim=_mc["in_dim"], hidden_dim=_mc["hidden_dim"], edge_dim=_mc["edge_dim"],
+               num_layers=_mc["num_layers"], heads=_mc["heads"], dropout=_mc["dropout"]).to(DEVICE)
+_gsd = GNN.state_dict()
+GNN.load_state_dict({k: v for k, v in _gck["model_state_dict"].items()
+                     if k in _gsd and _gsd[k].shape == v.shape}, strict=False)
+GNN.eval()
+FUSION = SharpRoutedFusion(mamba_dim=NODE_FEAT_DIM).to(DEVICE)
+FUSION.load_state_dict(torch.load(SABLE / "fusion/checkpoints/staged_fusion_v3.pt",
+                                  weights_only=False, map_location=DEVICE)["model_state_dict"])
+FUSION.eval()
+print("  Model ready.")
+
+app = FastAPI()
+TOPO_DIR = SABLE / "adapters"
+
+
+def list_topologies():
+    return sorted(p.stem for p in TOPO_DIR.glob("*.json"))
+
+
+def diagnose(name: str, observations: dict | None):
+    import json as _json
+    spec = _json.loads((TOPO_DIR / f"{name}.json").read_text())
+    graph, default_obs, disp = TI.load_topology(TOPO_DIR / f"{name}.json")
+    obs = observations if observations is not None else default_obs
+    obs = {k: v for k, v in obs.items() if v and v != "unobserved"}
+
+    gnn_t, pomdp_t, mamba_t, cids, observed = TI.encode(graph, obs, GNN, DEVICE)
+    with torch.no_grad():
+        probs = torch.softmax(FUSION(gnn_t, pomdp_t, mamba_t)["logits"][0], dim=-1)
+        preds, conf = probs.argmax(-1), probs.max(-1).values
+
+    comps = {c.id: c for c in graph.get_all_components()}
+    nodes = []
+    for i, cid in enumerate(cids):
+        ctype = str(comps[cid].type)
+        st = STATE_NAMES[preds[i].item()]
+        is_obs = cid in observed
+        nodes.append({
+            "id": cid, "type": ctype,
+            "label": LABEL.get(ctype, ctype.replace("_", " ").title()),
+            "tier": TIER.get(ctype, "compute"),
+            "observed": is_obs, "observed_state": obs.get(cid) if is_obs else None,
+            "state": st, "confidence": round(conf[i].item(), 3),
+            "inferred_problem": (not is_obs) and st != "healthy",
+        })
+    edges = [{"source": d.source_id, "target": d.target_id, "type": str(d.type)}
+             for d in graph.get_all_dependencies()]
+    return {
+        "name": disp, "nodes": nodes, "edges": edges,
+        "n_observed": len(observed), "n_hidden": len(nodes) - len(observed),
+        "n_inferred_problems": sum(1 for n in nodes if n["inferred_problem"]),
+        "default_observations": default_obs,
+    }
+
+
+class DiagReq(BaseModel):
+    topology: str
+    observations: dict | None = None
+
+
+@app.get("/api/topologies")
+def topologies():
+    return JSONResponse(list_topologies())
+
+
+@app.post("/api/diagnose")
+def api_diagnose(req: DiagReq):
+    return JSONResponse(diagnose(req.topology, req.observations))
+
+
+@app.get("/", response_class=HTMLResponse)
+def index():
+    return (Path(__file__).parent / "live.html").read_text()
+
+
+if __name__ == "__main__":
+    print("\n  SABLE live demo →  http://localhost:8760\n")
+    uvicorn.run(app, host="0.0.0.0", port=8760, log_level="warning")

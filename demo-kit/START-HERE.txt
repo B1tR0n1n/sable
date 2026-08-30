@@ -1,23 +1,28 @@
-SABLE — Infrastructure Diagnosis Demo
-=====================================
+SABLE — Demo Kit
+================
 
-1. Double-click  index.html  → opens in any browser. Offline. No install.
+>>> index.html <<<   Double-click it. Opens in any browser. Offline. No install.
 
-2. What you're looking at: a real client dependency graph. The ops team's
-   monitoring saw 3 alerts (solid-bordered nodes). SABLE propagated those
-   through the topology and surfaced 6 more failures in nodes the monitoring
-   ISN'T watching (gold dashed, glowing).
+This is the real SABLE engine dashboard, playing back honest (de-leaked) runs.
+  - Pick a scenario (top): monday_morning, silent_killer, slow_poison,
+    cascade_whiplash.
+  - Hit ▶ play (or step) to watch the incident unfold tick by tick.
+  - The node grid, class distribution, expert routing, confidence and the
+    live ACCURACY readout are all real model output — nothing inflated.
+  - Click any node to inspect its diagnostic trajectory.
 
-That's the pitch in one screen: topology + a few alerts in, the hidden
-cascade out.
+Honest numbers you'll see (and can cite):
+  - live accuracy tracks ~76-100% as an incident evolves (NOT a flat fake 96%)
+  - ~85% on the full temporal stack over a run; ~40% of HIDDEN failures caught
+    that monitoring alone catches 0% of
+  - LoRA adapter F1 0.31 (real) — the old build claimed 0.548, which was leaked
 
-Honest numbers only:
-  - ~85%  live-stream accuracy (tracking an incident over time)
-  - ~40%  of hidden failures caught vs 0% for monitoring alone
-  - every figure measured on de-leaked data — nothing inflated
+Other files:
+  topology-view.html  — a single-screen topology diagram (observed vs SABLE-
+                        inferred hidden failures). Also double-click, offline.
+  serve.py + live.html — OPTIONAL interactive mode. On the workstation:
+                        `python3 serve.py` then open http://localhost:8760 to
+                        click nodes and run the live model on your own inputs.
+  RUN-OF-SHOW.md      — how to present it, including the audit-rebuild story.
 
-See RUN-OF-SHOW.md for how to present it.
-
-To regenerate for a different topology:
-  python3 adapters/topology_ingest.py adapters/<your-topology>.json
-  (then re-capture — ask the build for the capture step)
+Every figure in this kit is measured on de-leaked data. Nothing is inflated.
