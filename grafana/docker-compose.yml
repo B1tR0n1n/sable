@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+  sable:
+    build:
+      context: ../docker
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - sable-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/grafana"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana-oss:11.6.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=sable
+      - GF_SECURITY_ADMIN_PASSWORD=sable
+      - GF_INSTALL_PLUGINS=marcusolsson-json-datasource
+      # b1tr0n1n theme
+      - GF_DEFAULT_THEME=dark
+      - GF_USERS_DEFAULT_THEME=dark
+      # Allow unsigned plugins (for sable-topology panel)
+      - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=sable-topology-panel
+      # Disable login page for dev
+      - GF_AUTH_DISABLE_LOGIN_FORM=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - ./provisioning:/etc/grafana/provisioning
+      - ./dashboards:/var/lib/grafana/dashboards
+      - ./plugins:/var/lib/grafana/plugins
+      - ./grafana.ini:/etc/grafana/grafana.ini
+      - ./theme.css:/usr/share/grafana/public/css/sable-theme.css
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      sable:
+        condition: service_healthy
+    networks:
+      - sable-net
+
+volumes:
+  grafana-data:
+
+networks:
+  sable-net:
+    driver: bridge

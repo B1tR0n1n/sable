@@ -1,0 +1,73 @@
+{
+  "args": {
+    "data_dir": "/mnt/vault/projects/sable/data/alibaba_2018",
+    "max_machines": 200,
+    "max_ticks": 300,
+    "tick_seconds": 300,
+    "lead_window": 12,
+    "train_frac": 0.5,
+    "threshold": 0.5,
+    "out": "/mnt/vault/projects/sable/eval/results_alibaba_smoke.json"
+  },
+  "n_machines": 200,
+  "n_ticks": 300,
+  "n_edges": 3642,
+  "results": [
+    {
+      "name": "random",
+      "threshold": 0.5,
+      "precision": 0.9891427429561047,
+      "recall": 0.5008262790462379,
+      "f1": 0.6649650725416443,
+      "n_positives": 29651,
+      "n_predicted": 15013,
+      "mean_lead_seconds": 300.0,
+      "seconds": 0.013688087463378906,
+      "notes": {
+        "n_samples": 30000
+      }
+    },
+    {
+      "name": "thresholds",
+      "threshold": 0.5,
+      "precision": 0.9935477838040022,
+      "recall": 0.7166706013287916,
+      "f1": 0.8326965653715785,
+      "n_positives": 29651,
+      "n_predicted": 21388,
+      "mean_lead_seconds": 300.0,
+      "seconds": 0.015353918075561523,
+      "notes": {
+        "n_samples": 30000
+      }
+    },
+    {
+      "name": "isolation_forest",
+      "threshold": 0.5,
+      "precision": 0.927605756650676,
+      "recall": 0.07173451148359246,
+      "f1": 0.13317054845980467,
+      "n_positives": 29651,
+      "n_predicted": 2293,
+      "mean_lead_seconds": 300.0,
+      "seconds": 0.3262057304382324,
+      "notes": {
+        "n_samples": 30000
+      }
+    },
+    {
+      "name": "sable_health_proxy",
+      "threshold": 0.5,
+      "precision": 0.9930006697923643,
+      "recall": 1.0,
+      "f1": 0.9964880442271177,
+      "n_positives": 29651,
+      "n_predicted": 29860,
+      "mean_lead_seconds": 300.0,
+      "seconds": 0.011494636535644531,
+      "notes": {
+        "n_samples": 30000
+      }
+    }
+  ]
+}

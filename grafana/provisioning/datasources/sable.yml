@@ -1,0 +1,14 @@
+apiVersion: 1
+
+datasources:
+  - name: SABLE
+    uid: sable
+    type: marcusolsson-json-datasource
+    access: proxy
+    # In dev mode (docker-compose.dev.yml): SABLE runs on host
+    # In prod mode (docker-compose.yml): change to http://sable:8080/grafana
+    url: http://host.docker.internal:8080/grafana
+    isDefault: true
+    editable: true
+    jsonData:
+      queryParams: ""

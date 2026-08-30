@@ -1,0 +1,275 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: SABLE Alerts
+    folder: SABLE
+    interval: 30s
+    rules:
+      # ── Accuracy Drop ──────────────────────────────────────────────────
+      - uid: sable-accuracy-drop
+        title: Accuracy Drop Below 70%
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: sable-alerts
+            model:
+              type: json
+              source: url
+              url: http://host.docker.internal:8080/grafana/hero
+              url_options:
+                method: GET
+              format: table
+              root_selector: ""
+              columns:
+                - selector: accuracy
+                  text: accuracy
+                  type: number
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [70]
+        noDataState: OK
+        execErrState: OK
+        for: 1m
+        annotations:
+          summary: "SABLE prediction accuracy dropped below 70%"
+          description: "Current accuracy is {{ $values.B }}%. Investigate model drift or data quality issues."
+        labels:
+          severity: critical
+          component: sable
+
+      # ── Confidence Collapse ─────────────────────────────────────────────
+      - uid: sable-confidence-low
+        title: Confidence Collapse Below 0.6
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: sable-alerts
+            model:
+              type: json
+              source: url
+              url: http://host.docker.internal:8080/grafana/hero
+              url_options:
+                method: GET
+              format: table
+              root_selector: ""
+              columns:
+                - selector: confidence
+                  text: confidence
+                  type: number
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [0.6]
+        noDataState: OK
+        execErrState: OK
+        for: 1m
+        annotations:
+          summary: "SABLE mean confidence collapsed below 0.6"
+          description: "Mean confidence is {{ $values.B }}. Model uncertainty is high - predictions unreliable."
+        labels:
+          severity: warning
+          component: sable
+
+      # ── Failed Node Threshold ───────────────────────────────────────────
+      - uid: sable-failed-nodes
+        title: Multiple Nodes in Failed State
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: sable-alerts
+            model:
+              type: json
+              source: url
+              url: http://host.docker.internal:8080/grafana/classes
+              url_options:
+                method: GET
+              format: table
+              root_selector: ""
+              columns:
+                - selector: counts[2]
+                  text: failed
+                  type: number
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [3]
+        noDataState: OK
+        execErrState: OK
+        for: 30s
+        annotations:
+          summary: "{{ $values.B }} nodes in FAILED state"
+          description: "Multiple infrastructure nodes have entered failed state. Cascade event likely in progress."
+        labels:
+          severity: critical
+          component: sable
+
+      # ── Health Below 50% ────────────────────────────────────────────────
+      - uid: sable-health-critical
+        title: Infrastructure Health Below 50%
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: sable-alerts
+            model:
+              type: json
+              source: url
+              url: http://host.docker.internal:8080/grafana/hero
+              url_options:
+                method: GET
+              format: table
+              root_selector: ""
+              columns:
+                - selector: health
+                  text: health
+                  type: number
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [50]
+        noDataState: OK
+        execErrState: OK
+        for: 1m
+        annotations:
+          summary: "Infrastructure health at {{ $values.B }}%"
+          description: "Less than half of monitored nodes are healthy. Major degradation event."
+        labels:
+          severity: critical
+          component: sable
+
+      # ── Inference Latency Spike ─────────────────────────────────────────
+      - uid: sable-latency-high
+        title: Inference Latency Above 100ms
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: sable-alerts
+            model:
+              type: json
+              source: url
+              url: http://host.docker.internal:8080/grafana/hero
+              url_options:
+                method: GET
+              format: table
+              root_selector: ""
+              columns:
+                - selector: inference
+                  text: inference
+                  type: number
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [100]
+        noDataState: OK
+        execErrState: OK
+        for: 2m
+        annotations:
+          summary: "SABLE inference latency at {{ $values.B }}ms"
+          description: "Inference exceeding 100ms SLA. Check GPU utilization or model complexity."
+        labels:
+          severity: warning
+          component: sable
+
+contactPoints:
+  - orgId: 1
+    name: SABLE Notifications
+    receivers:
+      - uid: sable-log
+        type: webhook
+        settings:
+          url: http://host.docker.internal:8080/api/feedback
+          httpMethod: POST
+        disableResolveMessage: false
+
+policies:
+  - orgId: 1
+    receiver: grafana-default-email
+    group_by: ["grafana_folder", "alertname"]
+    routes:
+      - receiver: SABLE Notifications
+        matchers:
+          - component = sable
+        group_wait: 10s
+        group_interval: 1m
+        repeat_interval: 5m

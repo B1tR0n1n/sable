@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: SABLE Alerts
+    uid: sable-alerts
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    isDefault: false
+    editable: true
+    jsonData:
+      # Infinity datasource is backend-capable, so Grafana alerting
+      # can evaluate queries against it. Points to SABLE's REST API.
+      global_queries: []

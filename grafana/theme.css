@@ -1,0 +1,141 @@
+/*
+ * SABLE / b1tr0n1n Grafana Theme Override
+ * Loaded via volume mount into Grafana's public CSS directory.
+ * Applied through a custom home dashboard HTML panel or browser extension.
+ *
+ * Colors:
+ *   Background:   #0a0908
+ *   Panel:        #0f0e0b / #151311
+ *   Border:       #2a2520
+ *   Gold accent:  #c9a227
+ *   Dim gold:     #8b7320
+ *   Body text:    #c8bda0
+ *   Dim text:     #8a7f6e / #7a7060
+ *   Bright text:  #ede5d0
+ *   Success:      #4a7a45
+ *   Danger:       #a63d2f
+ *
+ * Typography:
+ *   Code/Labels:  'JetBrains Mono', monospace
+ *   Body/Prose:   'Cormorant Garamond', Georgia, serif
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ---- Base overrides ---- */
+
+body.theme-dark {
+  --background-canvas: #0a0908 !important;
+  --background-primary: #0f0e0b !important;
+  --background-secondary: #151311 !important;
+  --border-weak: #2a2520 !important;
+  --border-medium: #2a2520 !important;
+  --border-strong: #3a3530 !important;
+  --text-primary: #c8bda0 !important;
+  --text-secondary: #8a7f6e !important;
+  --text-disabled: #5a5548 !important;
+  --text-link: #c9a227 !important;
+  --text-maxContrast: #ede5d0 !important;
+}
+
+/* ---- Backgrounds ---- */
+
+body.theme-dark,
+.theme-dark .main-view,
+.theme-dark .page-container,
+.theme-dark .scroll-canvas {
+  background-color: #0a0908 !important;
+}
+
+.theme-dark .panel-container {
+  background-color: #0f0e0b !important;
+  border-color: #2a2520 !important;
+}
+
+/* ---- Sidebar ---- */
+
+.theme-dark .sidemenu {
+  background-color: #0a0908 !important;
+  border-right: 1px solid #2a2520 !important;
+}
+
+/* ---- Typography ---- */
+
+.theme-dark .panel-title-text,
+.theme-dark h1, .theme-dark h2, .theme-dark h3,
+.theme-dark h4, .theme-dark h5, .theme-dark h6 {
+  font-family: 'Cormorant Garamond', Georgia, serif !important;
+  color: #ede5d0 !important;
+  letter-spacing: 1px;
+}
+
+.theme-dark .panel-content,
+.theme-dark .markdown-html,
+.theme-dark p {
+  font-family: 'Cormorant Garamond', Georgia, serif !important;
+  color: #c8bda0 !important;
+}
+
+.theme-dark code,
+.theme-dark pre,
+.theme-dark .monospace,
+.theme-dark table,
+.theme-dark .table-panel-table,
+.theme-dark .graph-legend,
+.theme-dark .stat-text {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+}
+
+/* ---- Gold accents ---- */
+
+.theme-dark a:hover,
+.theme-dark .nav-link:hover {
+  color: #c9a227 !important;
+}
+
+.theme-dark .panel-title-text:hover {
+  color: #c9a227 !important;
+}
+
+/* Stat panel value text */
+.theme-dark .css-1k2snnr {
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* ---- Table styling ---- */
+
+.theme-dark .table-panel-table th {
+  background-color: #151311 !important;
+  color: #8b7320 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 10px !important;
+  letter-spacing: 2px !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid #2a2520 !important;
+}
+
+.theme-dark .table-panel-table td {
+  border-bottom: 1px solid #1a1815 !important;
+  color: #c8bda0 !important;
+}
+
+.theme-dark .table-panel-table tr:hover td {
+  background-color: #1a1815 !important;
+}
+
+/* ---- Graph/Chart colors ---- */
+
+.theme-dark .uplot .u-series:nth-child(1) .u-stroke { stroke: #4a7a45 !important; }
+.theme-dark .uplot .u-series:nth-child(2) .u-stroke { stroke: #c9a227 !important; }
+.theme-dark .uplot .u-series:nth-child(3) .u-stroke { stroke: #a63d2f !important; }
+.theme-dark .uplot .u-series:nth-child(4) .u-stroke { stroke: #8a7f6e !important; }
+
+/* Grid lines */
+.theme-dark .uplot .u-grid { stroke: #2a2520 !important; }
+
+/* ---- Scrollbar ---- */
+
+.theme-dark ::-webkit-scrollbar { width: 6px; }
+.theme-dark ::-webkit-scrollbar-track { background: #0a0908; }
+.theme-dark ::-webkit-scrollbar-thumb { background: #2a2520; border-radius: 3px; }
+.theme-dark ::-webkit-scrollbar-thumb:hover { background: #3a3530; }

@@ -1,0 +1,19 @@
+{
+  "type": "panel",
+  "name": "SABLE Topology",
+  "id": "sable-topology-panel",
+  "info": {
+    "description": "Tiered infrastructure topology with state coloring and animations",
+    "author": {
+      "name": "b1tr0n1n",
+      "url": "https://b1tr0n1n.github.io"
+    },
+    "keywords": ["sable", "topology", "infrastructure"],
+    "version": "1.0.0",
+    "updated": "2026-04-01"
+  },
+  "dependencies": {
+    "grafanaDependency": ">=10.0.0",
+    "plugins": []
+  }
+}

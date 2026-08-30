@@ -1,0 +1,35 @@
+version: "3.8"
+
+# Dev mode: Grafana only, SABLE runs locally via `python3 server.py`
+# Usage:
+#   1. Start SABLE: cd /mnt/vault/sable/docker && source ~/ml-env/bin/activate && python3 server.py
+#   2. Start Grafana: cd /mnt/vault/sable/grafana && docker compose -f docker-compose.dev.yml up -d
+#   3. Open Grafana: http://localhost:3000 (sable/sable)
+#   4. SABLE dashboard auto-provisioned in SABLE folder
+
+services:
+  grafana:
+    image: grafana/grafana-oss:11.6.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=sable
+      - GF_SECURITY_ADMIN_PASSWORD=sable
+      - GF_INSTALL_PLUGINS=marcusolsson-json-datasource
+      - GF_DEFAULT_THEME=dark
+      - GF_USERS_DEFAULT_THEME=dark
+      - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=sable-topology-panel
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_PANELS_DISABLE_SANITIZE_HTML=true
+    volumes:
+      - ./provisioning:/etc/grafana/provisioning
+      - ./dashboards:/var/lib/grafana/dashboards
+      - ./plugins:/var/lib/grafana/plugins
+      - ./grafana.ini:/etc/grafana/grafana.ini
+      - grafana-data:/var/lib/grafana
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  grafana-data:

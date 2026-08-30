@@ -1,0 +1,1799 @@
+{
+  "uid": "sable-overview",
+  "title": "SABLE Engine",
+  "description": "Three-Pillar Cognitive Architecture",
+  "tags": [
+    "sable",
+    "infrastructure",
+    "ai"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "",
+      "type": "text",
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "transparent": true,
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"display:flex;align-items:center;justify-content:space-between;padding:4px 8px;font-family:'JetBrains Mono',monospace;\">\n  <div style=\"display:flex;align-items:baseline;gap:12px;\">\n    <span style=\"font-family:'Cormorant Garamond',Georgia,serif;font-size:32px;font-weight:600;color:#ede5d0;letter-spacing:5px;\">S<span style=\"color:#c9a227;\">A</span>BLE</span>\n    <span style=\"font-family:'Cormorant Garamond',Georgia,serif;font-size:14px;color:#7a7060;letter-spacing:2px;font-style:italic;\">Situational Awareness through Belief-driven Latent Estimation</span>\n  </div>\n  <div style=\"font-size:12px;color:#7a7060;letter-spacing:4px;\">THREE-PILLAR COGNITIVE ARCHITECTURE</div>\n</div>"
+      }
+    },
+    {
+      "id": 10,
+      "title": "HEALTH",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/hero",
+          "fields": [
+            {
+              "jsonPath": "$.health",
+              "name": "Health"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#a63d2f",
+                "value": null
+              },
+              {
+                "color": "#c9a227",
+                "value": 50
+              },
+              {
+                "color": "#4a7a45",
+                "value": 80
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 11,
+      "title": "CYCLE",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 3,
+        "y": 6
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/hero",
+          "fields": [
+            {
+              "jsonPath": "$.cycle",
+              "name": "Cycle"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "#c8bda0",
+            "mode": "fixed"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 12,
+      "title": "NODES",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 5,
+        "y": 6
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/hero",
+          "fields": [
+            {
+              "jsonPath": "$.nodes",
+              "name": "Nodes"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "#c8bda0",
+            "mode": "fixed"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 13,
+      "title": "MIN CONFIDENCE",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 7,
+        "y": 6
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/hero",
+          "fields": [
+            {
+              "jsonPath": "$.min_confidence",
+              "name": "Min Conf"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#a63d2f",
+                "value": null
+              },
+              {
+                "color": "#c9a227",
+                "value": 0.5
+              },
+              {
+                "color": "#4a7a45",
+                "value": 0.7
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 17,
+      "title": "UNCERTAIN",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 13,
+        "y": 6
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/hero",
+          "fields": [
+            {
+              "jsonPath": "$.uncertain_nodes",
+              "name": "Uncertain"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#4a7a45",
+                "value": null
+              },
+              {
+                "color": "#c9a227",
+                "value": 1
+              },
+              {
+                "color": "#a63d2f",
+                "value": 3
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 14,
+      "title": "INFERENCE",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 15,
+        "y": 6
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/hero",
+          "fields": [
+            {
+              "jsonPath": "$.inference",
+              "name": "Inference"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": {
+            "fixedColor": "#c8bda0",
+            "mode": "fixed"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 16,
+      "title": "ACCURACY",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 18,
+        "y": 6
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/hero",
+          "fields": [
+            {
+              "jsonPath": "$.accuracy",
+              "name": "Accuracy"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#a63d2f",
+                "value": null
+              },
+              {
+                "color": "#c9a227",
+                "value": 70
+              },
+              {
+                "color": "#4a7a45",
+                "value": 90
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 15,
+      "title": "LORA",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 21,
+        "y": 6
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/hero",
+          "fields": [
+            {
+              "jsonPath": "$.lora",
+              "name": "LoRA"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "OFF",
+                  "color": "#7a7060"
+                },
+                "1": {
+                  "text": "ON",
+                  "color": "#c9a227"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 20,
+      "title": "Node States",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/nodes",
+          "fields": [
+            {
+              "jsonPath": "$.nodes[*].index",
+              "name": "Index",
+              "type": "number"
+            },
+            {
+              "jsonPath": "$.nodes[*].name",
+              "name": "Node",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.nodes[*].type",
+              "name": "Type",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.nodes[*].state",
+              "name": "State",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.nodes[*].confidence",
+              "name": "Confidence",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "healthy": {
+                        "color": "#4a7a45",
+                        "text": "HEALTHY"
+                      },
+                      "degraded": {
+                        "color": "#c9a227",
+                        "text": "DEGRADED"
+                      },
+                      "failed": {
+                        "color": "#a63d2f",
+                        "text": "FAILED"
+                      },
+                      "unreachable": {
+                        "color": "#7a7060",
+                        "text": "UNREACHABLE"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Confidence"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 3
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#a63d2f",
+                      "value": null
+                    },
+                    {
+                      "color": "#c9a227",
+                      "value": 0.6
+                    },
+                    {
+                      "color": "#4a7a45",
+                      "value": 0.8
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Index"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "State",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 21,
+      "title": "Class Distribution",
+      "type": "barchart",
+      "gridPos": {
+        "h": 10,
+        "w": 6,
+        "x": 12,
+        "y": 10
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/classes",
+          "fields": [
+            {
+              "jsonPath": "$.states[*]",
+              "name": "State",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.counts[*]",
+              "name": "Count",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#c9a227"
+          }
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "always",
+        "barWidth": 0.6,
+        "legend": {
+          "displayMode": "hidden"
+        }
+      }
+    },
+    {
+      "id": 70,
+      "title": "Topology Structure",
+      "description": "Infrastructure graph structure from the GNN. Connection count, hard dependencies, and criticality rating per node.",
+      "type": "table",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/gnn",
+          "fields": [
+            {
+              "jsonPath": "$.nodes[*].name",
+              "name": "Node",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.nodes[*].type",
+              "name": "Type",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.nodes[*].tier",
+              "name": "Tier",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.nodes[*].connections",
+              "name": "Connections",
+              "type": "number"
+            },
+            {
+              "jsonPath": "$.nodes[*].hard_deps",
+              "name": "Hard Deps",
+              "type": "number"
+            },
+            {
+              "jsonPath": "$.nodes[*].criticality",
+              "name": "Criticality",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Criticality"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "HIGH": {
+                        "color": "#a63d2f",
+                        "text": "HIGH"
+                      },
+                      "MEDIUM": {
+                        "color": "#c9a227",
+                        "text": "MEDIUM"
+                      },
+                      "LOW": {
+                        "color": "#7a7060",
+                        "text": "LOW"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Connections"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#7a7060",
+                      "value": null
+                    },
+                    {
+                      "color": "#c9a227",
+                      "value": 4
+                    },
+                    {
+                      "color": "#a63d2f",
+                      "value": 7
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Hard Deps"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Node",
+            "desc": false
+          }
+        ]
+      }
+    },
+    {
+      "id": 71,
+      "title": "POMDP - Belief State",
+      "description": "What the uncertainty tracker knows. Per-node belief distribution, observation freshness, and contradictions.",
+      "type": "table",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/pomdp",
+          "fields": [
+            {
+              "jsonPath": "$.nodes[*].name",
+              "name": "Node",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.nodes[*].p_healthy",
+              "name": "P(H)",
+              "type": "number"
+            },
+            {
+              "jsonPath": "$.nodes[*].p_degraded",
+              "name": "P(D)",
+              "type": "number"
+            },
+            {
+              "jsonPath": "$.nodes[*].p_failed",
+              "name": "P(F)",
+              "type": "number"
+            },
+            {
+              "jsonPath": "$.nodes[*].confidence",
+              "name": "Conf",
+              "type": "number"
+            },
+            {
+              "jsonPath": "$.nodes[*].obs_age",
+              "name": "Stale",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          },
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Conf"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#a63d2f",
+                      "value": null
+                    },
+                    {
+                      "color": "#c9a227",
+                      "value": 0.7
+                    },
+                    {
+                      "color": "#4a7a45",
+                      "value": 0.9
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Stale"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#4a7a45",
+                      "value": null
+                    },
+                    {
+                      "color": "#c9a227",
+                      "value": 0.3
+                    },
+                    {
+                      "color": "#a63d2f",
+                      "value": 0.6
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Node",
+            "desc": false
+          }
+        ]
+      }
+    },
+    {
+      "id": 72,
+      "title": "Temporal - Trends",
+      "description": "What the time-series tracker sees. Per-node health trajectories: improving, stable, or deteriorating.",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 6,
+        "x": 18,
+        "y": 10
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/temporal",
+          "fields": [
+            {
+              "jsonPath": "$.nodes[*].name",
+              "name": "Node",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.nodes[*].trend",
+              "name": "Trend",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.nodes[*].p_improving",
+              "name": "Improving",
+              "type": "number"
+            },
+            {
+              "jsonPath": "$.nodes[*].p_stable",
+              "name": "Stable",
+              "type": "number"
+            },
+            {
+              "jsonPath": "$.nodes[*].p_deteriorating",
+              "name": "Declining",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          },
+          "decimals": 3
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Trend"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "improving": {
+                        "color": "#4a7a45",
+                        "text": "IMPROVING"
+                      },
+                      "stable": {
+                        "color": "#c8bda0",
+                        "text": "STABLE"
+                      },
+                      "deteriorating": {
+                        "color": "#a63d2f",
+                        "text": "DECLINING"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Declining"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#4a7a45",
+                      "value": null
+                    },
+                    {
+                      "color": "#c9a227",
+                      "value": 0.3
+                    },
+                    {
+                      "color": "#a63d2f",
+                      "value": 0.6
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Node",
+            "desc": false
+          }
+        ]
+      }
+    },
+    {
+      "id": 65,
+      "title": "Accuracy Over Time",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/accuracy",
+          "fields": [
+            {
+              "jsonPath": "$.points[*].time",
+              "name": "Time",
+              "type": "time"
+            },
+            {
+              "jsonPath": "$.points[*].value",
+              "name": "Accuracy",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#4a7a45"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "min": 0,
+          "max": 100,
+          "decimals": 1
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "hidden"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 30,
+      "title": "Confidence Band (Min / Mean / Max)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/confidence",
+          "fields": [
+            {
+              "jsonPath": "$.min[*].time",
+              "name": "Time",
+              "type": "time"
+            },
+            {
+              "jsonPath": "$.min[*].value",
+              "name": "Min",
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "refId": "B",
+          "method": "GET",
+          "urlPath": "/confidence",
+          "fields": [
+            {
+              "jsonPath": "$.mean[*].time",
+              "name": "Time",
+              "type": "time"
+            },
+            {
+              "jsonPath": "$.mean[*].value",
+              "name": "Mean",
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "refId": "C",
+          "method": "GET",
+          "urlPath": "/confidence",
+          "fields": [
+            {
+              "jsonPath": "$.max[*].time",
+              "name": "Time",
+              "type": "time"
+            },
+            {
+              "jsonPath": "$.max[*].value",
+              "name": "Max",
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "refId": "D",
+          "method": "GET",
+          "urlPath": "/confidence",
+          "fields": [
+            {
+              "jsonPath": "$.uncertain[*].time",
+              "name": "Time",
+              "type": "time"
+            },
+            {
+              "jsonPath": "$.uncertain[*].value",
+              "name": "Uncertain Nodes",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "min": 0,
+          "max": 1,
+          "decimals": 3
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Min"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#a63d2f",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Mean"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#c9a227",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.fillBelowTo",
+                "value": "Min"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 15
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Max"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#4a7a45",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    4,
+                    4
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Uncertain Nodes"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#a63d2f",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "bars"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 40
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 10
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 31,
+      "title": "Inference Latency",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/latency",
+          "fields": [
+            {
+              "jsonPath": "$.points[*].time",
+              "name": "Time",
+              "type": "time"
+            },
+            {
+              "jsonPath": "$.points[*].value",
+              "name": "Latency (ms)",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#4a7a45"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "min": 0
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "hidden"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 40,
+      "title": "Recommendations",
+      "type": "table",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/recommendations",
+          "fields": [
+            {
+              "jsonPath": "$.actions[*].priority",
+              "name": "Priority",
+              "type": "number"
+            },
+            {
+              "jsonPath": "$.actions[*].target",
+              "name": "Target",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.actions[*].action",
+              "name": "Action",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.actions[*].reason",
+              "name": "Reason",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.actions[*].fix",
+              "name": "Fix",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Priority"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#4a7a45",
+                      "value": null
+                    },
+                    {
+                      "color": "#c9a227",
+                      "value": 2
+                    },
+                    {
+                      "color": "#a63d2f",
+                      "value": 4
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Priority",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 50,
+      "title": "Topology",
+      "type": "sable-topology-panel",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/topology",
+          "fields": [
+            {
+              "jsonPath": "$.nodes[*].index",
+              "name": "Index",
+              "type": "number"
+            },
+            {
+              "jsonPath": "$.nodes[*].id",
+              "name": "ID",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.nodes[*].label",
+              "name": "Label",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.nodes[*].type",
+              "name": "Type",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.nodes[*].tier",
+              "name": "Tier",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.nodes[*].state",
+              "name": "State",
+              "type": "string"
+            },
+            {
+              "jsonPath": "$.nodes[*].confidence",
+              "name": "Confidence",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "options": {}
+    },
+    {
+      "id": 18,
+      "title": "MEAN CONF",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 9,
+        "y": 6
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/hero",
+          "fields": [
+            {
+              "jsonPath": "$.confidence",
+              "name": "Mean Conf"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#a63d2f",
+                "value": null
+              },
+              {
+                "color": "#c9a227",
+                "value": 0.7
+              },
+              {
+                "color": "#4a7a45",
+                "value": 0.9
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 80,
+      "title": "",
+      "type": "text",
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 2
+      },
+      "transparent": true,
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"display:flex;align-items:center;gap:12px;padding:4px 8px;font-family:'JetBrains Mono',monospace;font-size:11px;\">\n  <select id=\"sc-sel\" style=\"background:#151311;color:#c8bda0;border:1px solid #2a2520;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;border-radius:3px;min-width:300px;height:32px;\">\n    <option value=\"\">Loading...</option>\n  </select>\n  <button id=\"play-btn\" onclick=\"sablePlay()\" style=\"background:#151311;color:#4a7a45;border:1px solid #2a2520;padding:4px 14px;cursor:pointer;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;\">PLAY</button>\n  <button onclick=\"sableCtrl('reset')\" style=\"background:#151311;color:#a63d2f;border:1px solid #2a2520;padding:4px 14px;cursor:pointer;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;\">RESET</button>\n  <button id=\"lora-btn\" onclick=\"sableLora()\" style=\"background:#151311;color:#c9a227;border:1px solid #2a2520;padding:4px 14px;cursor:pointer;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;\">LORA ON</button>\n  <span id=\"sc-status\" style=\"color:#7a7060;margin-left:auto;font-size:10px;\"></span>\n</div>\n<script>\nvar _playing=false,_lora=true;\nvar _proxy='/api/datasources/proxy/uid/sable';\nfunction sablePost(path,body){return fetch(_proxy+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json())}\nfunction sableGet(path){return fetch(_proxy+path).then(r=>r.json())}\nfunction sableCtrl(action){sablePost('/control',{action:action}).then(function(r){document.getElementById('sc-status').textContent=r.error||''})}\nfunction sablePlay(){_playing=!_playing;sablePost('/control',{action:_playing?'play':'stop'}).then(function(){document.getElementById('play-btn').textContent=_playing?'STOP':'PLAY';document.getElementById('play-btn').style.color=_playing?'#a63d2f':'#4a7a45'})}\nfunction sableLora(){_lora=!_lora;sablePost('/control',{action:'lora',enabled:_lora}).then(function(r){document.getElementById('lora-btn').textContent=r.lora?'LORA ON':'LORA OFF';document.getElementById('lora-btn').style.color=r.lora?'#c9a227':'#7a7060'})}\ndocument.getElementById('sc-sel').addEventListener('change',function(){var n=this.value;if(n)sablePost('/control',{action:'scenario',name:n}).then(function(r){document.getElementById('sc-status').textContent=r.error||''})});\nsableGet('/scenario_list').then(function(r){var sel=document.getElementById('sc-sel');sel.innerHTML='';r.scenarios.forEach(function(s){var o=document.createElement('option');o.value=s;o.textContent=s.replace(/_/g,' ');sel.appendChild(o)})});\nsableGet('/hero').then(function(r){_lora=!!r.lora;document.getElementById('lora-btn').textContent=_lora?'LORA ON':'LORA OFF';document.getElementById('lora-btn').style.color=_lora?'#c9a227':'#7a7060'});\n</script>"
+      }
+    },
+    {
+      "id": 19,
+      "title": "SPREAD",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 11,
+        "y": 5
+      },
+      "datasource": {
+        "type": "marcusolsson-json-datasource",
+        "uid": "sable"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "method": "GET",
+          "urlPath": "/hero",
+          "fields": [
+            {
+              "jsonPath": "$.spread",
+              "name": "Spread"
+            }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#4a7a45",
+                "value": null
+              },
+              {
+                "color": "#c9a227",
+                "value": 0.15
+              },
+              {
+                "color": "#a63d2f",
+                "value": 0.4
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  }
+}

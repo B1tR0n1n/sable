@@ -1,0 +1,15 @@
+{
+  "name": "sable-topology-panel",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/module.ts --bundle --outfile=dist/module.js --format=iife --global-name=__sableTopology --external:react --external:react-dom --external:@grafana/data --external:@grafana/ui --external:@grafana/runtime --loader:.tsx=tsx --target=es2020 && node build-amd.js"
+  },
+  "devDependencies": {
+    "@grafana/data": "^11.0.0",
+    "@types/react": "^18.2.0",
+    "esbuild": "^0.21.0",
+    "react": "^18.2.0",
+    "typescript": "^5.4.0"
+  }
+}
