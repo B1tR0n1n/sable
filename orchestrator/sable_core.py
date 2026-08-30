@@ -68,7 +68,18 @@ def load_gnn(checkpoint_path: str, device: str = "cuda"):
         edge_dim=mc["edge_dim"], num_layers=mc["num_layers"],
         heads=mc["heads"], dropout=mc["dropout"],
     ).to(device)
-    model.load_state_dict(ckpt["model_state_dict"])
+    # Load compatible keys only — an auxiliary head (link_type_head) drifted
+    # from 6→7 link types after this checkpoint was trained. The GAT backbone
+    # (used for structural embeddings) loads fine; the mismatched aux head is
+    # skipped. strict=False + shape filter.
+    sd = ckpt["model_state_dict"]
+    msd = model.state_dict()
+    compatible = {k: v for k, v in sd.items() if k in msd and msd[k].shape == v.shape}
+    skipped = [k for k in sd if k not in compatible]
+    model.load_state_dict(compatible, strict=False)
+    if skipped:
+        print(f"    (GNN: loaded {len(compatible)}/{len(sd)} tensors; "
+              f"skipped shape-mismatched: {', '.join(sorted(set(k.split('.')[0] for k in skipped)))})")
     model.eval()
     return model
 
