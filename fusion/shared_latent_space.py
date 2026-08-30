@@ -617,32 +617,36 @@ def generate_fusion_data(count: int, device: str = "cuda", seed: int = 42):
 
     # Component type → infra node type mapping (same as build_infra_dataset)
     COMP_TYPE_MAP = {
-        "ComponentType.CORE_SWITCH": NODE_TYPES["router"],
-        "ComponentType.ACCESS_SWITCH": NODE_TYPES["switch"],
-        "ComponentType.FIREWALL": NODE_TYPES["router"],
-        "ComponentType.ROUTER": NODE_TYPES["router"],
-        "ComponentType.LOAD_BALANCER": NODE_TYPES["switch"],
-        "ComponentType.SERVER_PHYSICAL": NODE_TYPES["server"],
-        "ComponentType.SERVER_VIRTUAL": NODE_TYPES["server"],
-        "ComponentType.HYPERVISOR": NODE_TYPES["server"],
-        "ComponentType.STORAGE_ARRAY": NODE_TYPES["storage"],
-        "ComponentType.STORAGE_TARGET": NODE_TYPES["storage"],
-        "ComponentType.VDI_BROKER": NODE_TYPES["service"],
-        "ComponentType.VDI_HOST": NODE_TYPES["server"],
-        "ComponentType.DNS_SERVER": NODE_TYPES["service"],
-        "ComponentType.DHCP_SERVER": NODE_TYPES["service"],
-        "ComponentType.DOMAIN_CONTROLLER": NODE_TYPES["service"],
-        "ComponentType.CERTIFICATE_AUTHORITY": NODE_TYPES["service"],
-        "ComponentType.MONITORING_SERVER": NODE_TYPES["service"],
-        "ComponentType.WAN_LINK": NODE_TYPES["gateway"],
-        "ComponentType.INTERNET_GATEWAY": NODE_TYPES["gateway"],
-        "ComponentType.APPLICATION_SERVICE": NODE_TYPES["server"],
+        "CORE_SWITCH": NODE_TYPES["router"],
+        "ACCESS_SWITCH": NODE_TYPES["switch"],
+        "FIREWALL": NODE_TYPES["router"],
+        "ROUTER": NODE_TYPES["router"],
+        "LOAD_BALANCER": NODE_TYPES["switch"],
+        "SERVER_PHYSICAL": NODE_TYPES["server"],
+        "SERVER_VIRTUAL": NODE_TYPES["server"],
+        "HYPERVISOR": NODE_TYPES["server"],
+        "STORAGE_ARRAY": NODE_TYPES["storage"],
+        "STORAGE_TARGET": NODE_TYPES["storage"],
+        "VDI_BROKER": NODE_TYPES["service"],
+        "VDI_HOST": NODE_TYPES["server"],
+        "DNS_SERVER": NODE_TYPES["service"],
+        "DHCP_SERVER": NODE_TYPES["service"],
+        "DOMAIN_CONTROLLER": NODE_TYPES["service"],
+        "CERTIFICATE_AUTHORITY": NODE_TYPES["service"],
+        "MONITORING_SERVER": NODE_TYPES["service"],
+        "WAN_LINK": NODE_TYPES["gateway"],
+        "INTERNET_GATEWAY": NODE_TYPES["gateway"],
+        "APPLICATION_SERVICE": NODE_TYPES["server"],
     }
     DEP_TYPE_MAP = {
-        "DependencyType.HARD": EDGE_TYPES["backbone"],
-        "DependencyType.SOFT": EDGE_TYPES["access"],
-        "DependencyType.SERVICE": EDGE_TYPES["service_dep"],
-        "DependencyType.RESOURCE": EDGE_TYPES["storage_dep"],
+        "NETWORK_PATH": EDGE_TYPES["backbone"],
+        "HOSTING_DEPENDENCY": EDGE_TYPES["access"],
+        "STORAGE_DEPENDENCY": EDGE_TYPES["storage_dep"],
+        "SERVICE_DEPENDENCY": EDGE_TYPES["service_dep"],
+        "DNS_DEPENDENCY": EDGE_TYPES["service_dep"],
+        "AUTHENTICATION_DEPENDENCY": EDGE_TYPES["service_dep"],
+        "REPLICATION_DEPENDENCY": EDGE_TYPES["service_dep"],
+        "MONITORING_DEPENDENCY": EDGE_TYPES["management"],
     }
 
     rng = SeededRandom(seed)
@@ -691,6 +695,21 @@ def generate_fusion_data(count: int, device: str = "cuda", seed: int = 42):
         # Propagate to get ground truth OUTCOME
         engine = PropagationEngine(max_ticks=30, soft_impact_factor=0.4 if use_deg else 0.3)
         engine.propagate(state)
+
+        # Inject oscillating (flapping) nodes in ~12% of scenarios. Oscillation
+        # is temporal — indistinguishable from 'degraded' in a single health
+        # reading — so these nodes also get a POMDP contradiction flag below as
+        # the learnable instability signal.
+        osc_ids = set()
+        if rng.random() < 0.12:
+            cand = [c.id for c in components if STATE_MAP.get(c.state, 0) in (0, 1)]
+            if len(cand) >= 2:
+                k = min(int(rng.choice([2, 2, 3, 4])), len(cand))
+                picks = np.random.default_rng(rng.randint(0, 2**31)).choice(
+                    len(cand), size=k, replace=False)
+                osc_ids = {cand[int(p)] for p in picks}
+                for cid in osc_ids:
+                    graph.get_component(cid).health = rng.uniform(0.3, 0.7)
 
         # Partial observation (fog-of-war) — shared basis for ALL channels so
         # unobserved nodes are hidden from GNN/POMDP/Mamba alike (audit fix #1).
@@ -756,7 +775,7 @@ def generate_fusion_data(count: int, device: str = "cuda", seed: int = 42):
             b = belief.beliefs[cid]
             conf = 1.0 - belief.entropy(cid) / 2.0  # Normalize entropy to confidence
             obs_age = float(belief.observation_age.get(cid, 5))
-            has_contra = 1.0 if cid in [c[0] for c in belief.root_cause_candidates.items() if c[1] > 1] else 0.0
+            has_contra = 1.0 if (cid in osc_ids or cid in [c[0] for c in belief.root_cause_candidates.items() if c[1] > 1]) else 0.0
             # Hub centrality: number of dependents
             dependents = graph.get_dependents(cid)
             hub = min(len(dependents) / 10.0, 1.0)
@@ -774,11 +793,11 @@ def generate_fusion_data(count: int, device: str = "cuda", seed: int = 42):
             start = i * NODE_FEAT_DIM
             all_mamba[generated, i] = torch.tensor(mamba_obs[start:start + NODE_FEAT_DIM])
 
-        # 4. Ground truth states
+        # 4. Ground truth states (oscillating nodes labelled class 4)
         for i, cid in enumerate(component_ids):
             comp = graph.get_component(cid)
             if comp:
-                all_states[generated, i] = float(STATE_MAP.get(comp.state, 0))
+                all_states[generated, i] = 4 if cid in osc_ids else float(STATE_MAP.get(comp.state, 0))
 
         # 5. Mask + observation mask (which nodes the monitoring actually saw)
         all_mask[generated, :n] = 1.0
