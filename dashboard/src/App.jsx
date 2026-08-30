@@ -8,12 +8,19 @@ const API = 'http://localhost:3001'
 // ── Color Maps ────────────────────────────────────────────────────────────
 
 const TYPE_COLORS = {
-  observation: '#c9a227',
-  task: '#3a8ec9',
+  observation: '#7a7060',
   idea: '#3aad6e',
+  task: '#e07040',
+  decision: '#c9a227',
+  milestone: '#4a7a45',
+  analysis: '#3a8ec9',
+  strategy: '#c084fc',
+  definition: '#e8ddc4',
+  lesson: '#d4b94e',
   reference: '#8a7f6e',
   person_note: '#c94a3a',
-  instruction: '#c084fc',
+  journal: '#2d8f5a',
+  instruction: '#6b5b3a',
 }
 
 const PROJECT_COLORS = {
@@ -33,6 +40,7 @@ const REL_COLORS = {
   caused_by: '#c084fc',
   related: '#8a7f6e',
   supersedes: '#e8ddc4',
+  evolves_into: '#d4b94e',
 }
 
 // ── Dashboard Page ────────────────────────────────────────────────────────
@@ -427,6 +435,119 @@ function GNNView() {
   )
 }
 
+// ── Project Health Page ──────────────────────────────────────────────
+
+function ProjectHealth() {
+  const [data, setData] = useState(null)
+
+  useEffect(() => {
+    fetch(`${API}/api/project-health`).then(r => r.json()).then(setData).catch(() => {})
+  }, [])
+
+  if (!data) return <div className="loading">Loading project health</div>
+
+  const TYPE_BAR_COLORS = {
+    decision:'#c9a227',milestone:'#4a7a45',idea:'#3aad6e',observation:'#7a7060',
+    strategy:'#c084fc',analysis:'#3a8ec9',task:'#e07040',definition:'#e8ddc4',
+    lesson:'#d4b94e',reference:'#8a7f6e',person_note:'#c94a3a',journal:'#2d8f5a',
+  }
+
+  return (
+    <div>
+      <div className="page-header">
+        <h2>PROJECT HEALTH</h2>
+        <div className="description">
+          Structural integrity across {data.projects.length} projects -
+          {data.total_thoughts} thoughts, {data.total_links} links, {data.orphan_count} orphans ({data.total_thoughts > 0 ? ((data.orphan_count / data.total_thoughts) * 100).toFixed(0) : 0}%)
+        </div>
+      </div>
+
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-value">{data.total_thoughts}</div>
+          <div className="stat-label">Active Thoughts</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{data.total_links}</div>
+          <div className="stat-label">Total Links</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{data.orphan_count}</div>
+          <div className="stat-label">Orphans</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value" style={{ color: data.total_thoughts > 0 && (data.orphan_count / data.total_thoughts) > 0.4 ? 'var(--danger)' : 'var(--text)' }}>
+            {data.total_thoughts > 0 ? ((data.orphan_count / data.total_thoughts) * 100).toFixed(0) : 0}%
+          </div>
+          <div className="stat-label">Orphan Rate</div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 12 }}>
+        {data.projects.filter(p => p.total > 0).map(proj => {
+          const orphanPct = proj.total > 0 ? ((proj.orphans / proj.total) * 100).toFixed(0) : 0
+          const healthColor = proj.health === 'GOOD' ? 'var(--success)' : 'var(--gold)'
+
+          return (
+            <div key={proj.slug} className="card" style={{ marginBottom: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div className="card-header" style={{ marginBottom: 0 }}>{proj.name}</div>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: healthColor, letterSpacing: 1 }}>{proj.health}</span>
+              </div>
+
+              {/* Type distribution bar */}
+              <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 10 }}>
+                {Object.entries(proj.types).sort((a, b) => b[1] - a[1]).map(([tp, cnt]) => (
+                  <div key={tp} title={`${tp}: ${cnt}`} style={{
+                    width: `${(cnt / proj.total) * 100}%`,
+                    background: TYPE_BAR_COLORS[tp] || '#7a7060',
+                    minWidth: cnt > 0 ? 3 : 0,
+                  }} />
+                ))}
+              </div>
+
+              {/* Stats grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', fontFamily: 'var(--mono)', fontSize: 10 }}>
+                <div style={{ color: 'var(--dim)' }}>thoughts <span style={{ color: 'var(--text)' }}>{proj.total}</span></div>
+                <div style={{ color: 'var(--dim)' }}>density <span style={{ color: 'var(--text)' }}>{proj.link_density.toFixed(1)}</span></div>
+                <div style={{ color: 'var(--dim)' }}>orphans <span style={{ color: parseInt(orphanPct) > 40 ? 'var(--danger)' : 'var(--text)' }}>{proj.orphans} ({orphanPct}%)</span></div>
+                <div style={{ color: 'var(--dim)' }}>evolved <span style={{ color: 'var(--text)' }}>{proj.evolved || 0}</span></div>
+                <div style={{ color: 'var(--dim)' }}>decisions <span style={{ color: '#c9a227' }}>{proj.types.decision || 0}</span></div>
+                <div style={{ color: 'var(--dim)' }}>milestones <span style={{ color: '#4a7a45' }}>{proj.types.milestone || 0}</span></div>
+                <div style={{ color: 'var(--dim)' }}>ideas <span style={{ color: '#3aad6e' }}>{proj.types.idea || 0}</span></div>
+                <div style={{ color: 'var(--dim)' }}>tasks <span style={{ color: '#e07040' }}>{proj.types.task || 0}</span></div>
+              </div>
+
+              {proj.issues && proj.issues.length > 0 && (
+                <div style={{ marginTop: 8, fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', borderTop: '1px solid var(--border)', paddingTop: 6 }}>
+                  {proj.issues.join(' | ')}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Stale items section */}
+      {data.stale && data.stale.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-header">Stale Items ({data.stale.length})</div>
+          {data.stale.slice(0, 15).map((item, i) => (
+            <div key={item.id} style={{
+              borderLeft: `2px solid ${item.category === 'STALE TASK' ? 'var(--danger)' : 'var(--gold)'}`,
+              padding: '6px 10px', marginBottom: 6, fontFamily: 'var(--mono)', fontSize: 10,
+            }}>
+              <div style={{ color: 'var(--bright)' }}>{item.category}</div>
+              <div style={{ color: 'var(--text)', marginTop: 2 }}>{item.content.slice(0, 120)}...</div>
+              <div style={{ color: 'var(--dim)', marginTop: 2 }}>{item.reason}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── App Shell ─────────────────────────────────────────────────────────────
 
 function App() {
@@ -441,6 +562,7 @@ function App() {
           <nav>
             <NavLink to="/" end>Dashboard</NavLink>
             <NavLink to="/graph">Knowledge Graph</NavLink>
+            <NavLink to="/health">Project Health</NavLink>
             <NavLink to="/gnn">Structural Reasoning</NavLink>
           </nav>
           <div className="sidebar-footer">
@@ -457,6 +579,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/graph" element={<GraphView />} />
+            <Route path="/health" element={<ProjectHealth />} />
             <Route path="/gnn" element={<GNNView />} />
           </Routes>
         </main>

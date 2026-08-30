@@ -18,6 +18,8 @@ Usage:
     python api.py
 """
 
+import asyncio
+import datetime
 import json
 import sys
 import os
@@ -243,6 +245,125 @@ async def gnn_stats():
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(f"{GNN_SERVER}/stats")
         return resp.json()
+
+
+@app.get("/api/project-health")
+async def project_health():
+    """Per-project structural health metrics."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        # Fetch everything in parallel
+        thoughts_resp, links_resp, projects_resp, pt_resp = await asyncio.gather(
+            client.get(f"{SUPABASE_URL}/rest/v1/thoughts",
+                       headers=supabase_headers(),
+                       params={"select": "id,metadata,created_at", "archived": "eq.false",
+                               "order": "created_at.asc", "limit": "5000"}),
+            client.get(f"{SUPABASE_URL}/rest/v1/thought_links",
+                       headers=supabase_headers(),
+                       params={"select": "source_id,target_id,relation_type", "limit": "10000"}),
+            client.get(f"{SUPABASE_URL}/rest/v1/projects",
+                       headers=supabase_headers(),
+                       params={"select": "id,name,slug,status", "order": "name"}),
+            client.get(f"{SUPABASE_URL}/rest/v1/project_thoughts",
+                       headers=supabase_headers(),
+                       params={"select": "project_id,thought_id", "limit": "10000"}),
+        )
+
+    thoughts = thoughts_resp.json()
+    links = links_resp.json()
+    projects = projects_resp.json()
+    pt_rows = pt_resp.json()
+
+    # Build link adjacency
+    linked_ids: set[str] = set()
+    for l in links:
+        linked_ids.add(l["source_id"])
+        linked_ids.add(l["target_id"])
+
+    # Count evolves_into per thought
+    evolves_set: set[str] = set()
+    for l in links:
+        if l.get("relation_type") == "evolves_into":
+            evolves_set.add(l["source_id"])
+
+    # Project -> thought_ids
+    proj_thought_map: dict[str, list[str]] = defaultdict(list)
+    thought_has_project: set[str] = set()
+    for pt in pt_rows:
+        proj_thought_map[pt["project_id"]].append(pt["thought_id"])
+        thought_has_project.add(pt["thought_id"])
+
+    # Global orphan count
+    orphan_count = sum(1 for t in thoughts if t["id"] not in linked_ids and t["id"] not in thought_has_project)
+
+    # Stale detection (tasks/ideas older than 14 days)
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=14)
+    stale_items = []
+    for t in thoughts:
+        m = t.get("metadata") or {}
+        tp = m.get("type", "observation")
+        created = t.get("created_at", "")
+        try:
+            dt = datetime.datetime.fromisoformat(created.replace("Z", "+00:00"))
+        except Exception:
+            continue
+        if dt < cutoff:
+            if tp == "task":
+                stale_items.append({
+                    "id": t["id"], "category": "STALE TASK",
+                    "content": (t.get("content") or "")[:120] if "content" in t else "",
+                    "reason": f"Task from {dt.strftime('%Y-%m-%d')} - 14+ days old",
+                })
+            elif tp == "idea" and t["id"] not in evolves_set:
+                stale_items.append({
+                    "id": t["id"], "category": "STALE IDEA",
+                    "content": (t.get("content") or "")[:120] if "content" in t else "",
+                    "reason": f"Idea from {dt.strftime('%Y-%m-%d')} never promoted",
+                })
+
+    # Per-project reports
+    thought_by_id = {t["id"]: t for t in thoughts}
+    project_reports = []
+    for proj in projects:
+        t_ids = set(proj_thought_map.get(proj["id"], []))
+        proj_thoughts = [thought_by_id[tid] for tid in t_ids if tid in thought_by_id]
+        total = len(proj_thoughts)
+
+        type_counts: dict[str, int] = defaultdict(int)
+        for t in proj_thoughts:
+            m = t.get("metadata") or {}
+            type_counts[m.get("type", "observation")] += 1
+
+        p_orphans = sum(1 for t in proj_thoughts if t["id"] not in linked_ids)
+        p_linked = sum(1 for t in proj_thoughts if t["id"] in linked_ids)
+        density = (p_linked / total * 2) if total > 0 else 0
+        evolved = sum(1 for t in proj_thoughts if t["id"] in evolves_set)
+
+        issues = []
+        orphan_pct = (p_orphans / total * 100) if total > 0 else 0
+        if orphan_pct > 40:
+            issues.append("high orphan rate")
+        if density < 1.0 and total > 5:
+            issues.append("low link density")
+        if type_counts.get("idea", 0) > 5 and type_counts.get("milestone", 0) == 0:
+            issues.append("ideas not converting")
+        if type_counts.get("task", 0) > 3:
+            issues.append(f"{type_counts['task']} open tasks")
+
+        project_reports.append({
+            "name": proj["name"], "slug": proj["slug"], "status": proj["status"],
+            "total": total, "orphans": p_orphans, "link_density": round(density, 1),
+            "types": dict(type_counts), "evolved": evolved,
+            "health": "GOOD" if not issues else "NEEDS ATTENTION",
+            "issues": issues,
+        })
+
+    return {
+        "total_thoughts": len(thoughts),
+        "total_links": len(links),
+        "orphan_count": orphan_count,
+        "projects": sorted(project_reports, key=lambda p: p["total"], reverse=True),
+        "stale": stale_items[:20],
+    }
 
 
 @app.get("/api/health")

@@ -18,10 +18,14 @@ import yaml
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 
+import sys
+
 from sable_engine import SableEngine
 from nemotron_bridge import NemotronBridge
+from grafana_shim import make_router as make_grafana_router
 
 app = FastAPI(title="SABLE Engine", version="1.0")
+app.include_router(make_grafana_router(sys.modules[__name__]), prefix="/grafana")
 
 # Global engine + state
 engine = SableEngine(device="cuda")
@@ -695,4 +699,4 @@ async def nemotron_after_action():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8080, log_level="warning")
+    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="warning")

@@ -4,6 +4,7 @@ Wraps the three-pillar fusion + temporal chain into one clean interface.
 """
 
 import sys
+import time
 from pathlib import Path
 
 import torch
@@ -74,7 +75,13 @@ class SableEngine:
         temporal_path = ckpt_dir / "temporal.pt"
         if temporal_path.exists():
             ckpt = torch.load(temporal_path, weights_only=False, map_location=self.device)
-            model.load_state_dict(ckpt["model_state_dict"], strict=False)
+            # Load compatible keys only - base_fusion router may have changed shape
+            tc_state = ckpt["model_state_dict"]
+            model_state = model.state_dict()
+            for k, v in tc_state.items():
+                if k in model_state and model_state[k].shape == v.shape:
+                    model_state[k] = v
+            model.load_state_dict(model_state)
 
         # Step 3: Apply LoRA to the FULL model (fusion + temporal chain)
         lora_path = ckpt_dir / "lora_adapter.pt"
@@ -135,6 +142,7 @@ class SableEngine:
             dict with per-node predictions, confidence, routing, transitions.
             When mc_samples > 0, mc_agreement and mc_variance fields are added.
         """
+        t0 = time.time()
         gnn = gnn.to(self.device)
         pomdp = pomdp.to(self.device)
         mamba = mamba.to(self.device)
@@ -147,6 +155,42 @@ class SableEngine:
         preds = probs.argmax(dim=-1)  # (N,)
         transition = torch.softmax(out["transition"][0], dim=-1)  # (N, 3)
         route_weights = out["route_weights"][0]  # (N, 4)
+
+        # Pillar feed metrics: how much each pillar contributes to the router decision
+        # 1. Logit magnitude: L2 norm of each expert's output logits (signal strength)
+        # 2. Expert confidence: max softmax probability (how sure each expert is)
+        # 3. Soft routing: softmax of router logits before argmax (how close the decision was)
+        l_gnn = out["l_gnn"][0]       # (N, N_STATES)
+        l_pomdp = out["l_pomdp"][0]
+        l_mamba = out["l_mamba"][0]
+        l_fusion = out["l_fusion"][0]
+        route_logits = out["route_logits"][0]  # (N, 4)
+
+        # Pillar views - what each reasoning pillar sees, per node.
+        # Router/fusion run in the background. This is for the operator.
+        gnn_probs = torch.softmax(l_gnn, dim=-1)   # (N, N_STATES)
+        pomdp_probs = torch.softmax(l_pomdp, dim=-1)
+        mamba_probs = torch.softmax(l_mamba, dim=-1)
+
+        pillar_views = []
+        for i in range(self.n_nodes):
+            pomdp_raw = pomdp[0, i].cpu().tolist()
+            pillar_views.append({
+                "gnn_state": STATE_NAMES[int(gnn_probs[i].argmax().item())],
+                "gnn_confidence": round(float(gnn_probs[i].max().item()), 4),
+                "pomdp_belief": {STATE_NAMES[c]: round(pomdp_raw[c], 4) for c in range(min(4, len(pomdp_raw)))},
+                "pomdp_confidence": round(float(pomdp_raw[4]) if len(pomdp_raw) > 4 else 0, 4),
+                "pomdp_obs_age": round(float(pomdp_raw[5]) if len(pomdp_raw) > 5 else 0, 4),
+                "pomdp_contradiction": round(float(pomdp_raw[6]) if len(pomdp_raw) > 6 else 0, 4),
+                "trend": ["improving", "stable", "deteriorating"][transition[i].argmax().item()],
+                "trend_probs": {
+                    "improving": round(float(transition[i, 0].item()), 4),
+                    "stable": round(float(transition[i, 1].item()), 4),
+                    "deteriorating": round(float(transition[i, 2].item()), 4),
+                },
+            })
+
+        pillar_feed = {"pillar_views": pillar_views}
 
         # Confidence: either standard (max softmax) or MC dropout (variance-based)
         mc_meta = None
@@ -217,6 +261,7 @@ class SableEngine:
                 "value": float(confidence.max().item()),
             },
             "accuracy": accuracy,
+            "pillar_feed": pillar_feed,
         }
 
         if mc_meta:
@@ -224,11 +269,20 @@ class SableEngine:
             tick_record["mc_avg_agreement"] = float(mc_meta["agreement"].mean().item())
             tick_record["mc_avg_variance"] = float(mc_meta["variance"].mean().item())
 
-        # Store history
+        inference_ms = round((time.time() - t0) * 1000, 2)
+        tick_record["inference_ms"] = inference_ms
+
+        # Store history (includes data needed by Grafana datasource)
         self.history.append({
             "cycle": self.cycle,
             "predictions": preds.cpu().tolist(),
             "ground_truth": ground_truth.tolist() if ground_truth is not None else None,
+            "confidences": confidence.cpu().tolist(),
+            "route_weights": route_weights.cpu().tolist(),
+            "pillar_feed": pillar_feed,
+            "accuracy": accuracy,
+            "inference_ms": inference_ms,
+            "timestamp": time.time(),
         })
         if len(self.history) > self.MAX_HISTORY:
             self.history = self.history[-self.MAX_HISTORY:]

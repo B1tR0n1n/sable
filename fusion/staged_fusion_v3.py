@@ -53,6 +53,14 @@ class SharpRoutedFusion(nn.Module):
     def __init__(self, mamba_dim=NODE_FEAT_DIM, dropout=0.15):
         super().__init__()
 
+        # Pillar input normalization — makes the system invariant to feature scale.
+        # GNN outputs ~27, POMDP ~1.4, Mamba ~1.6. After LayerNorm, all three
+        # pillars speak at the same volume. Router judges content, not loudness.
+        # Works on any topology without retraining.
+        self.gnn_norm = nn.LayerNorm(GNN_DIM)
+        self.pomdp_norm = nn.LayerNorm(POMDP_DIM)
+        self.mamba_norm = nn.LayerNorm(mamba_dim)
+
         self.gnn_expert = nn.Sequential(
             nn.Linear(GNN_DIM, 256), nn.GELU(), nn.Dropout(dropout),
             nn.Linear(256, 128), nn.GELU(), nn.Dropout(dropout),
@@ -79,34 +87,70 @@ class SharpRoutedFusion(nn.Module):
             nn.Linear(64, N_STATES),
         )
 
-        # Router: sees all expert logits + feature norms → picks one expert
-        # Input: 4 experts × N_STATES logits + 3 norms = 4*N_STATES + 3
-        router_input_dim = 4 * N_STATES + 3
+        # Router: sees normalized expert logits + scaled feature norms + temporal context
+        # Input: 4 experts x N_STATES logits + 3 norms + 4 temporal features = 4*N_STATES + 7
+        # Temporal features: [cycle_progress, n_state_changes, mean_confidence_history, cascade_velocity]
+        # These let the router learn phase-dependent routing:
+        #   early cascade (low cycle, few changes) -> lean on GNN topology
+        #   mid cascade (rising changes, dropping confidence) -> deliberate across all
+        #   late cascade (high cycle, stable beliefs) -> lean on POMDP beliefs
+        self.n_temporal_features = 4
+        router_input_dim = 4 * N_STATES + 3 + self.n_temporal_features
         self.router = nn.Sequential(
             nn.Linear(router_input_dim, 128), nn.GELU(), nn.Dropout(dropout),
             nn.Linear(128, 64), nn.GELU(),
             nn.Linear(64, 4),  # 4 experts (not N_STATES)
         )
 
-    def forward(self, gnn_raw, pomdp_raw, mamba_raw, hard_route=False):
+        # Normalization for router inputs — prevents magnitude-based routing collapse.
+        # Shared LayerNorm puts all expert logits on the same scale.
+        # feat_norm_scale is learnable so the router can still use magnitude info
+        # from a level playing field (sqrt(dim) removes dimensionality bias).
+        self.logit_norm = nn.LayerNorm(N_STATES)
+        self.feat_norm_scale = nn.Parameter(torch.ones(3))
+
+    def forward(self, gnn_raw, pomdp_raw, mamba_raw, hard_route=False, temporal_ctx=None):
+        """
+        Args:
+            temporal_ctx: Optional (B, N, 4) tensor with per-node temporal features:
+                [cycle_progress, n_state_changes, mean_conf_history, cascade_velocity]
+                Computed by TemporalChainFusion from the temporal state.
+                None on cold start or during Stage 1 training (defaults to zeros).
+        """
         B, N, _ = gnn_raw.shape
 
-        l_gnn = self.gnn_expert(gnn_raw)
-        l_pomdp = self.pomdp_expert(pomdp_raw)
-        l_mamba = self.mamba_expert(mamba_raw)
+        # Normalize pillar inputs - scale-invariant, topology-invariant.
+        gnn = self.gnn_norm(gnn_raw)
+        pomdp = self.pomdp_norm(pomdp_raw)
+        mamba = self.mamba_norm(mamba_raw)
 
-        z_gnn = self.gnn_proj(gnn_raw)
-        z_pomdp = self.pomdp_proj(pomdp_raw)
-        z_mamba = self.mamba_proj(mamba_raw)
+        l_gnn = self.gnn_expert(gnn)
+        l_pomdp = self.pomdp_expert(pomdp)
+        l_mamba = self.mamba_expert(mamba)
+
+        z_gnn = self.gnn_proj(gnn)
+        z_pomdp = self.pomdp_proj(pomdp)
+        z_mamba = self.mamba_proj(mamba)
         perspectives = torch.stack([z_gnn, z_pomdp, z_mamba], dim=2)
         z_fused = self.fusion(perspectives)
         l_fusion = self.fusion_expert(z_fused)
 
+        # Router input: normalized logits + feature norms + temporal context
+        l_gnn_n = self.logit_norm(l_gnn)
+        l_pomdp_n = self.logit_norm(l_pomdp)
+        l_mamba_n = self.logit_norm(l_mamba)
+        l_fusion_n = self.logit_norm(l_fusion)
+
+        # Default temporal context to zeros (cold start / standalone training)
+        if temporal_ctx is None:
+            temporal_ctx = torch.zeros(B, N, self.n_temporal_features, device=gnn.device)
+
         router_in = torch.cat([
-            l_gnn, l_pomdp, l_mamba, l_fusion,
-            gnn_raw.norm(dim=-1, keepdim=True),
-            pomdp_raw.norm(dim=-1, keepdim=True),
-            mamba_raw.norm(dim=-1, keepdim=True),
+            l_gnn_n, l_pomdp_n, l_mamba_n, l_fusion_n,
+            gnn.norm(dim=-1, keepdim=True) * self.feat_norm_scale[0],
+            pomdp.norm(dim=-1, keepdim=True) * self.feat_norm_scale[1],
+            mamba.norm(dim=-1, keepdim=True) * self.feat_norm_scale[2],
+            temporal_ctx,
         ], dim=-1)
 
         route_logits = self.router(router_in)  # (B, N, 4)
@@ -161,7 +205,8 @@ def eval_full(model, val_data, device):
 
     for ename, key in [("GNN", "gnn"), ("POMDP", "pomdp"), ("Mamba", "mamba")]:
         expert = getattr(model, f"{key}_expert")
-        results[ename] = get_f1s(lambda i, j, _k=key: expert(val_data[_k][i:j].to(device)))
+        norm = getattr(model, f"{key}_norm")
+        results[ename] = get_f1s(lambda i, j, _k=key, _e=expert, _n=norm: _e(_n(val_data[_k][i:j].to(device))))
 
     results["Fusion"] = get_f1s(lambda i,j: model(
         val_data["gnn"][i:j].to(device), val_data["pomdp"][i:j].to(device),
@@ -174,31 +219,47 @@ def eval_full(model, val_data, device):
     return results
 
 
-def _train_expert_head(expert, key, train_data, val_data, n_train, state_weights, device):
-    """Train a single expert head with early stopping on val accuracy."""
-    opt = torch.optim.AdamW(expert.parameters(), lr=0.001, weight_decay=1e-3)
+def _train_expert_head(expert, key, train_data, val_data, n_train, state_weights, device, input_norm=None):
+    """Train a single expert head with early stopping on val accuracy.
+
+    Args:
+        input_norm: Optional LayerNorm to apply before the expert. When provided,
+                    expert trains on normalized inputs (scale-invariant).
+    """
+    params = list(expert.parameters())
+    if input_norm is not None:
+        params += list(input_norm.parameters())
+    opt = torch.optim.AdamW(params, lr=0.001, weight_decay=1e-3)
     best_acc = 0.0
     best_state = None
     for ep in range(1, 81):
         expert.train()
+        if input_norm is not None:
+            input_norm.train()
         perm = torch.randperm(n_train)
         for i in range(0, n_train, 256):
             idx = perm[i:i+256]
             x = train_data[key][idx].to(device)
             s = train_data["states"][idx].to(device).long()
             m = train_data["mask"][idx].to(device)
+            if input_norm is not None:
+                x = input_norm(x)
             logits = expert(x)
             loss = F.cross_entropy(logits.reshape(-1, N_STATES), s.reshape(-1), weight=state_weights, reduction="none")
             loss = (loss * m.reshape(-1)).sum() / m.sum()
             opt.zero_grad(); loss.backward(); opt.step()
         if ep % 10 == 0:
             expert.eval()
+            if input_norm is not None:
+                input_norm.eval()
             correct = total = 0
             with torch.no_grad():
                 for i in range(0, val_data[key].size(0), 256):
                     x = val_data[key][i:i+256].to(device)
                     s = val_data["states"][i:i+256].to(device).long()
                     m = val_data["mask"][i:i+256].to(device)
+                    if input_norm is not None:
+                        x = input_norm(x)
                     preds = expert(x).argmax(-1)
                     valid = m > 0
                     correct += ((preds==s)&valid).sum().item()
@@ -247,7 +308,15 @@ def _train_fusion_epoch(model, train_data, n_train, state_weights, device, optim
                                       router_target.reshape(-1), reduction="none")
         router_loss = (router_loss * mask.reshape(-1)).sum() / mask.sum()
 
-        loss = main_loss + 0.3 * fusion_loss + 0.5 * router_loss
+        # Entropy regularization: penalize routing collapse by maximizing
+        # the entropy of the average routing distribution across the batch.
+        # This encourages the router to spread weight across experts.
+        route_probs = F.softmax(out["route_logits"], dim=-1)  # (B, N, 4)
+        avg_route = (route_probs * mask.unsqueeze(-1)).sum(dim=(0, 1)) / mask.sum()
+        entropy = -(avg_route * torch.log(avg_route + 1e-8)).sum()
+        balance_loss = -entropy  # Negative because we want to MAXIMIZE entropy
+
+        loss = main_loss + 0.3 * fusion_loss + 0.5 * router_loss + 0.1 * balance_loss
 
         optimizer.zero_grad()
         loss.backward()
@@ -279,18 +348,20 @@ def run(device="cuda"):
     print(f"  {C_DIM}{'─' * 40}{C_RESET}")
 
     experts = [
-        ("GNN", model.gnn_expert, "gnn"),
-        ("POMDP", model.pomdp_expert, "pomdp"),
-        ("Mamba", model.mamba_expert, "mamba"),
+        ("GNN", model.gnn_expert, "gnn", model.gnn_norm),
+        ("POMDP", model.pomdp_expert, "pomdp", model.pomdp_norm),
+        ("Mamba", model.mamba_expert, "mamba", model.mamba_norm),
     ]
 
-    for name, expert, key in experts:
-        best_acc = _train_expert_head(expert, key, train_data, val_data, n_train, state_weights, device)
+    for name, expert, key, norm in experts:
+        best_acc = _train_expert_head(expert, key, train_data, val_data, n_train, state_weights, device, input_norm=norm)
         print(f"    {C_TEXT}{name:6s}: acc={best_acc:.4f}{C_RESET}", flush=True)
 
-    # Freeze experts
-    for _, expert, _ in experts:
+    # Freeze experts + their input norms (both trained together in Stage 1)
+    for _, expert, _, norm in experts:
         for p in expert.parameters():
+            p.requires_grad = False
+        for p in norm.parameters():
             p.requires_grad = False
 
     # ── Stage 2: Fusion + Router (sharp) ──

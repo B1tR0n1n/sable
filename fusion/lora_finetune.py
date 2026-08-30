@@ -126,10 +126,11 @@ def apply_lora(model, rank: int = 8, alpha: float = 16.0):
     else:
         base = model
 
-    # Expert heads + router
+    # Expert heads only - router is EXCLUDED to preserve balanced routing
+    # learned in Stage 2. LoRA adapts what experts predict, not who the
+    # router trusts. This prevents routing collapse from LoRA magnitude drift.
     for name in ["gnn_expert", "pomdp_expert", "mamba_expert", "fusion_expert"]:
         _wrap_sequential(getattr(base, name))
-    _wrap_sequential(base.router)
 
     # Temporal chain components (if present)
     if hasattr(model, 'context_mixer'):
@@ -210,8 +211,17 @@ def train_lora(
     if temporal_path.exists():
         model = TemporalChainFusion(base_fusion)
         tc_ckpt = torch.load(str(temporal_path), weights_only=False, map_location=device)
-        model.load_state_dict(tc_ckpt["model_state_dict"], strict=False)
-        print(f"  {C_TEXT}Temporal chain loaded - full model LoRA{C_RESET}")
+        # Load only temporal chain keys (context_mixer, revision_gate), skip base_fusion
+        # keys which may have changed shape (e.g. router input dim after adding temporal ctx)
+        tc_state = tc_ckpt["model_state_dict"]
+        model_state = model.state_dict()
+        loaded = 0
+        for k, v in tc_state.items():
+            if k in model_state and model_state[k].shape == v.shape:
+                model_state[k] = v
+                loaded += 1
+        model.load_state_dict(model_state)
+        print(f"  {C_TEXT}Temporal chain loaded ({loaded}/{len(tc_state)} compatible keys){C_RESET}")
     else:
         model = base_fusion
         print(f"  {C_TEXT}Fusion only (no temporal chain){C_RESET}")
@@ -319,7 +329,11 @@ def train_lora(
 
                     out = model(g, p, m, temporal_state=temporal_state)
                     logits = out["revised_logits"]  # (1, N, N_STATES)
-                    loss = loss_fn(logits.reshape(-1, N_STATES), y.reshape(-1))
+                    cls_loss = loss_fn(logits.reshape(-1, N_STATES), y.reshape(-1))
+                    # Entropy balance: prevent LoRA from collapsing routing
+                    rp = F.softmax(out["route_logits"], dim=-1).mean(dim=(0, 1))
+                    balance = -(rp * torch.log(rp + 1e-8)).sum()
+                    loss = cls_loss - 0.05 * balance
 
                     optimizer.zero_grad()
                     loss.backward()
@@ -348,7 +362,11 @@ def train_lora(
 
                     out = model(g, p, m)
                     logits = out["logits"]
-                    loss = loss_fn(logits.reshape(-1, N_STATES), y.reshape(-1))
+                    cls_loss = loss_fn(logits.reshape(-1, N_STATES), y.reshape(-1))
+                    # Entropy balance: prevent LoRA from collapsing routing
+                    rp = F.softmax(out["route_logits"], dim=-1).mean(dim=(0, 1))
+                    balance = -(rp * torch.log(rp + 1e-8)).sum()
+                    loss = cls_loss - 0.05 * balance
 
                     optimizer.zero_grad()
                     loss.backward()

@@ -403,11 +403,13 @@ class TemporalChainFusion(nn.Module):
         pomdp_raw = _sanitize(pomdp_raw)
         mamba_raw = _sanitize(mamba_raw)
 
+        # Compute temporal context features for the router
+        # These tell the router where we are in the cascade lifecycle
+        temporal_ctx = self._compute_temporal_ctx(temporal_state, gnn_raw.device)
+
         if bypass_temporal:
-            # LoRA mode: skip context mixing and revision gate.
-            # The LoRA adapter was trained on the base fusion directly,
-            # so temporal chain layers (trained on sable_sim) would fight it.
-            base_out = self.base_fusion(gnn_raw, pomdp_raw, mamba_raw, hard_route)
+            base_out = self.base_fusion(gnn_raw, pomdp_raw, mamba_raw, hard_route,
+                                        temporal_ctx=temporal_ctx)
             B, N = base_out["logits"].shape[:2]
             device = base_out["logits"].device
             revised_logits = base_out["logits"]
@@ -419,8 +421,9 @@ class TemporalChainFusion(nn.Module):
                 gnn_raw, pomdp_raw, mamba_raw, temporal_state
             )
 
-            # Step 2: Run base fusion (architecture unchanged)
-            base_out = self.base_fusion(gnn_aug, pomdp_aug, mamba_aug, hard_route)
+            # Step 2: Run base fusion with temporal context for the router
+            base_out = self.base_fusion(gnn_aug, pomdp_aug, mamba_aug, hard_route,
+                                        temporal_ctx=temporal_ctx)
 
             # Step 3: Revision gate
             if temporal_state is not None and temporal_state.cycle > 0:
@@ -452,6 +455,34 @@ class TemporalChainFusion(nn.Module):
             "transition": transition,
             "z_fused": z_fused,
         }
+
+    @staticmethod
+    def _compute_temporal_ctx(temporal_state: TemporalState | None, device) -> torch.Tensor | None:
+        """Extract 4 temporal features per node for the router.
+
+        Features:
+          [0] cycle_progress: how far into the monitoring session (0-1, saturates at 50 ticks)
+          [1] n_state_changes: fraction of trajectory entries that are state changes (0-1)
+          [2] mean_conf_history: average confidence across the trajectory buffer (0-1)
+          [3] cascade_velocity: mean direction across recent trajectory (-1 to +1,
+              positive = deteriorating, negative = improving)
+
+        Returns None if no temporal state, which SharpRoutedFusion handles as zeros.
+        """
+        if temporal_state is None or temporal_state.cycle == 0:
+            return None
+
+        traj = temporal_state.trajectory  # (N, K, 5) = [state, conf, cycle_norm, changed, direction]
+        N = traj.size(0)
+        K = traj.size(1)
+
+        cycle_progress = torch.full((N, 1), min(temporal_state.cycle / 50.0, 1.0), device=device)
+        n_changes = traj[:, :, 3].sum(dim=1, keepdim=True) / K          # fraction of changes
+        mean_conf = traj[:, :, 1].mean(dim=1, keepdim=True)             # avg confidence
+        cascade_vel = traj[:, :, 4].mean(dim=1, keepdim=True)           # mean direction
+
+        ctx = torch.cat([cycle_progress, n_changes, mean_conf, cascade_vel], dim=-1)  # (N, 4)
+        return ctx.unsqueeze(0)  # (1, N, 4) to match (B, N, feat) convention
 
     def n_temporal_params(self) -> int:
         """Count only temporal chain parameters (not base fusion)."""
