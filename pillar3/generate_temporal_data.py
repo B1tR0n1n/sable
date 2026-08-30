@@ -61,8 +61,15 @@ N_COMP_TYPES = len(COMP_TYPES)
 NODE_FEAT_DIM = 1 + N_STATES + N_COMP_TYPES
 
 
-def encode_system_state(graph: InfrastructureGraph, component_ids: list[str]) -> np.ndarray:
+def encode_system_state(graph: InfrastructureGraph, component_ids: list[str],
+                        belief=None) -> np.ndarray:
     """Encode the current system state as a flat feature vector.
+
+    If `belief` (a POMDP BeliefState) is provided, per-node health and state
+    features are derived from the OBSERVED fog-of-war belief, NOT the true
+    component state. This prevents the ground-truth label from leaking into
+    the Mamba input (audit fix #1). When `belief` is None the legacy true-state
+    encoding is used (leaky — kept for backward-compat / A-B comparison).
 
     Returns: (N_nodes * NODE_FEAT_DIM,) vector
     """
@@ -73,13 +80,24 @@ def encode_system_state(graph: InfrastructureGraph, component_ids: list[str]) ->
             features.extend([0.0] * NODE_FEAT_DIM)
             continue
 
+        if belief is not None and cid in getattr(belief, "beliefs", {}):
+            # Observation-derived (fog-of-war belief): b = [P(healthy),
+            # P(degraded), P(failed), P(unreachable)]
+            b = belief.beliefs[cid]
+            health = float(b[0] + 0.5 * b[1])                        # observed health proxy
+            state_idx = int(max(range(len(b)), key=lambda k: b[k]))  # belief argmax
+        else:
+            # Legacy (leaky): true health + true state
+            health = comp.health
+            state_idx = STATE_MAP.get(comp.state, 0)
+
         # Health (scalar)
-        feat = [comp.health]
+        feat = [health]
 
         # State one-hot
         state_oh = [0.0] * N_STATES
-        state_idx = STATE_MAP.get(comp.state, 0)
-        state_oh[state_idx] = 1.0
+        if 0 <= state_idx < N_STATES:
+            state_oh[state_idx] = 1.0
         feat.extend(state_oh)
 
         # Type one-hot

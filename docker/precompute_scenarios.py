@@ -147,8 +147,11 @@ def encode_tick(graph, components, component_ids, gnn, device, rng, belief):
         hub = min(len(graph.get_dependents(cid)) / 10.0, 1.0)
         pomdp_out[i] = torch.tensor([b[0], b[1], b[2], b[3], conf, obs_age / 10.0, 0.0, hub])
 
-    # --- Mamba: same path as generate_fusion_data line 783-786 ---
-    raw = encode_system_state(graph, component_ids)
+    # --- Mamba: observation-based (audit fix #1) ---
+    # Pass the fog-of-war belief so the state/health features come from what
+    # the operator OBSERVES, not the true component state (prevents the label
+    # from leaking into the Mamba input).
+    raw = encode_system_state(graph, component_ids, belief=belief)
     mamba_out = torch.tensor(raw, dtype=torch.float32).reshape(n, -1)[:, :NODE_FEAT_DIM]
 
     # --- Ground truth ---

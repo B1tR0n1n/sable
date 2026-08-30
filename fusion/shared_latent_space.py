@@ -654,6 +654,7 @@ def generate_fusion_data(count: int, device: str = "cuda", seed: int = 42):
     all_mamba = torch.zeros(count, max_nodes, NODE_FEAT_DIM)
     all_states = torch.zeros(count, max_nodes, dtype=torch.long)
     all_mask = torch.zeros(count, max_nodes)
+    all_observed = torch.zeros(count, max_nodes)  # 1 = node directly observed by monitoring
 
     generated = 0
     t0 = time.time()
@@ -765,10 +766,13 @@ def generate_fusion_data(count: int, device: str = "cuda", seed: int = 42):
                 conf, obs_age / 10.0, has_contra, hub,
             ])
 
-        # 3. Mamba state features — PRE-propagation (partial observation, not ground truth)
+        # 3. Mamba state features — observation-based (audit fix #1): derived
+        #    from the fog-of-war belief, NOT ground truth. Unobserved nodes
+        #    carry only the propagated belief, forcing structural inference.
+        mamba_obs = encode_system_state(graph, component_ids, belief=belief)
         for i in range(n):
             start = i * NODE_FEAT_DIM
-            all_mamba[generated, i] = torch.tensor(pre_prop_state[start:start + NODE_FEAT_DIM])
+            all_mamba[generated, i] = torch.tensor(mamba_obs[start:start + NODE_FEAT_DIM])
 
         # 4. Ground truth states
         for i, cid in enumerate(component_ids):
@@ -776,8 +780,11 @@ def generate_fusion_data(count: int, device: str = "cuda", seed: int = 42):
             if comp:
                 all_states[generated, i] = float(STATE_MAP.get(comp.state, 0))
 
-        # 5. Mask
+        # 5. Mask + observation mask (which nodes the monitoring actually saw)
         all_mask[generated, :n] = 1.0
+        observed_ids = {o["component_id"] for o in operator_view.get("observations", [])}
+        for i, cid in enumerate(component_ids):
+            all_observed[generated, i] = 1.0 if cid in observed_ids else 0.0
 
         generated += 1
         if generated % 1000 == 0:
@@ -795,6 +802,7 @@ def generate_fusion_data(count: int, device: str = "cuda", seed: int = 42):
         "mamba": all_mamba[perm[:n_train]],
         "states": all_states[perm[:n_train]],
         "mask": all_mask[perm[:n_train]],
+        "observed": all_observed[perm[:n_train]],
     }
     val_data = {
         "gnn": all_gnn[perm[n_train:]],
@@ -802,6 +810,7 @@ def generate_fusion_data(count: int, device: str = "cuda", seed: int = 42):
         "mamba": all_mamba[perm[n_train:]],
         "states": all_states[perm[n_train:]],
         "mask": all_mask[perm[n_train:]],
+        "observed": all_observed[perm[n_train:]],
     }
 
     return train_data, val_data
