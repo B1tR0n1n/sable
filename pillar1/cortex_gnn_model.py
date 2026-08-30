@@ -152,6 +152,23 @@ class SableGNN(nn.Module):
             nn.Linear(64, 1),
         )
 
+        # Head 4: Reachability / propagation (binary)
+        # Given a failure seed node, predict which nodes it reaches through the
+        # dependency graph. Trains the backbone embeddings to encode multi-hop
+        # structural propagation — the GNN's actual job in SABLE.
+        self.reachability_head = nn.Sequential(
+            nn.Linear(hidden_dim * 2, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, 1),
+        )
+
+    def predict_reachability(self, node_emb: torch.Tensor, seed_idx: int) -> torch.Tensor:
+        """Per-node logit: is this node reachable/affected from `seed_idx`?"""
+        seed_emb = node_emb[seed_idx].unsqueeze(0).expand(node_emb.size(0), -1)
+        pair = torch.cat([seed_emb, node_emb], dim=-1)
+        return self.reachability_head(pair).squeeze(-1)
+
     def encode(
         self, x: torch.Tensor, edge_index: torch.Tensor, edge_attr: torch.Tensor
     ) -> torch.Tensor:
