@@ -81,3 +81,6 @@ grafana/data/
 
 # LoRA adapter training checkpoints (large/regenerable) — keep only final adapter config
 lora-adapt/**/checkpoint-*/
+
+# Auto-discovered network layouts (host-specific, may reveal internal IPs)
+adapters/discovered_*.json
