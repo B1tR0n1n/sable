@@ -394,7 +394,8 @@ def generate_temporal_sequences(count: int, max_ticks: int = 12,
 
             gnn_feat = encode_gnn_features(graph, components, component_ids, gnn, device, rng=rng)
             pomdp_feat = encode_pomdp_features(belief, component_ids)
-            mamba_raw = encode_system_state(graph, component_ids)
+            # Observation-based Mamba (audit fix #1): belief, not true state.
+            mamba_raw = encode_system_state(graph, component_ids, belief=belief)
 
             gt_states = [STATE_MAP.get(graph.get_component(cid).state, 0) for cid in component_ids]
             gt_states = _detect_oscillation_and_store_history(

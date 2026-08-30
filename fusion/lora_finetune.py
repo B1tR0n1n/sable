@@ -243,12 +243,21 @@ def train_lora(
     # Load training data
     print(f"  {C_INFO}Loading training data...{C_RESET}")
     all_gnn, all_pomdp, all_mamba, all_gt = [], [], [], []
+    MAXN = 40  # pad node dim so scenarios of different sizes can concatenate
+
+    def _padN(t, fill=0.0):
+        if t.shape[1] >= MAXN:
+            return t[:, :MAXN]
+        shape = list(t.shape)
+        shape[1] = MAXN - t.shape[1]
+        return torch.cat([t, torch.full(shape, fill, dtype=t.dtype)], dim=1)
+
     for dp in data_paths:
         d = load_scenario_as_training_data(dp)
-        all_gnn.append(d["gnn"])
-        all_pomdp.append(d["pomdp"])
-        all_mamba.append(d["mamba"])
-        all_gt.append(d["states"])
+        all_gnn.append(_padN(d["gnn"]))
+        all_pomdp.append(_padN(d["pomdp"]))
+        all_mamba.append(_padN(d["mamba"]))
+        all_gt.append(_padN(d["states"], fill=-100))  # -100 = CrossEntropy ignore_index
         print(f"    {C_DIM}{d['name']}: {d['n_ticks']}t x {d['n_nodes']}n{C_RESET}")
 
     # Concatenate along time dimension
