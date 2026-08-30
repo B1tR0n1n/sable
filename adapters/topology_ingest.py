@@ -67,21 +67,49 @@ DEP_TYPE_MAP = {
 OBS_HEALTH = {"healthy": 1.0, "degraded": 0.4, "failed": 0.0, "unreachable": 0.0}
 
 
+_VALID_STATES = set(STATE_NAMES[:N_STATES]) | {"unobserved"}
+
+
+def _enum(enum_cls, value, field: str):
+    """Look up an enum member by name, raising a clear ValueError on a bad key.
+
+    Topology JSON is untrusted file content (a CMDB/discovery export). A bad
+    type string must surface as an actionable error, not a raw KeyError 500.
+    """
+    try:
+        return enum_cls[value]
+    except (KeyError, TypeError):
+        raise ValueError(
+            f"invalid {field} '{value}'; expected one of: "
+            f"{', '.join(m.name for m in enum_cls)}"
+        )
+
+
 def load_topology(path: str) -> tuple[InfrastructureGraph, dict]:
     """Parse a topology JSON into an InfrastructureGraph + observations dict."""
     spec = json.loads(Path(path).read_text())
+    if not isinstance(spec.get("components"), list):
+        raise ValueError("topology JSON missing a 'components' list")
     graph = InfrastructureGraph()
     for c in spec["components"]:
-        ctype = ComponentType[c["type"]]
+        ctype = _enum(ComponentType, c["type"], "component type")
         props = dict(DEFAULT_PROPERTIES.get(ctype, {}))
-        graph.add_component(Component(id=c["id"], type=ctype, properties=props))
-    for d in spec["dependencies"]:
+        graph.add_component(Component(id=str(c["id"]), type=ctype, properties=props))
+    for d in spec.get("dependencies", []):
         graph.add_dependency(Dependency(
-            source_id=d["source"], target_id=d["target"],
-            type=DependencyType[d.get("type", "NETWORK_PATH")],
-            criticality=Criticality[d.get("criticality", "HARD")],
+            source_id=str(d["source"]), target_id=str(d["target"]),
+            type=_enum(DependencyType, d.get("type", "NETWORK_PATH"), "dependency type"),
+            criticality=_enum(Criticality, d.get("criticality", "HARD"), "criticality"),
         ))
-    observations = {o["id"]: o["state"] for o in spec.get("observations", [])}
+    observations = {}
+    for o in spec.get("observations", []):
+        state = o["state"]
+        if state not in _VALID_STATES:
+            raise ValueError(
+                f"invalid observation state '{state}' for '{o.get('id')}'; "
+                f"expected one of: {', '.join(sorted(_VALID_STATES))}"
+            )
+        observations[str(o["id"])] = state
     return graph, observations, spec.get("name", "topology")
 
 

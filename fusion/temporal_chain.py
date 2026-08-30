@@ -302,13 +302,18 @@ class RevisionGate(nn.Module):
         current_state = current_logits.argmax(dim=-1).float()  # (N,) from (B=1, N, S)
         if current_state.dim() > 1:
             current_state = current_state[0]
+        # Count consecutive matching ticks backward from the most recent one,
+        # stopping permanently at the first tick whose state differs (or is
+        # padding). `active` latches False once a node's run breaks, so a later
+        # re-match further back cannot resume the count (the previous version
+        # had no real `break` and would re-accumulate across a flip).
         ticks_same = torch.zeros(N, device=device)
+        active = torch.ones(N, dtype=torch.bool, device=device)
         for k in range(K - 1, -1, -1):
-            still_same = (states[:, k] == current_state) & (trajectory[:, k, :].abs().sum(dim=-1) > 0)
-            ticks_same += still_same.float()
-            # Zero out further accumulation once we hit a different state
-            break_mask = (states[:, k] != current_state) & (trajectory[:, k, :].abs().sum(dim=-1) > 0)
-            ticks_same *= (~break_mask).float()
+            valid = trajectory[:, k, :].abs().sum(dim=-1) > 0
+            match = (states[:, k] == current_state) & valid
+            active = active & match
+            ticks_same += active.float()
         ticks_in_current = ticks_same / max(K, 1)
 
         # [2] Average past confidence

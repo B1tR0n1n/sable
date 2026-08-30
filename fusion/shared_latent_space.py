@@ -1044,5 +1044,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--samples", type=int, default=10000)
+    parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
     run_fusion_experiment(args.device, args.samples)

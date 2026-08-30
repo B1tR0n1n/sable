@@ -219,21 +219,21 @@ class SABLEOrchestrator:
         predicted_affected = []
 
         if self.mamba is not None:
-            # Encode current state for Mamba
-            state_t0 = encode_system_state(self.graph, self.component_ids)
-            # Encode post-initial-observation state
-            state_t1 = state_t0.copy()  # Will be modified by observations
+            from pomcp import BeliefState
+
+            # Encode from the fog-of-war belief, NOT the true graph state.
+            # t0 = prior (nothing observed yet); t1 = prior + operator's partial
+            # observations folded in. This is audit fix #1: the Mamba pillar must
+            # infer from what monitoring sees, never read true state off the graph.
+            belief_t0 = BeliefState(self.component_ids)
+            belief_t1 = BeliefState(self.component_ids)
             for obs in operator_view.get("observations", []):
                 cid = obs["component_id"]
                 if cid in self.component_ids:
-                    idx = self.component_ids.index(cid)
-                    obs_state = obs["observed_state"]
-                    # Update health in state vector based on observation
-                    base = idx * NODE_FEAT_DIM
-                    if obs_state == "failed":
-                        state_t1[base] = 0.0  # health
-                    elif obs_state == "degraded":
-                        state_t1[base] = 0.4
+                    belief_t1.update_from_observation(cid, obs["observed_state"])
+
+            state_t0 = encode_system_state(self.graph, self.component_ids, belief=belief_t0)
+            state_t1 = encode_system_state(self.graph, self.component_ids, belief=belief_t1)
 
             # Build input tensor
             max_nodes = 40

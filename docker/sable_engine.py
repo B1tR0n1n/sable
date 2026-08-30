@@ -58,30 +58,52 @@ class SableEngine:
         self.history = []  # per-tick prediction history for the timeline
         self.MAX_HISTORY = 1000
         self.lora_active = False
+        self.model_healthy = False  # True only after real weights are loaded
 
     def load_checkpoints(self, checkpoint_dir: str = "checkpoints"):
-        """Load fusion + temporal chain + optional LoRA adapter weights."""
+        """Load fusion + temporal chain + optional LoRA adapter weights.
+
+        Raises FileNotFoundError if a REQUIRED checkpoint (fusion, temporal) is
+        missing. Without this the engine would run on freshly-initialized random
+        weights and still return confident-looking predictions — fabricated
+        results with no error, exactly the failure the audit warns against.
+        """
         ckpt_dir = Path(checkpoint_dir)
 
-        # Step 1: Build base fusion
+        # Step 1: Build base fusion (REQUIRED)
         base = SharpRoutedFusion(mamba_dim=NODE_FEAT_DIM)
         fusion_path = ckpt_dir / "fusion.pt"
-        if fusion_path.exists():
-            ckpt = torch.load(fusion_path, weights_only=False, map_location=self.device)
-            base.load_state_dict(ckpt["model_state_dict"])
+        if not fusion_path.exists():
+            raise FileNotFoundError(
+                f"Required fusion checkpoint missing: {fusion_path}. Refusing to "
+                f"serve random-weight (fabricated) predictions."
+            )
+        ckpt = torch.load(fusion_path, weights_only=False, map_location=self.device)
+        base.load_state_dict(ckpt["model_state_dict"])
 
-        # Step 2: Wrap with temporal chain
+        # Step 2: Wrap with temporal chain (REQUIRED)
         model = TemporalChainFusion(base)
         temporal_path = ckpt_dir / "temporal.pt"
-        if temporal_path.exists():
-            ckpt = torch.load(temporal_path, weights_only=False, map_location=self.device)
-            # Load compatible keys only - base_fusion router may have changed shape
-            tc_state = ckpt["model_state_dict"]
-            model_state = model.state_dict()
-            for k, v in tc_state.items():
-                if k in model_state and model_state[k].shape == v.shape:
-                    model_state[k] = v
-            model.load_state_dict(model_state)
+        if not temporal_path.exists():
+            raise FileNotFoundError(
+                f"Required temporal checkpoint missing: {temporal_path}. Refusing "
+                f"to serve random-weight (fabricated) predictions."
+            )
+        ckpt = torch.load(temporal_path, weights_only=False, map_location=self.device)
+        # Load compatible keys only - base_fusion router may have changed shape
+        tc_state = ckpt["model_state_dict"]
+        model_state = model.state_dict()
+        loaded_tc = skipped_tc = 0
+        for k, v in tc_state.items():
+            if k in model_state and model_state[k].shape == v.shape:
+                model_state[k] = v
+                loaded_tc += 1
+            else:
+                skipped_tc += 1
+        model.load_state_dict(model_state)
+        if skipped_tc:
+            print(f"  temporal chain: loaded {loaded_tc} keys, skipped {skipped_tc} "
+                  f"(shape/name mismatch) — check architecture drift")
 
         # Step 3: Apply LoRA to the FULL model (fusion + temporal chain)
         lora_path = ckpt_dir / "lora_adapter.pt"
@@ -106,6 +128,7 @@ class SableEngine:
 
         model.eval().to(self.device)
         self.model = model
+        self.model_healthy = True
         return True
 
     def toggle_lora(self, enabled: bool):

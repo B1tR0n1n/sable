@@ -47,6 +47,17 @@ def sh(cmd, t=10):
     except Exception: return ""
 
 
+def safe_id(s, fallback="node"):
+    """Reduce a network-derived string (hostname, SNMP name) to a safe node id.
+
+    Scanned hostnames are attacker-controllable (DHCP option 12, NetBIOS, mDNS).
+    They flow into node ids that the dashboard renders, so strip to a strict
+    charset here — no HTML metacharacters can survive into the topology JSON.
+    """
+    clean = re.sub(r"[^A-Za-z0-9_-]", "", (s or "").strip())[:40]
+    return clean or fallback
+
+
 def local_config():
     gw = src = subnet = None; dns = []
     m = re.search(r"default via (\S+).*?src (\S+)", sh(["ip", "route"]))
@@ -167,7 +178,8 @@ def discover(community=None):
     for ip in sorted(scan, key=lambda x: ipaddress.ip_address(x)):
         info = scan[ip]; mac = arp.get(ip, ""); sysd = snmp.get(ip,{}).get("sysdescr")
         ctype, why = classify(ip, mac, info, sysd, ip == cfg["gateway"], ip in dns_set)
-        base = (info["hostname"].split(".")[0] if info["hostname"] else ctype.split("_")[0].lower())
+        base = safe_id(info["hostname"].split(".")[0] if info["hostname"]
+                       else ctype.split("_")[0].lower(), fallback="node")
         nid = f"{base}-{ip.split('.')[-1]}"
         ids[ip] = nid
         comps.append({"id": nid, "type": ctype, "ip": ip, "mac": mac,

@@ -214,8 +214,11 @@ def generate_sequential_data(count=8000, device="cuda", seed=42):
         component_ids = [c.id for c in components]
         n = len(component_ids)
 
-        # Tick 0: encode state AND run GNN on healthy graph
-        s0 = encode_system_state(graph, component_ids)
+        # Tick 0: encode state AND run GNN on healthy graph.
+        # LEAKED BASELINE: historical fusion-thesis A/B experiment, true-state
+        # encoding on both arms — absolute F1 is inflated, NOT honest. De-leaked
+        # production path is fusion/generate_temporal_sequences.py.
+        s0 = encode_system_state(graph, component_ids, allow_true_state=True)
         gnn_t0 = compute_gnn_embeddings(gnn, graph, components, component_ids, adapter, device)
 
         # Inject failure
@@ -240,7 +243,7 @@ def generate_sequential_data(count=8000, device="cuda", seed=42):
                     comp.health = rng.uniform(0.25, 0.45)
 
         # Tick 1: encode state AND run GNN on damaged graph
-        s1 = encode_system_state(graph, component_ids)
+        s1 = encode_system_state(graph, component_ids, allow_true_state=True)  # leaked baseline (see above)
         gnn_t1 = compute_gnn_embeddings(gnn, graph, components, component_ids, adapter, device)
 
         # GNN delta: how structural understanding changed
@@ -536,6 +539,9 @@ def run(device="cuda", n_samples=8000):
 
 if __name__ == "__main__":
     import argparse
+    print("\n  [!] LEAKED-BASELINE EXPERIMENT — uses true-state encoding; absolute\n"
+          "      F1 is inflated and NOT honest. Superseded by fusion/generate_temporal_sequences.py.\n",
+          file=sys.stderr)
     parser = argparse.ArgumentParser()
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--samples", type=int, default=8000)

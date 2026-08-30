@@ -29,6 +29,7 @@ import numpy as np
 import torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent / "pillar2"))
 
 from sable_sim.core.states import N_STATES, STATE_NAMES, STATE_MAP
 from sable_sim.core.component import Component, ComponentState, ComponentType, DEFAULT_PROPERTIES
@@ -37,7 +38,9 @@ from sable_sim.core.graph import InfrastructureGraph
 from sable_sim.core.state import SystemState, StateChange
 from sable_sim.simulation.propagation import PropagationEngine
 from sable_sim.simulation.failure_injection import FailureInjector
+from sable_sim.simulation.fog import FogOfWar
 from sable_sim.utils.random import SeededRandom
+from pomcp import BeliefState
 
 # ── Terminal Colors ────────────────────────────────────────────────────────
 
@@ -62,17 +65,30 @@ NODE_FEAT_DIM = 1 + N_STATES + N_COMP_TYPES
 
 
 def encode_system_state(graph: InfrastructureGraph, component_ids: list[str],
-                        belief=None) -> np.ndarray:
+                        belief=None, allow_true_state: bool = False) -> np.ndarray:
     """Encode the current system state as a flat feature vector.
 
     If `belief` (a POMDP BeliefState) is provided, per-node health and state
     features are derived from the OBSERVED fog-of-war belief, NOT the true
     component state. This prevents the ground-truth label from leaking into
-    the Mamba input (audit fix #1). When `belief` is None the legacy true-state
-    encoding is used (leaky — kept for backward-compat / A-B comparison).
+    the Mamba input (audit fix #1).
+
+    Passing neither `belief` nor `allow_true_state=True` raises: the true-state
+    encoding writes the label the model is meant to infer straight into its own
+    input (the original leak). `allow_true_state=True` opts into that path
+    explicitly and must only be used for deliberate leaked-vs-honest A/B probes,
+    never for training or serving data.
 
     Returns: (N_nodes * NODE_FEAT_DIM,) vector
     """
+    if belief is None and not allow_true_state:
+        raise ValueError(
+            "encode_system_state called without a belief. This would leak the "
+            "ground-truth state into the Mamba input (the audited leak). Pass "
+            "belief=<BeliefState> for honest observation-derived features, or "
+            "allow_true_state=True only for an explicit leaked-baseline probe."
+        )
+
     features = []
     for cid in component_ids:
         comp = graph.get_component(cid)
@@ -180,6 +196,27 @@ def build_random_topology(rng: SeededRandom, min_nodes: int = 15, max_nodes: int
     return graph
 
 
+def _update_belief_partial(belief, graph, component_ids, rng,
+                           coverage: float = 0.30, noise: float = 0.15):
+    """Fold partial, noisy observations of the CURRENT true state into `belief`.
+
+    Only a fraction of nodes are observed each tick, and observations carry
+    noise — the model never sees full ground truth. Mirrors the fusion-side
+    de-leaked pipeline (fusion/generate_temporal_sequences.py:_update_belief_fog)
+    so this generator's output has the same observation discipline (audit fix #1).
+    """
+    for cid in component_ids:
+        comp = graph.get_component(cid)
+        if comp is None:
+            continue
+        if rng.random() < coverage:
+            state_name = str(comp.state).split(".")[-1].lower()
+            if rng.random() < noise:
+                state_name = rng.choice(STATE_NAMES[:4])
+            belief.update_from_observation(cid, state_name)
+    belief.age_observations()
+
+
 def generate_sequence(
     rng: SeededRandom,
     max_ticks: int = 30,
@@ -204,9 +241,17 @@ def generate_sequence(
     component_ids = [c.id for c in components]
     n_nodes = len(component_ids)
 
-    # Create state and snapshot initial
+    # Create state + fog-of-war belief. Every snapshot encodes from the belief
+    # (partial, noisy observations) — never true state — so no ground-truth
+    # label leaks into the Mamba input (audit fix #1).
     state = SystemState(graph)
-    states = [encode_system_state(graph, component_ids)]
+    belief = BeliefState(component_ids)
+
+    def snapshot():
+        _update_belief_partial(belief, graph, component_ids, rng)
+        return encode_system_state(graph, component_ids, belief=belief)
+
+    states = [snapshot()]
 
     # Inject a random failure
     injector = FailureInjector(rng)
@@ -222,7 +267,7 @@ def generate_sequence(
         injector.inject(state, inj)
 
     # Snapshot post-injection
-    states.append(encode_system_state(graph, component_ids))
+    states.append(snapshot())
 
     # Propagate tick-by-tick, capturing state at each tick
     engine = PropagationEngine.from_profile(cascade_profile, max_ticks=max_ticks, rng=rng)
@@ -272,7 +317,7 @@ def generate_sequence(
             if state.has_reached_steady_state(lookback=3):
                 break
             # Snapshot unchanged state
-            states.append(encode_system_state(graph, component_ids))
+            states.append(snapshot())
             continue
 
         for sc in changes_this_tick:
@@ -280,7 +325,7 @@ def generate_sequence(
             state.record_change(sc)
 
         # Snapshot after this tick's changes
-        states.append(encode_system_state(graph, component_ids))
+        states.append(snapshot())
 
     if len(states) < 3:
         return None

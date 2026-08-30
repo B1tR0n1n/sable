@@ -133,3 +133,31 @@ The full FastAPI engine + dashboard, now loading the **honest** checkpoints. Boo
 SABLE is a **real, working, honestly-measured** infrastructure diagnosis engine that fills monitoring blind spots by reasoning over dependencies. It is **not** a category-defining product, and its numbers are modest — but they're **true**, which is the whole point. The rebuild turned a system that lied about 96% into one that honestly delivers ~40% of the invisible, with auto-discovery, a live dashboard, and a defensible niche.
 
 The strongest asset here isn't the tool. It's the demonstrated ability to take a leaking, broken ML pipeline and make it honest — and that's the thing worth putting in front of anyone hiring for AI infrastructure work.
+
+---
+
+## 9. Second-pass audit + full retrain (2026-08-30, later)
+
+A three-reviewer code audit (ML core, serving layer, security) was run over the whole tree to check the "all fixed, all de-leaked" claim above. It held for the fusion/eval path that produced the headline numbers, but found real gaps that were then fixed and re-measured.
+
+### What the audit found and fixed
+- **Two live leakage regressions.** `orchestrator/sable_core.py` and `pillar3/generate_temporal_data.py`'s own generator still called `encode_system_state()` on true state (no belief) — re-triggerable via each file's documented CLI. Fixed: `encode_system_state` is now **default-safe** (raises without a `belief`; explicit `allow_true_state=True` only for labelled leaked-baseline probes), and both call sites thread a real fog-of-war belief.
+- **A second, distinct GNN leak.** Separate from the "dead GNN" bug in §2: the pillar-1 pretraining data (`build_infra_dataset.py`) fed the GNN a health scalar that was `0.0` iff a node was a root failure — so "failed" was recoverable from one input, and the standalone GNN F1 was partly a shortcut, not topology reasoning. Fixed with observation-gating (noise + masking). Verified: failed nodes with `health<0.05` went from **100% → 47%**, distinct health values `2 → 1001`.
+- **Silent fabrication path.** `sable_engine.py` returned `True` and served confident predictions even with missing checkpoints (random weights). Now raises, and `/api/status` exposes `model_healthy`.
+- **Security pass.** Both servers now bind `127.0.0.1` by default (opt-in `SABLE_HOST`/`SABLE_TOKEN` for LAN) with token auth on mutating endpoints; path traversal closed in `serve.py`; `/api/scan` single-flight lock; 28 dashboard `innerHTML` XSS sinks escaped; scanned hostnames sanitized at the source. Verified live: server binds localhost only.
+- Also: `temporal_chain` stability-feature logic bug, torch seeding for reproducibility, `hash()`-salt scenario-seed bug, LoRA single-scenario split guard.
+
+### The retrain (forced by the GNN fog-gating fix)
+Because the fusion checkpoints train on the frozen GNN's embeddings, fixing the GNN forced a **full-stack retrain**: regenerate GNN dataset → retrain GNN → regenerate fusion data + temporal sequences → retrain staged-fusion, temporal-chain, LoRA → regenerate demo scenarios. All checkpoints deployed and verified; pre-retrain checkpoints backed up (`checkpoint_backup_preretrain_20260830/`) for rollback.
+
+**Honest results on the de-leaked GNN stack:**
+
+| Component | Macro-F1 | Notes |
+|---|---|---|
+| GNN (pillar 1) | **0.726** | failed 0.755, unreachable 0.850 — real structural reasoning now, **not** the old health shortcut |
+| Staged fusion (Routed) | **0.648** | beats fusion-only +0.128, best expert +0.056 — router still earns its keep |
+| Temporal chain | **0.630** | failed 0.810 |
+| LoRA | **0.326** | consistent with the honest 0.31 above |
+| Live-incident tracking | **~76–97%** | per-scenario, ~7 ms/tick on the 5090 |
+
+**The load-bearing result:** closing the GNN leak did **not** tank the fusion numbers — the stack landed at 0.63–0.65, on par with the previously-reported 0.63. So the fusion router was already doing real work; only the standalone pillar-1 GNN F1 had been flattered by the shortcut, and that number is now genuinely **0.73** without the leak. Every figure here is measured on the fully-consistent, de-leaked, deployed stack.

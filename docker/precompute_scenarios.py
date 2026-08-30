@@ -519,8 +519,12 @@ def main():
         for name, desc, seed, n_ticks, inject_fn in scenario_defs[:3]:  # Top 3 scenarios
             noisy_name = f"{name}_noisy_{noise_level}"
             noisy_desc = f"{desc} [NOISY: {noise_level} telemetry]"
+            # Stable, process-independent offset per noise level. Python's
+            # builtin hash() is salted per-process (PYTHONHASHSEED), which would
+            # make the precomputed scenario .pt files non-reproducible run to run.
+            noise_offset = {"mild": 1000, "moderate": 2000, "harsh": 3000}[noise_level]
             s = generate_noisy_scenario(
-                noisy_name, noisy_desc, seed + hash(noise_level) % 10000,
+                noisy_name, noisy_desc, seed + noise_offset,
                 n_ticks, inject_fn, gnn, noise_profile=noise_level,
             )
             scenarios.append(s)

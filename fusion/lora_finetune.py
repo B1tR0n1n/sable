@@ -285,12 +285,16 @@ def train_lora(
     # Keep scenarios separate for sequential temporal processing
     # Split scenarios: 75% train, 25% val
     n_scenarios = len(all_gnn)
+    if n_scenarios < 2:
+        raise ValueError(
+            f"LoRA fine-tune needs >=2 scenarios for a disjoint held-out split; "
+            f"got {n_scenarios}. With one scenario the 'held-out' macro-F1 is "
+            f"actually train accuracy — pass more --data files."
+        )
     scenario_perm = torch.randperm(n_scenarios)
     n_train_sc = max(1, int(n_scenarios * 0.75))
     train_sc = scenario_perm[:n_train_sc].tolist()
     val_sc = scenario_perm[n_train_sc:].tolist()
-    if not val_sc:
-        val_sc = train_sc[-1:]  # At least 1 val scenario
 
     is_temporal = hasattr(model, 'context_mixer')
 
@@ -482,7 +486,11 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--output", default=str(Path(__file__).parent / "checkpoints" / "lora_adapter.pt"))
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
 
     train_lora(
         model_path=args.model,

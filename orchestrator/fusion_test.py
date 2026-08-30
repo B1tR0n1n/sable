@@ -198,8 +198,11 @@ def generate_fused_dataset(count=5000, device="cuda", seed=42):
         component_ids = [c.id for c in components]
         n = len(component_ids)
 
-        # Encode initial state
-        state_t0 = encode_system_state(graph, component_ids)
+        # Encode initial state. LEAKED BASELINE: this historical fusion-thesis
+        # A/B experiment intentionally uses true-state encoding (both arms
+        # identically), so absolute F1 here is inflated and NOT an honest number.
+        # The de-leaked production path is fusion/shared_latent_space.py.
+        state_t0 = encode_system_state(graph, component_ids, allow_true_state=True)
 
         # Inject failure
         state = SystemState(graph)
@@ -223,7 +226,7 @@ def generate_fused_dataset(count=5000, device="cuda", seed=42):
                     comp.state = ComponentState.DEGRADED
                     comp.health = rng.uniform(0.25, 0.45)
 
-        state_t1 = encode_system_state(graph, component_ids)
+        state_t1 = encode_system_state(graph, component_ids, allow_true_state=True)  # leaked baseline (see above)
 
         # Propagate to get outcome
         engine = PropagationEngine(max_ticks=30, soft_impact_factor=0.4 if use_degradation else 0.3)
@@ -609,6 +612,9 @@ def run_fusion_test(device="cuda", n_samples=8000):
 
 if __name__ == "__main__":
     import argparse
+    print("\n  [!] LEAKED-BASELINE EXPERIMENT — uses true-state encoding; absolute\n"
+          "      F1 is inflated and NOT honest. Superseded by fusion/shared_latent_space.py.\n",
+          file=sys.stderr)
     parser = argparse.ArgumentParser()
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--samples", type=int, default=8000)

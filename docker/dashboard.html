@@ -706,6 +706,7 @@ body::before {
 </div>
 
 <script>
+function escHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 const STATE_NAMES = ['healthy','degraded','failed','unreachable','oscillating'];
 const STATE_ABBREV = ['HLT','DGR','FLD','UNR','OSC'];
 let ws = null;
@@ -860,9 +861,9 @@ function createNodeCell(i, hasTopo) {
     const shortLabel = (t.label || t.id || '').slice(0, 12);
     const shortType = (t.type || '').replace(/_/g, ' ').toLowerCase().slice(0, 14);
     cell.innerHTML =
-      '<div class="node-id" style="color:' + typeColor + '">' + shortLabel + '</div>' +
+      '<div class="node-id" style="color:' + typeColor + '">' + escHtml(shortLabel) + '</div>' +
       '<div class="node-state">HLT</div>' +
-      '<div style="font-family:var(--mono);font-size:6px;color:var(--dim);margin-top:1px">' + shortType + '</div>';
+      '<div style="font-family:var(--mono);font-size:6px;color:var(--dim);margin-top:1px">' + escHtml(shortType) + '</div>';
     cell.title = t.id + ' -- ' + t.type + ' [' + (t.tier || '') + ']';
     cell.style.borderColor = typeColor + '40';
   } else {
@@ -937,7 +938,7 @@ function updateRouting(routing) {
   el.innerHTML = STATE_NAMES.map(name => {
     const r = routing[name];
     if (!r) return '<div class="routing-row">' + name + ' → <span class="expert">—</span></div>';
-    return '<div class="routing-row">' + name + ' → <span class="expert">' + r.expert +
+    return '<div class="routing-row">' + name + ' → <span class="expert">' + escHtml(r.expert) +
       '</span> <span class="weight">(' + Math.round(r.weight*100) + '%)</span></div>';
   }).join('');
 }
@@ -1071,7 +1072,7 @@ function updateTimeline() {
     const tLabel = (topoNodes[nodeIdx] && topoNodes[nodeIdx].id) ? topoNodes[nodeIdx].id : String(nodeIdx).padStart(2,'0');
     const isRoot = nodeIdx === rootCauseNode;
     const badge = isRoot ? '<span class="root-cause-badge" title="Root cause"></span>' : '';
-    html += '<div class="row-label">' + badge + tLabel + '</div>';
+    html += '<div class="row-label">' + badge + escHtml(tLabel) + '</div>';
 
     for (let t = 0; t < tickHistory.length; t++) {
       const node = tickHistory[t].nodes[nodeIdx];
@@ -1304,10 +1305,10 @@ function updateDetail(idx) {
   const displayTier = topo ? topo.tier : null;
   const topoMeta = displayType ?
     '<div style="font-family:var(--mono);font-size:10px;color:' + typeColor + ';margin-bottom:2px">' +
-    displayType.replace(/_/g, ' ') + '</div>' +
+    escHtml(displayType.replace(/_/g, ' ')) + '</div>' +
     '<div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:8px">' +
-    (displayTier ? 'Tier: ' + displayTier + ' &nbsp; ' : '') +
-    (displayId ? 'ID: ' + displayId : '') + '</div>' : '';
+    (displayTier ? 'Tier: ' + escHtml(displayTier) + ' &nbsp; ' : '') +
+    (displayId ? 'ID: ' + escHtml(displayId) : '') + '</div>' : '';
 
   // Connected dependencies from topology
   let depsHtml = '';
@@ -1322,24 +1323,24 @@ function updateDetail(idx) {
         const crit = e.criticality || 'SOFT';
         const critColor = crit === 'HARD' ? 'var(--danger)' : crit === 'REDUNDANT' ? 'var(--dim)' : 'var(--gold)';
         depsHtml += '<div style="font-family:var(--mono);font-size:9px;margin:2px 0;color:var(--text)">' +
-          dir + ' <span style="color:var(--bright)">' + other + '</span> ' +
-          '<span style="color:var(--dim)">' + depType + '</span> ' +
-          '<span style="color:' + critColor + '">' + crit + '</span></div>';
+          dir + ' <span style="color:var(--bright)">' + escHtml(other) + '</span> ' +
+          '<span style="color:var(--dim)">' + escHtml(depType) + '</span> ' +
+          '<span style="color:' + critColor + '">' + escHtml(crit) + '</span></div>';
       });
     }
   }
 
   el.innerHTML =
-    '<div class="detail-header">' + headerLabel + '</div>' +
+    '<div class="detail-header">' + escHtml(headerLabel) + '</div>' +
     topoMeta +
     '<div class="detail-state" style="color:' + ['var(--success)','var(--gold)','var(--danger)','var(--dim)','var(--gold)'][node.state_idx] + '">' +
-    node.state.toUpperCase() + '</div>' +
+    escHtml(node.state.toUpperCase()) + '</div>' +
     '<div style="font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:12px">Confidence: ' + node.confidence.toFixed(3) + '</div>' +
     probBars +
     depsHtml +
     '<div style="font-family:var(--mono);font-size:9px;color:var(--dim-gold);margin-top:12px;letter-spacing:3px">TRAJECTORY</div>' +
     '<div class="trajectory-row">' + trajectory + '</div>' +
-    '<div class="trend" style="color:' + trendColor + '">Trend: ' + node.trend.toUpperCase() + ' ' + trendArrow + '</div>' +
+    '<div class="trend" style="color:' + trendColor + '">Trend: ' + escHtml(node.trend.toUpperCase()) + ' ' + trendArrow + '</div>' +
     '<div style="font-family:var(--mono);font-size:9px;color:var(--dim-gold);margin-top:14px;letter-spacing:3px">CORRECT STATE</div>' +
     '<div style="display:flex;gap:3px;margin-top:4px;flex-wrap:wrap">' +
     STATE_NAMES.map((s, si) => {
@@ -1499,7 +1500,7 @@ function addChatMessage(role, text) {
   const color = role === 'user' ? 'var(--bright)' : 'var(--text)';
   const label = role === 'user' ? 'YOU' : 'NEMOTRON';
   const labelColor = role === 'user' ? 'var(--dim)' : 'var(--gold)';
-  const formatted = role === 'user' ? text : formatChat(text);
+  const formatted = role === 'user' ? escHtml(text) : formatChat(text);
   el.innerHTML += '<div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">' +
     '<div style="font-size:9px;color:' + labelColor + ';letter-spacing:2px;margin-bottom:4px">' +
     label + '</div><div style="font-size:12px;color:' + color + ';line-height:1.6;font-family:var(--serif)">' +
@@ -1549,7 +1550,7 @@ async function requestNemotronReport() {
 
   const result = await api('nemotron/report', 'POST');
   if (result.error) {
-    document.getElementById('overlay-stats').innerHTML = '<div style="color:var(--danger)">' + result.error + '</div>';
+    document.getElementById('overlay-stats').innerHTML = '<div style="color:var(--danger)">' + escHtml(result.error) + '</div>';
     return;
   }
   if (!result.nemotron_available) {
@@ -1567,18 +1568,18 @@ async function requestNemotronReport() {
 
   // Show the narrative
   let html = '<div style="font-family:var(--serif);font-size:14px;color:var(--text);line-height:1.7;margin-bottom:16px;white-space:pre-wrap">' +
-    result.narrative + '</div>';
+    escHtml(result.narrative) + '</div>';
 
   // Show SABLE's raw data below for verification
   html += '<div class="section-label" style="margin-top:16px">SABLE STRUCTURED DATA</div>';
-  html += '<div class="rec-summary" style="font-size:12px">' + (result.recommendations?.summary || '') + '</div>';
+  html += '<div class="rec-summary" style="font-size:12px">' + escHtml(result.recommendations?.summary || '') + '</div>';
   if (result.recommendations?.actions) {
     result.recommendations.actions.slice(0, 5).forEach(function(a) {
       const pClass = a.priority <= 1 ? 'p1' : (a.priority <= 3 ? 'p2' : '');
-      const typeTag = a.target_type ? ' [' + a.target_type.replace(/_/g,' ') + ']' : '';
+      const typeTag = a.target_type ? ' [' + escHtml(a.target_type.replace(/_/g,' ')) + ']' : '';
       html += '<div class="rec-item ' + pClass + '">' +
-        '<div><span class="rec-action">' + a.priority + '. ' + a.action + '</span> -> <span class="rec-target">' + a.target + '</span>' + typeTag + '</div>' +
-        '<div class="rec-reason">' + a.reason + '</div></div>';
+        '<div><span class="rec-action">' + a.priority + '. ' + escHtml(a.action) + '</span> -> <span class="rec-target">' + escHtml(a.target) + '</span>' + typeTag + '</div>' +
+        '<div class="rec-reason">' + escHtml(a.reason) + '</div></div>';
     });
   }
 
@@ -1590,20 +1591,20 @@ async function fetchRecommendations() {
   const el = document.getElementById('overlay-recs');
 
   if (!recs.actions || recs.actions.length === 0) {
-    el.innerHTML = '<div class="rec-summary">' + recs.summary + '</div>';
+    el.innerHTML = '<div class="rec-summary">' + escHtml(recs.summary) + '</div>';
     return;
   }
 
-  let html = '<div class="rec-summary">' + recs.summary + '</div>';
+  let html = '<div class="rec-summary">' + escHtml(recs.summary) + '</div>';
   html += '<div class="section-label" style="margin-top:12px">07 — recommended actions</div>';
 
   recs.actions.forEach(a => {
     const pClass = a.priority <= 1 ? 'p1' : (a.priority <= 3 ? 'p2' : '');
-    const typeTag = a.target_type ? ' <span style="color:var(--dim);font-size:9px">[' + a.target_type.replace(/_/g,' ') + ']</span>' : '';
+    const typeTag = a.target_type ? ' <span style="color:var(--dim);font-size:9px">[' + escHtml(a.target_type.replace(/_/g,' ')) + ']</span>' : '';
     html += '<div class="rec-item ' + pClass + '">' +
-      '<div><span class="rec-action">' + a.priority + '. ' + a.action + '</span> → <span class="rec-target">' + a.target + '</span>' + typeTag + '</div>' +
-      '<div class="rec-reason">' + a.reason + '</div>' +
-      '<div class="rec-fix">↳ ' + a.recommendation + '</div>' +
+      '<div><span class="rec-action">' + a.priority + '. ' + escHtml(a.action) + '</span> → <span class="rec-target">' + escHtml(a.target) + '</span>' + typeTag + '</div>' +
+      '<div class="rec-reason">' + escHtml(a.reason) + '</div>' +
+      '<div class="rec-fix">↳ ' + escHtml(a.recommendation) + '</div>' +
       '</div>';
   });
 

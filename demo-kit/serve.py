@@ -9,14 +9,44 @@ and the real model infers the hidden failures through the dependency graph.
 Run:   python3 serve.py      →   open http://localhost:8760
 """
 import json
+import os
+import re
 import sys
+import threading
 from pathlib import Path
 
 import torch
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
+
+# ── Security config ──
+# Bind localhost by default; set SABLE_HOST=0.0.0.0 to expose on the LAN.
+# When exposed, set SABLE_TOKEN to require an X-SABLE-Token header on every
+# mutating endpoint (diagnose / scan). Names must match this pattern — no path
+# traversal into arbitrary .json files.
+HOST = os.environ.get("SABLE_HOST", "127.0.0.1")
+PORT = int(os.environ.get("SABLE_PORT", "8760"))
+TOKEN = os.environ.get("SABLE_TOKEN")
+_SAFE_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+_scan_lock = threading.Lock()
+
+
+def _require_token(x_sable_token: str | None):
+    """Enforce the shared token when one is configured."""
+    if TOKEN and x_sable_token != TOKEN:
+        raise HTTPException(status_code=401, detail="invalid or missing X-SABLE-Token")
+
+
+def _safe_topology_path(name: str) -> Path:
+    """Resolve a topology name to a path inside TOPO_DIR, or reject it."""
+    if not _SAFE_NAME.match(name or ""):
+        raise HTTPException(status_code=400, detail="invalid topology name")
+    path = (TOPO_DIR / f"{name}.json").resolve()
+    if path.parent != TOPO_DIR.resolve() or not path.exists():
+        raise HTTPException(status_code=404, detail="topology not found")
+    return path
 
 SABLE = Path(__file__).resolve().parent.parent
 for p in [SABLE / "adapters", SABLE / "fusion", SABLE / "pillar1", SABLE / "pillar3",
@@ -75,11 +105,16 @@ def list_topologies():
 
 
 def diagnose(name: str, observations: dict | None):
-    import json as _json
-    spec = _json.loads((TOPO_DIR / f"{name}.json").read_text())
-    graph, default_obs, disp = TI.load_topology(TOPO_DIR / f"{name}.json")
+    path = _safe_topology_path(name)
+    graph, default_obs, disp = TI.load_topology(path)
     obs = observations if observations is not None else default_obs
+    if not isinstance(obs, dict):
+        raise HTTPException(status_code=400, detail="observations must be an object")
     obs = {k: v for k, v in obs.items() if v and v != "unobserved"}
+    bad = {v for v in obs.values() if v not in TI._VALID_STATES}
+    if bad:
+        raise HTTPException(status_code=400,
+                            detail=f"invalid observation state(s): {sorted(bad)}")
 
     gnn_t, pomdp_t, mamba_t, cids, observed = TI.encode(graph, obs, GNN, DEVICE)
     with torch.no_grad():
@@ -121,7 +156,8 @@ def topologies():
 
 
 @app.post("/api/diagnose")
-def api_diagnose(req: DiagReq):
+def api_diagnose(req: DiagReq, x_sable_token: str | None = Header(default=None)):
+    _require_token(x_sable_token)
     return JSONResponse(diagnose(req.topology, req.observations))
 
 
@@ -130,21 +166,30 @@ class ScanReq(BaseModel):
 
 
 @app.post("/api/scan")
-def api_scan(req: ScanReq):
+def api_scan(req: ScanReq, x_sable_token: str | None = Header(default=None)):
     """Live-scan the network, build a SABLE topology, save it, and diagnose."""
-    import network_discovery as ND
-    topo = ND.discover(community=req.community)
-    clean = {
-        "name": topo["name"],
-        "components": [{"id": c["id"], "type": c["type"]} for c in topo["components"]],
-        "dependencies": [{k: e[k] for k in ("source", "target", "type") if k in e}
-                         for e in topo["dependencies"]],
-        "observations": topo["observations"],
-    }
-    (TOPO_DIR / "discovered_topology.json").write_text(json.dumps(clean))
-    result = diagnose("discovered_topology", None)
-    result["scanned"] = topo["meta"]
-    return JSONResponse(result)
+    _require_token(x_sable_token)
+    if req.community is not None and not re.match(r"^[\x20-\x7e]{1,64}$", req.community):
+        raise HTTPException(status_code=400, detail="invalid SNMP community")
+    # One scan at a time — never let requests stack overlapping nmap/snmp trees.
+    if not _scan_lock.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail="a scan is already running")
+    try:
+        import network_discovery as ND
+        topo = ND.discover(community=req.community)
+        clean = {
+            "name": topo["name"],
+            "components": [{"id": c["id"], "type": c["type"]} for c in topo["components"]],
+            "dependencies": [{k: e[k] for k in ("source", "target", "type") if k in e}
+                             for e in topo["dependencies"]],
+            "observations": topo["observations"],
+        }
+        (TOPO_DIR / "discovered_topology.json").write_text(json.dumps(clean))
+        result = diagnose("discovered_topology", None)
+        result["scanned"] = topo["meta"]
+        return JSONResponse(result)
+    finally:
+        _scan_lock.release()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -153,5 +198,8 @@ def index():
 
 
 if __name__ == "__main__":
-    print("\n  SABLE live demo →  http://localhost:8760\n")
-    uvicorn.run(app, host="0.0.0.0", port=8760, log_level="warning")
+    print(f"\n  SABLE live demo →  http://{HOST}:{PORT}\n")
+    if HOST != "127.0.0.1" and not TOKEN:
+        print("  [!] WARNING: bound to a non-local address with no SABLE_TOKEN set — "
+              "scan/diagnose endpoints are UNAUTHENTICATED on the LAN.\n")
+    uvicorn.run(app, host=HOST, port=PORT, log_level="warning")

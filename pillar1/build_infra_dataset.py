@@ -139,6 +139,26 @@ def _build_node_features(n, node_types, degrees, max_degree, health_fn):
     return node_feats
 
 
+def _observed_health(health, rng, coverage=0.7, noise=0.15):
+    """Observation-gated, noisy health for GNN INPUT features.
+
+    Previously the GNN input health was a clean binary (0.0 iff a node was a root
+    failure), so the 'failed' label was trivially recoverable from one scalar —
+    the GNN could skip structural reasoning. This gates health the way the
+    fusion/serving pipeline does: start from the true continuous health, add
+    noise, and hide a fraction of nodes (including failed ones) as 'unknown'
+    (0.5). The label must be inferred from topology + partial signals, not read
+    off the input. Also aligns the train-time input distribution with serving
+    (continuous/noisy/masked), instead of the old binary all-or-nothing.
+    """
+    n = len(health)
+    obs = np.full(n, 0.5, dtype=np.float32)
+    for i in range(n):
+        if rng.random() < coverage:
+            obs[i] = float(np.clip(health[i] + rng.uniform(-noise, noise), 0.0, 1.0))
+    return obs
+
+
 def _cascade_root_failures(health, states, fail_indices):
     """Stage 1: Set root failure nodes to failed state."""
     for fi in fail_indices:
@@ -227,7 +247,9 @@ def simulate_cascades(G: nx.Graph, node_types: list[int], edge_types: list[int],
 
         # 12% of scenarios: no injection
         if rng.random() < 0.12:
-            node_feats = _build_node_features(n, node_types, degrees, max_degree, lambda i: 1.0)
+            obs_health = _observed_health(health, rng)  # gated even when all-healthy
+            node_feats = _build_node_features(n, node_types, degrees, max_degree,
+                                              lambda i: float(obs_health[i]))
             edge_index, edge_feats = _build_edge_features(G, node_idx, edge_types)
             samples.append({
                 "x": node_feats, "edge_index": edge_index, "edge_attr": edge_feats,
@@ -248,10 +270,9 @@ def simulate_cascades(G: nx.Graph, node_types: list[int], edge_types: list[int],
         _detect_unreachable(n, nodes, adj, node_idx, health, states, degrees)
         _inject_oscillating(n, health, states, rng)
 
-        fail_set = set(fail_indices)
+        obs_health = _observed_health(health, rng)
         node_feats = _build_node_features(
-            n, node_types, degrees, max_degree,
-            lambda i: 1.0 if i not in fail_set else 0.0)
+            n, node_types, degrees, max_degree, lambda i: float(obs_health[i]))
         edge_index, edge_feats = _build_edge_features(G, node_idx, edge_types)
 
         samples.append({

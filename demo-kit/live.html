@@ -113,6 +113,11 @@ function api(path,body){return fetch(path,{method:body?'POST':'GET',
 
 function setStatus(t){document.getElementById('status').textContent=t;}
 
+// Escape any model/network-derived string before it goes into innerHTML.
+// Node ids can carry scanned hostnames (attacker-controllable on the LAN).
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
 async function boot(){
   var list=await api('/api/topologies');
   var sel=document.getElementById('topo'); sel.innerHTML='';
@@ -136,12 +141,12 @@ function render(D){
   document.getElementById('thiscatch').textContent=D.n_inferred_problems;
   var obsAlerts=D.nodes.filter(function(n){return n.observed&&n.state!=='healthy'});
   document.getElementById('story').innerHTML= obsAlerts.length
-    ? "Monitoring sees <b>"+obsAlerts.length+" alert(s)</b>: "+obsAlerts.map(function(n){return n.label+' '+(obs[n.id]||n.state)}).join(', ')+
+    ? "Monitoring sees <b>"+obsAlerts.length+" alert(s)</b>: "+obsAlerts.map(function(n){return esc(n.label)+' '+esc(obs[n.id]||n.state)}).join(', ')+
       ". SABLE surfaces <b>"+D.n_inferred_problems+" problem(s)</b> across the <b>"+D.n_hidden+" unmonitored nodes</b>."
     : "No alerts set. Click nodes to tell SABLE what your monitoring sees, then Diagnose.";
   var hidden=D.nodes.filter(function(n){return n.inferred_problem}).sort(function(a,b){return b.confidence-a.confidence});
   document.getElementById('flags').innerHTML= hidden.length? hidden.map(function(n){
-    return '<div class="flag"><span class="n">'+n.label+' · '+n.id+'</span><span class="s" style="color:'+COL[n.state]+'">'+n.state+'</span></div>';
+    return '<div class="flag"><span class="n">'+esc(n.label)+' · '+esc(n.id)+'</span><span class="s" style="color:'+(COL[n.state]||'#888')+'">'+esc(n.state)+'</span></div>';
   }).join('') : '<div class="hint">— none —</div>';
 
   var TIERS=['external','core','access','storage','compute','services','application'];

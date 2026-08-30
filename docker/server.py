@@ -6,6 +6,7 @@ Serves the dashboard + WebSocket for live inference streaming.
 
 import asyncio
 import json
+import os
 import re
 import sqlite3
 import sys
@@ -15,7 +16,7 @@ from pathlib import Path
 import torch
 import uvicorn
 import yaml
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 
 import sys
@@ -43,6 +44,28 @@ nemotron = NemotronBridge()   # Nemotron LLM bridge for natural language reports
 
 # Scenario name validation: alphanumeric, hyphens, underscores only
 _SAFE_NAME = re.compile(r"^[a-zA-Z0-9_\-]+$")
+
+# ── Security config ──
+# Bind localhost by default; set SABLE_HOST=0.0.0.0 to expose on the LAN.
+# When exposed, set SABLE_TOKEN to require an X-SABLE-Token header on every
+# state-mutating endpoint. node ids/labels from the live monitor are sanitized
+# before they ever reach the dashboard (defense against XSS from crafted ids).
+HOST = os.environ.get("SABLE_HOST", "127.0.0.1")
+PORT = int(os.environ.get("SABLE_PORT", "8080"))
+TOKEN = os.environ.get("SABLE_TOKEN")
+_MAX_NODES = 2000  # hard cap on caller-declared node counts
+_SAFE_LABEL = re.compile(r"[^A-Za-z0-9 ._:\-]")
+
+
+def require_token(x_sable_token: str | None = Header(default=None)):
+    """Enforce the shared token on mutating endpoints when one is configured."""
+    if TOKEN and x_sable_token != TOKEN:
+        raise HTTPException(status_code=401, detail="invalid or missing X-SABLE-Token")
+
+
+def safe_label(s) -> str:
+    """Strip HTML-dangerous characters from a caller-supplied node id/label."""
+    return _SAFE_LABEL.sub("", str(s))[:64]
 
 SCENARIO_DIR = Path(__file__).parent / "scenarios"
 CHECKPOINT_DIR = Path(__file__).parent / "checkpoints"
@@ -208,6 +231,7 @@ async def dashboard():
 async def status():
     return {
         "engine_loaded": engine.model is not None,
+        "model_healthy": engine.model_healthy,
         "scenario": current_scenario,
         "scenario_description": scenario_data["description"] if scenario_data else None,
         "cycle": engine.cycle,
@@ -242,7 +266,7 @@ async def list_scenarios():
 
 
 @app.post("/api/scenario")
-async def set_scenario(body: dict):
+async def set_scenario(body: dict, _: None = Depends(require_token)):
     global current_scenario, scenario_data, autoplay_task
     async with state_lock:
         name = body.get("name", "monday_morning")
@@ -261,7 +285,7 @@ async def set_scenario(body: dict):
 
 
 @app.post("/api/tick")
-async def tick():
+async def tick(_: None = Depends(require_token)):
     async with state_lock:
         if scenario_data is None:
             return JSONResponse({"error": "No scenario loaded"}, status_code=400)
@@ -273,7 +297,7 @@ async def tick():
 
 
 @app.post("/api/autoplay")
-async def autoplay(body: dict):
+async def autoplay(body: dict, _: None = Depends(require_token)):
     global autoplay_task, autoplay_speed
     async with state_lock:
         speed = body.get("speed", 1.0)
@@ -293,6 +317,8 @@ async def autoplay(body: dict):
 
 @app.get("/api/node/{idx}")
 async def get_node_detail(idx: int):
+    if idx < 0 or idx >= engine.n_nodes:
+        raise HTTPException(status_code=404, detail=f"node index out of range (0..{engine.n_nodes - 1})")
     report = engine.get_node_report(idx)
     report["label"] = node_label(idx)
     report["topo_id"] = node_id(idx)
@@ -306,7 +332,7 @@ async def recommendations():
 
 
 @app.post("/api/reset")
-async def reset():
+async def reset(_: None = Depends(require_token)):
     global autoplay_task
     async with state_lock:
         if autoplay_task:
@@ -420,7 +446,7 @@ def run_tick() -> dict:
 # ── Live Monitor Endpoint ────────────────────────────────────────────────
 
 @app.post("/api/live_tick")
-async def live_tick(body: dict):
+async def live_tick(body: dict, _: None = Depends(require_token)):
     """Receive pre-encoded pillar inputs from the live monitor.
 
     The live monitor (live_monitor.py) polls Prometheus, encodes telemetry
@@ -439,8 +465,14 @@ async def live_tick(body: dict):
     import numpy as np
 
     async with state_lock:
+        # Validate caller-supplied shape/labels — this endpoint feeds the
+        # shared dashboard, so a crafted node_ids entry must not survive.
+        if not isinstance(body.get("node_ids"), list) or not isinstance(body.get("n_nodes"), int):
+            raise HTTPException(status_code=400, detail="n_nodes (int) and node_ids (list) required")
         n_nodes = body["n_nodes"]
-        node_ids = body["node_ids"]
+        if n_nodes < 1 or n_nodes > _MAX_NODES:
+            raise HTTPException(status_code=400, detail=f"n_nodes out of range (1..{_MAX_NODES})")
+        node_ids = [safe_label(nid) for nid in body["node_ids"][:_MAX_NODES]]
 
         # Convert lists back to tensors
         gnn_np = np.array(body["gnn"], dtype=np.float32)  # (N, 1044)
@@ -498,7 +530,7 @@ async def live_tick(body: dict):
 
 
 @app.post("/api/lora")
-async def toggle_lora(body: dict):
+async def toggle_lora(body: dict, _: None = Depends(require_token)):
     """Toggle LoRA adapter on/off for before/after demo."""
     enabled = bool(body.get("enabled", True))
     engine.toggle_lora(enabled)
@@ -506,7 +538,7 @@ async def toggle_lora(body: dict):
 
 
 @app.post("/api/mc_dropout")
-async def set_mc_dropout(body: dict):
+async def set_mc_dropout(body: dict, _: None = Depends(require_token)):
     """Toggle MC dropout for honest confidence estimates."""
     global mc_dropout_samples
     mc_dropout_samples = max(0, min(20, int(body.get("samples", 0))))
@@ -537,7 +569,7 @@ def _init_feedback_db():
 
 
 @app.post("/api/feedback")
-async def submit_feedback(body: dict):
+async def submit_feedback(body: dict, _: None = Depends(require_token)):
     """Submit an operator correction for a node's predicted state.
 
     Body: {
@@ -632,7 +664,7 @@ async def nemotron_status():
 
 
 @app.post("/api/nemotron/report")
-async def nemotron_report():
+async def nemotron_report(_: None = Depends(require_token)):
     """Generate a natural language incident report from current state."""
     if not engine.history or len(engine.history) < 2:
         return {"error": "Need at least 2 ticks for a report"}
@@ -648,7 +680,7 @@ async def nemotron_report():
 
 
 @app.post("/api/nemotron/chat")
-async def nemotron_chat(body: dict):
+async def nemotron_chat(body: dict, _: None = Depends(require_token)):
     """Chat with Nemotron about SABLE's findings."""
     user_message = body.get("message", "")
     history = body.get("history", [])
@@ -671,7 +703,7 @@ async def nemotron_chat(body: dict):
 
 
 @app.post("/api/nemotron/after_action")
-async def nemotron_after_action():
+async def nemotron_after_action(_: None = Depends(require_token)):
     """Generate an after-action report from a completed or in-progress scenario."""
     if not engine.history:
         return {"error": "No data for report"}
@@ -699,4 +731,7 @@ async def nemotron_after_action():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="warning")
+    if HOST != "127.0.0.1" and not TOKEN:
+        print("  [!] WARNING: bound to a non-local address with no SABLE_TOKEN set — "
+              "state-mutating endpoints are UNAUTHENTICATED on the LAN.", flush=True)
+    uvicorn.run(app, host=HOST, port=PORT, log_level="warning")
