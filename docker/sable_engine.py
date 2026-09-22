@@ -510,11 +510,24 @@ class SableEngine:
         # primary is unreachable to monitoring, not "failed", and it is still
         # the thing to fix (lab run 2026-09-22: kill_primary produced no root).
         # Ties at the same tick prefer failed over unreachable.
+        # With no hard failure at all, the earliest degraded/oscillating node is
+        # the root cause: a config-corrupted service reads as degraded (scorer)
+        # or oscillating (model) and never as failed, and the console has a
+        # template for exactly that (golden-config restore). Transient blips
+        # that open a finding this way resolve on their own in the console.
         failed_ids = {n["node"] for n in failed}
+        degraded_ids = {n["node"] for n in degraded}
         hard = sorted(failed + unreachable,
                       key=lambda n: (n["first_affected_tick"], 0 if n["node"] in failed_ids else 1))
-        root = hard[0] if hard else None
-        root_state = None if root is None else ("failed" if root["node"] in failed_ids else "unreachable")
+        soft = sorted(degraded + oscillating,
+                      key=lambda n: (n["first_affected_tick"], 0 if n["node"] in degraded_ids else 1))
+        root = hard[0] if hard else (soft[0] if soft else None)
+        if root is None:
+            root_state = None
+        elif hard:
+            root_state = "failed" if root["node"] in failed_ids else "unreachable"
+        else:
+            root_state = "degraded" if root["node"] in degraded_ids else "oscillating"
 
         # Impact summary
         total_affected = len(failed) + len(unreachable) + len(degraded) + len(oscillating)
@@ -529,9 +542,9 @@ class SableEngine:
         else:
             summary = (f"{total_affected}/{self.n_nodes} nodes affected: "
                       + ", ".join(summary_parts) + ". "
-                      + (f"Root cause likely Node {root['node']:02d} "
-                         f"({root_state}, first affected at tick {root['first_affected_tick']})."
-                         if root else "No hard failures — monitor degraded nodes."))
+                      + (("" if hard else "No hard failures. ")
+                         + f"Root cause likely Node {root['node']:02d} "
+                         f"({root_state}, first affected at tick {root['first_affected_tick']})."))
 
         return {
             "summary": summary,
