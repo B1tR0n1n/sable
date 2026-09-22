@@ -107,17 +107,22 @@ def _freshness_bound(receipt: Receipt, after: Optional[datetime]) -> tuple[Optio
 def _sort_nodes(observed: dict[str, str], truth: dict[str, str], targets: set[str]) -> dict[str, list[str]]:
     """Each non-healthy node in scope into one bucket:
     fails (the fix did not land), terminal (escalate now), disagree (model
-    unhealthy, telemetry healthy), oscillating (non-target, telemetry unknown)."""
+    unhealthy, telemetry healthy or itself still oscillating), oscillating
+    (non-target, telemetry unknown)."""
     buckets: dict[str, list[str]] = {"fail": [], "terminal": [], "disagree": [], "oscillating": []}
     for node, state in observed.items():
         if state == "healthy":
             continue
         telemetry = truth.get(node)                       # None: unknown
+        # The scorer calls a node oscillating after 3+ state changes in 5 min —
+        # which is exactly what a fault and its fix look like from telemetry.
+        # It is not evidence against the fix; it is telemetry still settling.
+        settling = telemetry in ("healthy", "oscillating")
         if state == "unreachable":
-            buckets["fail" if telemetry not in (None, "healthy") else "terminal"].append(node)
+            buckets["fail" if not (telemetry is None or settling) else "terminal"].append(node)
         elif node in targets and state == "failed":
             buckets["fail"].append(node)
-        elif telemetry == "healthy":
+        elif settling:
             buckets["disagree"].append(node)
         elif state == "oscillating" and telemetry is None and node not in targets:
             buckets["oscillating"].append(node)
@@ -159,7 +164,7 @@ def evaluate(plan: Plan, receipt: Receipt, tick: Optional[dict[str, Any]], tick_
         return Verdict("inconclusive", observed,
                        f"{', '.join(b['terminal'])} unreachable — absence of telemetry is not health", tick_time=tick_time)
     if b["disagree"] or b["oscillating"]:
-        parts = [f"{n} model={observed[n]} telemetry=healthy" for n in b["disagree"]]
+        parts = [f"{n} model={observed[n]} telemetry={truth.get(n, 'healthy')}" for n in b["disagree"]]
         parts += [f"{n}=oscillating" for n in b["oscillating"]]
         why = ("model/telemetry disagreement, the model may still be settling" if b["disagree"]
                else "dependents still settling")

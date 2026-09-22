@@ -371,3 +371,19 @@ def test_telemetry_turning_unhealthy_during_the_settle_is_a_fail(tmp_path):
     r = v.verify(plan(), finding(), receipt())
     assert r.verification.status == "fail" and ex.compensated == [["s1"]] and store.reopened
     assert r.verification.observed["recheck"]["count"] == 1
+
+
+def test_telemetry_oscillating_is_settling_not_evidence_against_the_fix():
+    """The scorer flags 3+ state changes in 5 min as oscillating — a fault plus
+    its fix produces exactly that. Model degraded + telemetry oscillating on a
+    dependent is a settle, not a fail (live: kill_primary, 2026-09-22)."""
+    v = evaluate(plan(), receipt(), tick({"app": "degraded"}, truth={"app": "oscillating", "dns": "healthy"}),
+                 LATER, TOPO, now=NOW)
+    assert v.status == "inconclusive" and v.recheck is True and "app model=degraded telemetry=oscillating" in v.reason
+    # model unreachable on the target with telemetry oscillating: terminal, never fail
+    v = evaluate(plan(), receipt(), tick({"dns": "unreachable"}, truth={"dns": "oscillating"}), LATER, TOPO, now=NOW)
+    assert v.status == "inconclusive" and v.recheck is False
+    # telemetry degraded still confirms the model: fail
+    v = evaluate(plan(), receipt(), tick({"app": "degraded"}, truth={"app": "degraded", "dns": "healthy"}),
+                 LATER, TOPO, now=NOW)
+    assert v.status == "fail"
