@@ -9,9 +9,14 @@ COMPOSE     := docker compose -f $(LAB)/docker-compose.yml
 PYTHON      ?= python3
 FAULTS      := stop_service corrupt_config kill_primary poison_dns heal_all
 
-.PHONY: help lab-up lab-down lab-reset lab-fault lab-status lab-e2e test
+.PHONY: help install up down status logs lab-up lab-down lab-reset lab-fault lab-status lab-e2e test
 
 help:
+	@echo "install     one-shot bootstrap: OVERLORD, deps, Linux node + UI, docker + weights checks (console/install.sh)"
+	@echo "up          start everything: lab, OVERLORD daemon, SABLE, live monitor, console (console/run.sh)"
+	@echo "down        stop everything"
+	@echo "status      what is running, the console state, the lab state"
+	@echo "logs        tail every process log (console/.run/*.log)"
 	@echo "lab-up      build + start the lab and wait for every healthcheck"
 	@echo "lab-down    stop and remove the lab (containers, network, volumes)"
 	@echo "lab-reset   restore pristine configs, recreate the stack (faults/heal_all.sh)"
@@ -45,3 +50,18 @@ lab-e2e:
 
 test:
 	cd $(ROOT) && $(PYTHON) -m pytest console/tests -q
+
+install:
+	bash $(CONSOLE_DIR)/install.sh
+
+up:
+	bash $(CONSOLE_DIR)/run.sh up
+
+down:
+	bash $(CONSOLE_DIR)/run.sh down
+
+status:
+	bash $(CONSOLE_DIR)/run.sh status
+
+logs:
+	bash $(CONSOLE_DIR)/run.sh logs
