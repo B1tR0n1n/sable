@@ -3,7 +3,7 @@ FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 WORKDIR /app
 
 # System deps
-RUN pip install --no-cache-dir fastapi uvicorn websockets torch-geometric h5py
+RUN pip install --no-cache-dir fastapi uvicorn websockets torch-geometric h5py pyyaml requests anthropic
 
 # Copy engine source (model definitions)
 COPY engine/ /app/engine/
@@ -13,6 +13,8 @@ COPY checkpoints/ /app/checkpoints/
 COPY scenarios/ /app/scenarios/
 COPY server.py /app/
 COPY sable_engine.py /app/
+COPY nemotron_bridge.py /app/
+COPY claude_bridge.py /app/
 COPY dashboard.html /app/
 
 EXPOSE 8080

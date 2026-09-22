@@ -20,6 +20,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from sable_engine import SableEngine
 from nemotron_bridge import NemotronBridge
+from claude_bridge import ClaudeBridge, bridge_info, make_tools, select_bridge
 
 app = FastAPI(title="SABLE Engine", version="1.0")
 
@@ -35,7 +36,7 @@ _scenario_cache: list[dict] | None = None  # Cached scenario metadata
 _topo_nodes: list[dict] = []  # Topology node metadata, indexed by position
 _topo_edges: list[dict] = []  # Topology edges
 mc_dropout_samples: int = 0   # 0 = off, >0 = MC dropout enabled with N samples
-nemotron = NemotronBridge()   # Nemotron LLM bridge for natural language reports
+nemotron = select_bridge()    # LLM bridge: SABLE_LLM=claude -> ClaudeBridge, else NemotronBridge (default)
 
 # Scenario name validation: alphanumeric, hyphens, underscores only
 _SAFE_NAME = re.compile(r"^[a-zA-Z0-9_\-]+$")
@@ -187,6 +188,16 @@ async def startup():
         source = scenario_data.get("source", "sable_sim")
         print(f"  Default scenario: {current_scenario} ({scenario_data['n_nodes']} nodes, "
               f"{scenario_data['n_ticks']} ticks, source={source})")
+
+    # Claude path only: hand the bridge READ-ONLY accessors over the initialised
+    # engine + loaded topology (see claude_bridge.make_tools). Never mutates state.
+    if isinstance(nemotron, ClaudeBridge):
+        nemotron.register_tools(**make_tools(
+            engine, enrich_recommendations, node_label, node_id, node_type,
+            _topo_nodes, _topo_edges,
+        ))
+        print(f"  LLM provider: claude ({nemotron.model}), "
+              f"key {'present' if nemotron.is_available() else 'MISSING'}", flush=True)
 
     print("\n  SABLE Engine running at http://localhost:8080\n", flush=True)
 
@@ -623,8 +634,9 @@ async def feedback_stats():
 
 @app.get("/api/nemotron/status")
 async def nemotron_status():
-    """Check if Nemotron is available."""
-    return {"available": nemotron.is_available(), "url": nemotron.llama_url}
+    """Check if the LLM bridge is available; `provider` says which one is active."""
+    return {"available": nemotron.is_available(), "url": nemotron.llama_url,
+            **bridge_info(nemotron)}
 
 
 @app.post("/api/nemotron/report")
