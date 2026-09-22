@@ -82,6 +82,14 @@ class Loop:
         self.policy = policy or (Policy.load(cfg.policy_path) if cfg.policy_path else Policy.load())
         self._emit = emit or (lambda ev: None)
         self._sleep, self._clock = sleep, clock
+        # state that note()/emit() need must exist before anything can fail
+        self.plans: dict[str, _PlanState] = {}          # plan_id -> state
+        self.plan_of: dict[str, str] = {}               # finding_id -> current plan_id
+        self.log: deque = deque(maxlen=cfg.log_lines)
+        self._tick: tuple[Optional[dict], Optional[datetime]] = (None, None)
+        self._threads: list[threading.Thread] = []
+        self._lock = threading.RLock()
+        self.stations: dict[str, float] = {}            # station -> last active ts (the strip)
         cfg.data_dir.mkdir(parents=True, exist_ok=True)
         self.store = store or FindingStore(str(cfg.data_dir / "findings.json"))
         self.chain = chain or ReceiptChain(cfg.data_dir / "receipts.jsonl")
@@ -92,13 +100,6 @@ class Loop:
         self.executor = Executor(overlord, self.catalog, self.context, emit=self.emit) if overlord else None
         self.verifier = Verifier(self.latest_tick, self.store, self.executor, self.chain, self.topology,
                                  emit=self.emit, stale_after_s=cfg.verify_stale_after_s, sleep=sleep) if overlord else None
-        self.plans: dict[str, _PlanState] = {}          # plan_id -> state
-        self.plan_of: dict[str, str] = {}               # finding_id -> current plan_id
-        self.log: deque = deque(maxlen=cfg.log_lines)
-        self._tick: tuple[Optional[dict], Optional[datetime]] = (None, None)
-        self._threads: list[threading.Thread] = []
-        self._lock = threading.RLock()
-        self.stations: dict[str, float] = {}            # station -> last active ts (the strip)
         self.store.subscribe(self._on_finding_change)
 
     # ---------------------------------------------------------------- plumbing
