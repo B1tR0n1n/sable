@@ -19,7 +19,9 @@ Nothing here imports FastAPI.
 
 from __future__ import annotations
 
+import json
 import os
+import re
 import subprocess
 import threading
 import time
@@ -360,18 +362,33 @@ class Loop:
             nm = self.sable.get("/api/nemotron/status")
         except Exception:                             # noqa: BLE001
             pass
-        return {"reply": r.get("reply", ""), "tool_calls": r.get("tool_calls", []),
+        # SABLE's own facts ride in a ```sable fence so the UI can render them
+        # apart from the model's inference — data first, generated text after
+        reply = r.get("reply", "")
+        if f is not None:
+            facts = {"finding": f.id, "root_cause": f.root_cause.model_dump(), "affected": [a.node_id for a in f.affected_nodes],
+                     "confidence": f.confidence.model_dump(), "detection_mode": f.detection_mode, "severity": f.severity}
+            reply = "```sable\n" + json.dumps(facts, indent=2) + "\n```\n" + reply
+        return {"reply": reply, "tool_calls": r.get("tool_calls", []),
                 "provider": nm.get("provider", "local"), "generated": True}
 
-    def lab_fault(self, name: str) -> dict:
+    _ARG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$")
+
+    def lab_fault(self, name: str, args: Optional[list[str]] = None) -> dict:
+        """Run console/lab/faults/<name>.sh [args] — a whitelist of the scripts
+        present (helpers named _*.sh excluded); args are plain tokens only."""
         if not self.cfg.lab_enabled:
             raise PermissionError("lab controls are disabled (CONSOLE_LAB=1 enables them)")
         faults = self.cfg.lab_dir / "faults"
-        allowed = {p.stem for p in faults.glob("*.sh")} if faults.is_dir() else set()
+        allowed = {p.stem for p in faults.glob("*.sh") if not p.name.startswith("_")} if faults.is_dir() else set()
         if name not in allowed:
             raise KeyError(f"unknown fault {name!r}; known: {', '.join(sorted(allowed))}")
-        self.note(f"injecting lab fault {name}", source="lab")
-        p = subprocess.run(["bash", str(faults / f"{name}.sh")], capture_output=True, text=True, timeout=180)
+        args = [str(a) for a in (args or [])]
+        bad = [a for a in args if not self._ARG.match(a)]
+        if bad:
+            raise ValueError(f"invalid fault argument(s): {bad}")
+        self.note(f"injecting lab fault {name} {' '.join(args)}".rstrip(), source="lab")
+        p = subprocess.run(["bash", str(faults / f"{name}.sh"), *args], capture_output=True, text=True, timeout=240)
         for line in (p.stdout + p.stderr).splitlines()[-30:]:
             self.note(line, source=f"lab/{name}")
         return {"fault": name, "exit_code": p.returncode, "output": (p.stdout + p.stderr)[-4000:]}

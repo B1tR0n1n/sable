@@ -275,3 +275,39 @@ def test_websocket_says_hello_and_streams_findings(world):
             for _ in range(3):
                 types.add(ws.receive_json()["type"])
             assert {"finding", "plan"} <= types or "log" in types
+
+
+def test_spa_fallback_serves_index_for_client_routes_and_files_as_themselves(world, tmp_path):
+    _, _, _, loop, _ = world()
+    dist = tmp_path / "dist"; (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<html>console</html>")
+    (dist / "assets" / "a.js").write_text("js;")
+    app = create_app(loop, serve_ui=True, ui_dist=dist)
+    with TestClient(app) as c:
+        assert c.get("/").text == "<html>console</html>"
+        assert c.get("/receipts/rcp-123").text == "<html>console</html>"
+        assert c.get("/assets/a.js").text == "js;"
+        assert c.get("/api/state").status_code == 200                # the API is not shadowed
+        assert c.get("/../etc/passwd").text == "<html>console</html>"   # no escape from dist
+
+
+def test_lab_fault_args_are_validated_and_helpers_are_not_faults(world):
+    cfg, sable, ov, loop, app = world(lab=True)
+    faults = cfg.lab_dir / "faults"; faults.mkdir(parents=True)
+    (faults / "_lib.sh").write_text("echo helper\n")
+    (faults / "stop_service.sh").write_text("#!/usr/bin/env bash\necho stopped ${1:-dns}\n")
+    with TestClient(app) as c:
+        assert c.post("/api/lab/fault", json={"name": "_lib"}).status_code == 404
+        assert c.post("/api/lab/fault", json={"name": "stop_service", "args": ["dns; rm -rf /"]}).status_code == 400
+        assert "stopped app" in c.post("/api/lab/fault", json={"name": "stop_service", "args": ["app"]}).json()["output"]
+        assert "stopped dns" in c.post("/api/lab/fault", json={"name": "stop_service"}).json()["output"]
+
+
+def test_analyst_reply_leads_with_a_fenced_sable_block(world):
+    _, sable, ov, loop, app = world()
+    with TestClient(app) as c:
+        f = open_finding(loop, sable)
+        r = c.post("/api/analyst/chat", json={"finding_id": f.id, "message": "why?", "history": []}).json()
+        head, _, rest = r["reply"].partition("```\n")
+        assert head.startswith("```sable\n") and json.loads(head[len("```sable\n"):])["finding"] == f.id
+        assert rest.startswith("SABLE says")

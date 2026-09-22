@@ -9,8 +9,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse, PlainTextResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 
 from console.contracts import Receipt
 from console.planner import NoTemplate, PlanValidationError
@@ -69,7 +68,8 @@ def receipt_markdown(r: Receipt) -> str:
     return "\n".join(lines)
 
 
-def create_app(loop: Loop, broadcaster: Optional[Broadcaster] = None, serve_ui: bool = True) -> FastAPI:
+def create_app(loop: Loop, broadcaster: Optional[Broadcaster] = None, serve_ui: bool = True,
+               ui_dist: Optional[Path] = None) -> FastAPI:
     bc = broadcaster or Broadcaster()
 
     @asynccontextmanager
@@ -208,11 +208,13 @@ def create_app(loop: Loop, broadcaster: Optional[Broadcaster] = None, serve_ui: 
     async def lab_fault(request: Request):
         body = await request.json()
         try:
-            return await asyncio.to_thread(loop.lab_fault, str(body.get("name") or ""))
+            return await asyncio.to_thread(loop.lab_fault, str(body.get("name") or ""), list(body.get("args") or []))
         except PermissionError as e:
             return _err(403, str(e))
         except KeyError as e:
             return _err(404, str(e).strip("'\""))
+        except ValueError as e:
+            return _err(400, str(e))
 
     # ---------------------------------------------------------------- WS
 
@@ -231,6 +233,14 @@ def create_app(loop: Loop, broadcaster: Optional[Broadcaster] = None, serve_ui: 
         finally:
             bc.clients.discard(q)
 
-    if serve_ui and UI_DIST.is_dir():
-        app.mount("/", StaticFiles(directory=str(UI_DIST), html=True), name="ui")
+    dist = ui_dist or UI_DIST
+    if serve_ui and dist.is_dir():
+        # the UI is a single-page app with pushState routes (/receipts/:id):
+        # a real file is served as itself, anything else gets index.html
+        @app.get("/{path:path}", include_in_schema=False)
+        async def spa(path: str):
+            target = (dist / path).resolve() if path else dist / "index.html"
+            if path and target.is_file() and str(target).startswith(str(dist.resolve())):
+                return FileResponse(str(target))
+            return FileResponse(str(dist / "index.html"))
     return app
