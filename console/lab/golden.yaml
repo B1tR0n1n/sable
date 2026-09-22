@@ -1,0 +1,13 @@
+# Known-good configuration per node: what the template planner restores when a
+# node is DEGRADED and its config may have drifted (catalog: set_config_value —
+# an exactly reversible file edit through OVERLORD). node_id -> one entry.
+#
+# `file` is relative to the lab dir; `service` defaults to the node id.
+app:
+  file: config/app.conf
+  key: db_host
+  value: db.lab
+proxy:
+  file: proxy/upstream.env
+  key: UPSTREAM_HOST
+  value: db

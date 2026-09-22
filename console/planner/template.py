@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Iterable, Optional
 
 from console.catalog import Catalog, CatalogError
 from console.contracts import BlastRadius, Finding, Plan, PlannerProvenance, Step, Verification
@@ -21,10 +21,13 @@ class _Unresolvable(Exception):
 
 
 class TemplatePlanner:
-    def __init__(self, catalog: Catalog, topology: Topology, service_map: Optional[dict[str, str]] = None):
+    def __init__(self, catalog: Catalog, topology: Topology, service_map: Optional[dict[str, str]] = None,
+                 golden: Optional[dict[str, dict[str, str]]] = None, disabled: Iterable[str] = ()):
         self.catalog = catalog
         self.topology = topology
         self.service_map = dict(service_map or {})
+        self.golden = dict(golden or {})          # node_id -> {file, key, value[, service]}
+        self.disabled = set(disabled)             # actions a template may not use (it falls back)
 
     def service_of(self, node_id: str) -> str:
         return self.service_map.get(node_id, node_id)
@@ -52,6 +55,11 @@ class TemplatePlanner:
             return self.service_of(self._replica_of(node_id))
         if source == "proxy_service":
             return self.service_of(self._proxy_of(node_id))
+        if source in ("golden_file", "golden_key", "golden_value"):
+            g = self.golden.get(node_id)
+            if not g or source[len("golden_"):] not in g:
+                raise _Unresolvable(f"no golden config for {node_id}")
+            return g[source[len("golden_"):]]
         raise CatalogError(f"template param source {source!r} is not known")
 
     def _pick(self, template: Template, node_id: str) -> tuple[Template, dict[str, str]]:
@@ -59,6 +67,8 @@ class TemplatePlanner:
         tried = []
         while t is not None:
             try:
+                if t.action_id in self.disabled:
+                    raise _Unresolvable(f"action {t.action_id} is disabled")
                 return t, {k: self._resolve(src, node_id) for k, src in t.params.items()}
             except _Unresolvable as e:
                 tried.append(f"{t.template_id}: {e}")

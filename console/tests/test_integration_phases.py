@@ -86,7 +86,20 @@ def test_executor_runs_a_real_template_plan_with_the_real_catalog_bindings():
 def test_executor_compensates_a_real_failover_with_the_catalog_failback():
     cat, topo = Catalog.load(), lab_topology()
     ctx = {"lab_dir": "/lab", "lab_compose": "/lab/docker-compose.yml"}
-    plan = TemplatePlanner(cat, topo).plan(lab_finding("db", "SERVER_VIRTUAL", "failed"))
+    from console.planner import validate_plan
+    from console.planner.templates import _DB_FAILOVER
+    f = lab_finding("db", "SERVER_VIRTUAL", "failed")
+    planner = TemplatePlanner(cat, topo)
+    _t, params = planner._pick(_DB_FAILOVER, "db")             # the failover binding, resolved from the topology
+    base = planner.plan(f)
+    d = base.model_dump(mode="json")
+    d["steps"] = [{**d["steps"][0], "action_id": "failover_to_replica", "params": params, "reversibility": "compensable",
+                   "compensation": cat.compensation_for_action("failover_to_replica", params).model_dump(),
+                   "precondition": cat.get("failover_to_replica").preconditions[0],
+                   "timeout_s": cat.get("failover_to_replica").executor.grants.timeout_s}]
+    for k in ("id", "created_at", "gate", "planner"):
+        d.pop(k, None)                                           # blast_radius stays: same target, same radius
+    plan = validate_plan(d, cat, f, topo)
     assert plan.steps[0].action_id == "failover_to_replica"
     assert plan.steps[0].compensation.action_id == "failback_to_primary"
     # make the plan two steps so a later failure forces the failback: append a restart that fails

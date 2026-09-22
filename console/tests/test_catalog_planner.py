@@ -212,7 +212,7 @@ LAB_SCENARIOS = [
     ("dns", "oscillating", "clear_dns_cache", Reversibility.reversible, None),
     ("app", "failed", "restart_service", Reversibility.compensable, "restart_service"),
     ("app", "degraded", "restart_service", Reversibility.compensable, "restart_service"),
-    ("db", "failed", "failover_to_replica", Reversibility.compensable, "failback_to_primary"),
+    ("db", "failed", "restart_service", Reversibility.compensable, "restart_service"),
     ("db", "degraded", "restart_service", Reversibility.compensable, "restart_service"),
     ("proxy", "failed", "restart_service", Reversibility.compensable, "restart_service"),
     ("proxy", "degraded", "restart_service", Reversibility.compensable, "restart_service"),
@@ -240,15 +240,40 @@ def test_every_lab_fault_scenario_yields_a_valid_plan(catalog, topology, node, s
     assert again == plan
 
 
-def test_db_failover_params_come_from_the_topology(catalog, topology):
-    finding = make_finding("db", "failed", topology, affected=["proxy", "app"])
-    plan = TemplatePlanner(catalog, topology, SERVICE_MAP).plan(finding)
+def test_db_failover_binding_resolves_from_the_topology(catalog, topology):
+    """failover_to_replica is not a template row (a failover leaves the primary
+    down, so node_healthy could never pass) but its binding must still resolve
+    for the LLM planner and for an operator: primary/replica/proxy from the
+    REPLICATION_DEPENDENCY edge and the LOAD_BALANCER that depends on it."""
+    from console.planner.templates import _DB_FAILOVER
+    planner = TemplatePlanner(catalog, topology, SERVICE_MAP)
+    t, params = planner._pick(_DB_FAILOVER, "db")
+    assert t.template_id == "db_failed_failover"
+    assert params == {"primary": "postgres", "replica": "postgres-replica", "proxy": "haproxy"}
+    comp = catalog.compensation_for_action("failover_to_replica", params)
+    assert comp.action_id == "failback_to_primary" and comp.params == params
+    # and the same row falls back to a restart when the topology has no replica
+    bare = Topology.from_api({"name": "t", "nodes": list(topology.nodes.values()),
+                              "edges": [e for e in topology.edges if e["type"] != "REPLICATION_DEPENDENCY"]})
+    t2, params2 = TemplatePlanner(catalog, bare, SERVICE_MAP)._pick(_DB_FAILOVER, "db")
+    assert t2.template_id == "db_failed_restart" and params2 == {"service": "postgres"}
+
+
+def test_degraded_app_restores_golden_config_and_falls_back_without_it(catalog, topology):
+    finding = make_finding("app", "degraded", topology, affected=[])
+    golden = {"app": {"file": "config/app.conf", "key": "db_host", "value": "db.lab"}}
+    plan = TemplatePlanner(catalog, topology, SERVICE_MAP, golden=golden).plan(finding)
     step = plan.steps[0]
-    assert step.params == {"primary": "postgres", "replica": "postgres-replica", "proxy": "haproxy"}
-    assert step.compensation.action_id == "failback_to_primary" and step.compensation.params == step.params
-    assert step.precondition == "replica_running"
-    assert plan.planner.template_id == "db_failed_failover"
-    assert plan.blast_radius.nodes == topology.blast_radius("db") == ["db", "prometheus", "proxy", "app"]
+    assert step.action_id == "set_config_value" and plan.planner.template_id == "app_degraded_restore_config"
+    assert step.params == {"file": "config/app.conf", "key": "db_host", "value": "db.lab", "service": SERVICE_MAP.get("app", "app")}
+    assert plan.reversibility == Reversibility.reversible and step.compensation is None
+    # no golden entry → restart; golden present but the action disabled → restart too
+    assert TemplatePlanner(catalog, topology, SERVICE_MAP).plan(finding).steps[0].action_id == "restart_service"
+    fb = TemplatePlanner(catalog, topology, SERVICE_MAP, golden=golden, disabled=["set_config_value"]).plan(finding)
+    assert fb.steps[0].action_id == "restart_service" and fb.planner.template_id == "app_unhealthy_restart"
+    # a disabled action with no fallback is NoTemplate, never a silent substitute
+    with pytest.raises(NoTemplate):
+        TemplatePlanner(catalog, topology, SERVICE_MAP, disabled=["restart_service"]).plan(make_finding("db", "failed", topology, affected=[]))
 
 
 def test_db_without_replica_falls_back_to_restart(catalog):

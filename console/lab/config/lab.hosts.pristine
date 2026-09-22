@@ -1,0 +1,8 @@
+# Pristine A records for the lab (hosts-file format; one name per line on purpose:
+# faults/poison_dns.sh rewrites the db.lab line in the container's live copy).
+172.28.0.10 dns.lab
+172.28.0.20 app.lab
+172.28.0.30 db.lab
+172.28.0.31 db-replica.lab
+172.28.0.40 proxy.lab
+172.28.0.50 prometheus.lab

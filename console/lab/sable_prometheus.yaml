@@ -1,0 +1,37 @@
+# How SABLE observes the lab. Load it with:
+#
+#     python3 console/lab/live_monitor_lab.py --config console/lab/sable_prometheus.yaml
+#
+# The top-level keys are exactly the ones SABLE's docker/live_monitor.py load_config() reads
+# (prometheus_url, sable_url, poll_interval, topology, health_overrides, dry_run), so the
+# plain `python docker/live_monitor.py --config <this file>` also accepts it. BUT live_monitor.py
+# builds `PrometheusConfig(url=...)` only (:112) and never reads a node_map or queries, so run
+# plainly it auto-discovers node ids like `app_app` that match nothing in topology.yaml.
+# live_monitor_lab.py (a thin wrapper, no SABLE change) builds the PrometheusConfig from the
+# `prometheus:` block below and hands it to the unchanged adapter.
+
+prometheus_url: http://localhost:9090
+sable_url: http://localhost:8080
+poll_interval: 5
+topology: topology.yaml                # relative to this file (live_monitor.py resolves it so)
+health_overrides: {}                   # `up` and `healthy` are already binary in HealthConfig
+dry_run: false
+
+prometheus:                            # -> adapters.prometheus.PrometheusConfig
+  url: http://localhost:9090           # must equal prometheus_url (test_lab.py checks)
+  timeout: 5
+  auto_discover: false                 # explicit map only: blackbox:9115 etc. must NOT become nodes
+  node_map:                            # key = Prometheus instance label -> NodeMapping
+    "dns:53":          {node_id: dns,        component_type: DNS_SERVER,          job: dns}
+    "app:8000":        {node_id: app,        component_type: APPLICATION_SERVICE, job: app}
+    "db:8100":         {node_id: db,         component_type: SERVER_VIRTUAL,      job: db}
+    "db-replica:8100": {node_id: db-replica, component_type: SERVER_VIRTUAL,      job: db-replica}
+    "proxy:80":        {node_id: proxy,      component_type: LOAD_BALANCER,       job: proxy}
+    "prometheus:9090": {node_id: prometheus, component_type: MONITORING_SERVER,   job: prometheus}
+  queries:                             # metric name -> instant PromQL; _run_queries keys results by `instance`
+    # `up` is the adapter's reachability signal (_mark_unreachable: up < 1 -> unreachable).
+    # dns has no exporter: its blackbox probe (probe_success on instance dns:53) stands in
+    # for `up`; `or on(instance, job)` keeps the synthetic `up` for every other instance.
+    up: 'probe_success or on(instance, job) up'
+    # `healthy` is a binary metric HealthConfig already knows: the app's worst dependency.
+    healthy: 'min by (instance, job) (app_dependency_ok)'

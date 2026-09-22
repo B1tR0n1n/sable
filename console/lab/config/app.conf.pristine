@@ -1,0 +1,6 @@
+# app service config (key=value). Bind-mounted read-only at /lab/config/app.conf.
+# The catalog's set_config_value edits this file as `config/app.conf` relative to the lab dir.
+db_host=db.lab
+db_port=8100
+dns_canary=app.lab
+check_interval_s=3

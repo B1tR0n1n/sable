@@ -88,6 +88,7 @@ class Loop:
         self.topology = topology or self._load_topology()
         self.emitter = FindingEmitter(sable, self.store, cfg.site_id, topology=self.topology) if sable else None
         self.context = {"lab_dir": str(cfg.lab_dir), "lab_compose": str(cfg.lab_dir / "docker-compose.yml")}
+        self.golden = self._load_golden()
         self.executor = Executor(overlord, self.catalog, self.context, emit=self.emit) if overlord else None
         self.verifier = Verifier(self.latest_tick, self.store, self.executor, self.chain, self.topology,
                                  emit=self.emit, stale_after_s=cfg.verify_stale_after_s, sleep=sleep) if overlord else None
@@ -127,6 +128,16 @@ class Loop:
         if lab.is_file():
             return Topology.from_yaml(lab)
         return Topology([], [], "empty")
+
+    def _load_golden(self) -> dict[str, dict[str, str]]:
+        """lab/golden.yaml: node_id -> {file, key, value[, service]} — the
+        known-good config the template planner restores for a degraded node."""
+        p = self.cfg.lab_dir / "golden.yaml"
+        if not p.is_file():
+            return {}
+        import yaml
+        data = yaml.safe_load(p.read_text()) or {}
+        return {str(k): {str(a): str(b) for a, b in (v or {}).items()} for k, v in data.items()}
 
     # ---------------------------------------------------------------- DETECT
 
@@ -168,13 +179,16 @@ class Loop:
             if self.overlord is None:
                 raise PlanValidationError(["no OVERLORD connection for the LLM planner"])
             plan = LLMPlanner(self.catalog, self.topology, self._complete_fn(), model=self.cfg.llm_model).plan(finding)
+            disabled = [s.action_id for s in plan.steps if s.action_id in self.cfg.disabled_actions]
+            if disabled:
+                raise PlanValidationError([f"action disabled by CONSOLE_DISABLE_ACTIONS: {', '.join(disabled)}"])
         else:
-            plan = TemplatePlanner(self.catalog, self.topology).plan(finding)
+            # a disabled action makes the template fall back (restart instead of
+            # a config restore, say) — the lab's negative scenario is exactly that
+            plan = TemplatePlanner(self.catalog, self.topology, golden=self.golden,
+                                   disabled=self.cfg.disabled_actions).plan(finding)
         if force_action:
             plan = self._force_action(plan, finding, force_action)
-        disabled = [s.action_id for s in plan.steps if s.action_id in self.cfg.disabled_actions]
-        if disabled:
-            raise PlanValidationError([f"action disabled by CONSOLE_DISABLE_ACTIONS: {', '.join(disabled)}"])
         plan = self.policy.apply(finding, plan)
         with self._lock:
             old = self.plan_of.get(finding_id)
@@ -192,7 +206,7 @@ class Loop:
     def _force_action(self, plan: Plan, finding: Finding, action_id: str) -> Plan:
         """Lab negative test: swap the plan's action for another catalog
         action applicable to the target — deliberately the wrong fix."""
-        from console.planner import validate_plan
+        from console.planner import expected_blast_radius, validate_plan
         step = plan.steps[0]
         spec = self.catalog.get(action_id)
         params = {k: step.params.get(k, step.target_node) for k in (spec.params.get("required") or [])}
@@ -204,7 +218,9 @@ class Loop:
                        "precondition": spec.preconditions[0] if spec.preconditions else "none",
                        "timeout_s": spec.executor.grants.timeout_s}]
         d["verification"] = {"predicate": spec.verification, "window_s": plan.verification.window_s}
-        for k in ("id", "created_at", "gate", "planner", "blast_radius"):
+        nodes = expected_blast_radius([step.target_node], self.topology)
+        d["blast_radius"] = {"nodes": nodes, "count": len(nodes)}
+        for k in ("id", "created_at", "gate", "planner"):
             d.pop(k, None)
         return validate_plan(d, self.catalog, finding, self.topology)
 
