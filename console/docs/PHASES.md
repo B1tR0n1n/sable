@@ -111,6 +111,25 @@ What the first live run against the lab turned up, and what changed:
   then escalates (the fix landed; the flapping dependents need eyes), an
   oscillating target is a fail as before. Contract shapes unchanged; the
   receipt's `observed.recheck` records both looks.
+- **Model lag vs telemetry (live, 21:31–21:35).** After any disturbance the
+  trained model held the dependent `app` in `oscillating`/`degraded` for
+  ~150s while the scorer's ground truth (raw Prometheus) read healthy the
+  whole time; at the 60s window the verifier read `app=degraded`, failed,
+  compensated (restarted the just-fixed service) and reopened — two of four
+  lab scenarios failed on this alone. SABLE broadcasts only the aggregate
+  `accuracy`; the per-node reading lives in `engine.history` and surfaces
+  as `truth` on `GET /api/node/{idx}`, so `sable_bridge/ground_truth.py`
+  fetches it once per tick when a verifier asks (`Loop.latest_tick`), and
+  the stub emits `ground_truth` on the tick + `truth` in its node report.
+  Verifier semantics: pass still needs the model healthy; model non-healthy
+  with telemetry healthy is a disagreement → inconclusive, no compensation,
+  re-checked every 15s against a newer tick up to
+  `CONSOLE_VERIFY_MAX_SETTLE_S` (180) — first model-healthy look passes,
+  the deadline escalates; only model-and-telemetry non-healthy (or a
+  `failed` target, or `unreachable` with telemetry agreeing) is a fail.
+  Unknown telemetry (replay ticks) is no evidence against the model.
+  `observed.recheck = {count, seconds, first, last}`. Tests:
+  `tests/test_ground_truth.py`, `tests/test_verify.py`.
 - `requests` added to `console/requirements.txt` (the stub's Nemotron bridge
   imports it; `make test` failed on a fresh box).
 

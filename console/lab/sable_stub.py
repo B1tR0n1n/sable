@@ -86,7 +86,10 @@ class StubEngine:
                           "label": nid, "topo_id": nid, "component_type": self.node_types.get(nid, "UNKNOWN")})
             counts[st] += 1
         confs = [n["confidence"] for n in nodes] or [0.0]
+        # no model here: the scorer's state IS the truth. SABLE proper keeps this
+        # per tick in engine.history and shows it as `truth` on /api/node/{idx}
         tick = {"cycle": self.cycle, "source": "live", "engine": "stub", "nodes": nodes, "class_counts": counts,
+                "ground_truth": [n["state_idx"] for n in nodes],
                 "avg_confidence": round(sum(confs) / len(confs), 4),
                 "min_confidence": {"node": min(range(len(confs)), key=confs.__getitem__), "value": min(confs)},
                 "max_confidence": {"node": max(range(len(confs)), key=confs.__getitem__), "value": max(confs)},
@@ -134,7 +137,8 @@ class StubEngine:
             return {"error": "No inference cycles yet"}
         if not (0 <= idx < self.n_nodes):
             return {"error": f"node index {idx} out of range 0..{self.n_nodes - 1}"}
-        traj = [{"cycle": t["cycle"], "prediction": t["nodes"][idx]["state"]} for t in self.history[-8:]]
+        traj = [{"cycle": t["cycle"], "prediction": t["nodes"][idx]["state"], "truth": t["nodes"][idx]["state"]}
+                for t in self.history[-8:]]
         return {"node_id": idx, "current_state": self.history[-1]["nodes"][idx]["state"], "trajectory": traj,
                 "n_state_changes": self.transitions.get(idx, 0), "label": self.node_ids[idx], "topo_id": self.node_ids[idx],
                 "component_type": self.node_types.get(self.node_ids[idx], "UNKNOWN")}

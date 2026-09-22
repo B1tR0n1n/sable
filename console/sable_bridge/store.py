@@ -105,6 +105,15 @@ class FindingStore:
     def reopen(self, finding_id: str, receipt_id: Optional[str] = None) -> Finding:
         return self._transition(finding_id, FindingStatus.reopened, receipt_id)
 
+    def attach(self, finding_id: str, receipt_id: str) -> Finding:
+        """Link a receipt without changing status (an inconclusive verdict)."""
+        with self._lock:
+            f = self._findings.get(finding_id)
+            if f is None:
+                raise KeyError(finding_id)
+            status = FindingStatus(f.status)
+        return self._transition(finding_id, status, receipt_id)
+
     def resolve(self, finding_id: str) -> Finding:
         """The condition cleared on its own; nothing was executed, no receipt."""
         return self._transition(finding_id, FindingStatus.resolved, None)

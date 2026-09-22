@@ -43,7 +43,7 @@ from console.contracts import Approval, Finding, Plan, Receipt, now_utc
 from console.executor import Executor, ReceiptChain
 from console.planner import LLMPlanner, NoTemplate, PlanValidationError, TemplatePlanner
 from console.policy import Policy
-from console.sable_bridge import FindingEmitter, FindingStore
+from console.sable_bridge import FindingEmitter, FindingStore, attach_ground_truth
 from console.topology import Topology
 from console.verify import Verifier, node_states
 
@@ -65,6 +65,7 @@ class Config:
     disabled_actions: tuple[str, ...] = tuple(
         a for a in os.environ.get("CONSOLE_DISABLE_ACTIONS", "").split(",") if a)
     verify_stale_after_s: int = int(os.environ.get("CONSOLE_VERIFY_STALE_S", "120"))
+    verify_max_settle_s: int = int(os.environ.get("CONSOLE_VERIFY_MAX_SETTLE_S", "180"))   # model-lag re-check budget
     # lifecycle: healthy ticks before a no-action resolve; failed receipts before escalation
     resolve_after_ticks: int = int(os.environ.get("CONSOLE_RESOLVE_TICKS", "3"))
     max_attempts: int = int(os.environ.get("CONSOLE_MAX_ATTEMPTS", "2"))
@@ -112,7 +113,8 @@ class Loop:
         self.golden = self._load_golden()
         self.executor = Executor(overlord, self.catalog, self.context, emit=self.emit) if overlord else None
         self.verifier = Verifier(self.latest_tick, self.store, self.executor, self.chain, self.topology,
-                                 emit=self.emit, stale_after_s=cfg.verify_stale_after_s, sleep=sleep) if overlord else None
+                                 emit=self.emit, stale_after_s=cfg.verify_stale_after_s, sleep=sleep,
+                                 max_settle_s=cfg.verify_max_settle_s) if overlord else None
         self.store.subscribe(self._on_finding_change)
 
     # ---------------------------------------------------------------- plumbing
@@ -165,7 +167,18 @@ class Loop:
         return finding
 
     def latest_tick(self) -> tuple[Optional[dict], Optional[datetime]]:
-        return self._tick
+        """The freshest tick, with the scorer's ground truth beside the model's
+        states. SABLE broadcasts only the aggregate accuracy, so the per-node
+        reading is fetched from /api/node/{idx} once per tick, the first time
+        a verifier asks (the stub carries it on the tick already)."""
+        tick, ts = self._tick
+        if tick is None or "ground_truth" in tick or self.sable is None:
+            return tick, ts
+        enriched = attach_ground_truth(tick, self.sable)
+        with self._lock:
+            if self._tick[0] is tick:              # no newer tick landed meanwhile
+                self._tick = (enriched, ts)
+        return enriched, ts
 
     def _on_finding_change(self, finding: Finding) -> None:
         self.emit({"type": "finding", "finding": finding.model_dump(mode="json")})

@@ -178,8 +178,9 @@ def test_store_resolve_and_escalate_transitions(tmp_path):
     assert store.escalate(f.id).status == "escalated"
     assert store.list_open() == [store.get(f.id)]                  # escalated is still open
     assert store.find_open(f.dedup_key).id == f.id                 # … and still absorbs occurrences
-    assert store.resolve(f.id).status == "resolved" and store.get(f.id).receipt_ids == []
+    assert store.attach(f.id, "rcp-x").status == "escalated" and store.get(f.id).receipt_ids == ["rcp-x"]
+    assert store.resolve(f.id).status == "resolved" and store.get(f.id).receipt_ids == ["rcp-x"]
     assert store.list_open() == [] and store.find_open(f.dedup_key) is None
     assert store.list("resolved")[0].id == f.id
-    assert seen == ["open", "escalated", "resolved"]
+    assert seen == ["open", "escalated", "escalated", "resolved"]
     assert FindingStore(tmp_path / "f.json").get(f.id).status == "resolved"
