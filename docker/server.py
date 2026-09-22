@@ -7,6 +7,7 @@ Serves the dashboard + WebSocket for live inference streaming.
 import asyncio
 import json
 import re
+import os
 import sqlite3
 import sys
 import time
@@ -707,4 +708,6 @@ async def nemotron_after_action():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8080, log_level="warning")
+    # SABLE_BIND=0.0.0.0 to serve beyond loopback (a container); default unchanged
+    uvicorn.run(app, host=os.environ.get("SABLE_BIND", "127.0.0.1"),
+                port=int(os.environ.get("SABLE_PORT", "8080")), log_level="warning")

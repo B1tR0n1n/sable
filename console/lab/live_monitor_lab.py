@@ -13,6 +13,7 @@ not modified; the adapter, scorer, encoder and /api/live_tick path are the stock
 from __future__ import annotations
 
 import argparse
+import os
 import signal
 import sys
 from pathlib import Path
@@ -74,6 +75,12 @@ def main(argv: list[str] | None = None) -> int:
     from adapters.prometheus import PrometheusAdapter
 
     cfg = load_lab_config(args.config)
+    # inside the console container Prometheus and SABLE are not on localhost
+    if os.environ.get("PROMETHEUS_URL"):
+        cfg["prometheus_url"] = os.environ["PROMETHEUS_URL"]
+        cfg.setdefault("prometheus", {})["url"] = os.environ["PROMETHEUS_URL"]
+    if os.environ.get("SABLE_URL"):
+        cfg["sable_url"] = os.environ["SABLE_URL"]
     prom_cfg = build_prometheus_config(cfg)
     topology = cfg.get("topology") or "topology.yaml"
     if not Path(topology).is_absolute():
