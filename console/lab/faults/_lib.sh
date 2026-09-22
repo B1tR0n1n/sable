@@ -10,5 +10,8 @@ FAULT_NAME="${FAULT_NAME:-$(basename "${BASH_SOURCE[1]:-fault}" .sh)}"
 
 compose() { docker compose -f "$COMPOSE_FILE" "$@"; }
 say() { printf '[%s] %s\n' "$FAULT_NAME" "$*"; }
-service_defined() { compose config --services 2>/dev/null | grep -qx -- "$1"; }
-service_running() { compose ps --services --status running 2>/dev/null | grep -qx -- "$1"; }
+# Drain the whole pipe (no grep -q): with pipefail, grep exiting early can turn a
+# successful compose into an EPIPE failure; and keep compose's stderr, so a
+# broken compose invocation says why instead of "unknown compose service".
+service_defined() { compose config --services | grep -x -- "$1" >/dev/null; }
+service_running() { compose ps --services --status running | grep -x -- "$1" >/dev/null; }
