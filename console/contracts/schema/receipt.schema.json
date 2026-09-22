@@ -236,7 +236,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Produced by the executor after execution and verification. The hash\nchain: `receipt_hash` is sha256 over the canonical JSON of every field\nbut itself, including `prev_receipt_hash` \u2014 so a changed receipt, or a\nremoved one, breaks every hash after it.",
+  "description": "Produced by the executor after execution and verification. The hash\nchain: `receipt_hash` is sha256 over the canonical JSON of every field\nbut itself and `audit_ref`, including `prev_receipt_hash` \u2014 so a changed\nreceipt, or a removed one, breaks every hash after it. `audit_ref` is\nexcluded because it points at OVERLORD's audit entry, which itself\ncommits to `receipt_hash` (the two chains reference each other; one\ndirection must be outside the hash).",
   "properties": {
     "approvals": {
       "items": {

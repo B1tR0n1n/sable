@@ -12,7 +12,7 @@
   "id": "rcp-example000001",
   "plan_id": "pln-example000001",
   "prev_receipt_hash": null,
-  "receipt_hash": "bf2a1010a34e80e38d0debbe8da696c4ea1c97bceaafb46e8ea6bdb969a5af9e",
+  "receipt_hash": "75fadad48426a6429968ce5d751aa1c3452eaaf5b39748ddd3c9bfa8fc521a99",
   "rollback": {
     "performed": false,
     "steps": []

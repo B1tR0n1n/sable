@@ -21,7 +21,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, ClassVar, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -303,8 +303,11 @@ class Rollback(_Strict):
 class Receipt(_Strict):
     """Produced by the executor after execution and verification. The hash
     chain: `receipt_hash` is sha256 over the canonical JSON of every field
-    but itself, including `prev_receipt_hash` — so a changed receipt, or a
-    removed one, breaks every hash after it."""
+    but itself and `audit_ref`, including `prev_receipt_hash` — so a changed
+    receipt, or a removed one, breaks every hash after it. `audit_ref` is
+    excluded because it points at OVERLORD's audit entry, which itself
+    commits to `receipt_hash` (the two chains reference each other; one
+    direction must be outside the hash)."""
     id: str = Field(default_factory=lambda: _id("rcp"))
     plan_id: str
     session_id: Optional[str] = None       # the OVERLORD session (first step's, or the plan's)
@@ -320,8 +323,10 @@ class Receipt(_Strict):
     created_at: datetime = Field(default_factory=now_utc)
     audit_ref: Optional[dict[str, Any]] = None   # OVERLORD audit chain {seq, hash} of the closing entry
 
+    HASH_EXCLUDES: ClassVar[frozenset[str]] = frozenset({"receipt_hash", "audit_ref"})
+
     def compute_hash(self) -> str:
-        data = self.model_dump(mode="json", exclude={"receipt_hash"})
+        data = self.model_dump(mode="json", exclude=set(self.HASH_EXCLUDES))
         return hashlib.sha256(canonical_json(data).encode()).hexdigest()
 
     def seal(self, prev_receipt_hash: Optional[str] = None) -> "Receipt":

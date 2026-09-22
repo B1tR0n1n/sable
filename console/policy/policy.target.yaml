@@ -1,0 +1,29 @@
+# Autonomy gate policy — TARGET configuration (PLAN.md Phase 6).
+#
+# This is the matrix the plan describes. It is NOT the shipped default
+# (policy.yaml is all-`human`); an operator opts into it deliberately.
+#
+#   confidence \ reversibility | reversible  | compensable | irreversible
+#   high                       | auto        | delay       | human
+#   medium                     | human       | human       | human_plus
+#   low                        | report_only | report_only | report_only
+#
+# Even here, an irreversible plan can never be `auto` (hard rule).
+
+version: 1
+
+bands:
+  high: 0.85
+  medium: 0.60
+
+matrix:
+  high:   {reversible: auto,        compensable: delay,       irreversible: human}
+  medium: {reversible: human,       compensable: human,       irreversible: human_plus}
+  low:    {reversible: report_only, compensable: report_only, irreversible: report_only}
+
+delay_s: 120
+
+unmonitored_gap_cap: 1
+
+hard_rules:
+  irreversible_never_auto: true
