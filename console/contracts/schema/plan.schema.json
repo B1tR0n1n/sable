@@ -1,0 +1,307 @@
+{
+  "$defs": {
+    "BlastRadius": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "nodes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "title": "BlastRadius",
+      "type": "object"
+    },
+    "Compensation": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "title": "Action Id",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": [
+        "action_id"
+      ],
+      "title": "Compensation",
+      "type": "object"
+    },
+    "Gate": {
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "$ref": "#/$defs/GateDecision"
+        },
+        "delay_s": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delay S"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "decision",
+        "rule_id",
+        "reason"
+      ],
+      "title": "Gate",
+      "type": "object"
+    },
+    "GateDecision": {
+      "enum": [
+        "auto",
+        "delay",
+        "human",
+        "human_plus",
+        "report_only"
+      ],
+      "title": "GateDecision",
+      "type": "string"
+    },
+    "PlannerProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "output_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Sha256"
+        },
+        "prompt_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Sha256"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "template_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Template Id"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "PlannerProvenance",
+      "type": "object"
+    },
+    "Reversibility": {
+      "enum": [
+        "reversible",
+        "compensable",
+        "irreversible"
+      ],
+      "title": "Reversibility",
+      "type": "string"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "title": "Action Id",
+          "type": "string"
+        },
+        "compensation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Compensation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "precondition": {
+          "title": "Precondition",
+          "type": "string"
+        },
+        "reversibility": {
+          "$ref": "#/$defs/Reversibility"
+        },
+        "step_id": {
+          "title": "Step Id",
+          "type": "string"
+        },
+        "target_node": {
+          "title": "Target Node",
+          "type": "string"
+        },
+        "timeout_s": {
+          "exclusiveMinimum": 0,
+          "title": "Timeout S",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "action_id",
+        "target_node",
+        "reversibility",
+        "precondition",
+        "timeout_s"
+      ],
+      "title": "Step",
+      "type": "object"
+    },
+    "Verification": {
+      "additionalProperties": false,
+      "properties": {
+        "predicate": {
+          "title": "Predicate",
+          "type": "string"
+        },
+        "window_s": {
+          "minimum": 0,
+          "title": "Window S",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "predicate",
+        "window_s"
+      ],
+      "title": "Verification",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "blast_radius": {
+      "$ref": "#/$defs/BlastRadius"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "finding_id": {
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "gate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Gate"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "planner": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PlannerProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/Step"
+      },
+      "minItems": 1,
+      "title": "Steps",
+      "type": "array"
+    },
+    "verification": {
+      "$ref": "#/$defs/Verification"
+    }
+  },
+  "required": [
+    "finding_id",
+    "steps",
+    "blast_radius",
+    "verification"
+  ],
+  "title": "Plan",
+  "type": "object"
+}
