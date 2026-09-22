@@ -36,6 +36,7 @@ Config file format (live_monitor.yaml):
 import argparse
 import json
 import logging
+import os
 import signal
 import sys
 import time
@@ -101,6 +102,7 @@ class LiveMonitor:
         health_config: HealthConfig | None = None,
         direct_engine: bool = False,
         dry_run: bool = False,
+        pillar1_checkpoint: str | None = None,
     ):
         self.prometheus_url = prometheus_url
         self.sable_url = sable_url.rstrip("/")
@@ -117,6 +119,30 @@ class LiveMonitor:
         self.topology_edges = []
         if topology_path:
             self.topology_edges = load_topology_from_file(topology_path)
+
+        # Pillar-1 GNN for the trained model's encoding (see _push_to_engine).
+        # The fusion checkpoints are trained on precompute_smd.encode_smd_tick
+        # (10-dim infra features -> SableGNN -> 256-dim embedding), not on the
+        # PillarEncoder's 1044-dim per-type vectors. When the Pillar-1 checkpoint
+        # is present we post what the model was trained on; otherwise the stock
+        # encoding goes out and a real engine will reject it.
+        self._gnn = None
+        self._gnn_device = "cpu"
+        self.sable_token = os.environ.get("SABLE_TOKEN")   # server.py's require_token on /api/live_tick
+        self._prev_mamba = None
+        if pillar1_checkpoint is None:
+            pillar1_checkpoint = str(Path(__file__).resolve().parent.parent / "pillar1" / "checkpoints" / "best_model.pt")
+        if pillar1_checkpoint and Path(pillar1_checkpoint).exists():
+            try:
+                import precompute_smd as recipe
+                self._recipe = recipe
+                self._gnn = recipe.load_gnn(self._gnn_device)
+                log.info("Pillar-1 GNN loaded from %s (trained-model encoding active)", pillar1_checkpoint)
+            except Exception as e:  # noqa: BLE001 — fall back loudly, never silently
+                log.warning("Pillar-1 GNN unavailable (%s): posting the stock 1044-dim encoding", e)
+        else:
+            log.warning("No Pillar-1 checkpoint at %s: posting the stock 1044-dim encoding "
+                        "(a trained fusion model will reject it)", pillar1_checkpoint)
 
         # State
         self._prev_snapshot: SystemSnapshot | None = None
@@ -210,35 +236,56 @@ class LiveMonitor:
         total = time.time() - t0
         self._print_cycle(snapshot, result, t_poll, t_encode, t_infer, total)
 
+    def _trained_model_body(self, snapshot) -> dict:
+        """Encode the scored snapshot exactly as the fusion checkpoints were
+        trained (precompute_smd.encode_smd_tick) and shape it for /api/live_tick."""
+        import numpy as np
+        gnn_out, pomdp_out, mamba_out, gt, node_ids = self._recipe.encode_smd_tick(
+            snapshot, self._gnn, self._gnn_device)
+        n = len(node_ids)
+        feat = int(mamba_out.shape[1])
+        # /api/live_tick reads tick index 1 of a (1, 2, n*feat) window
+        mamba_seq = np.zeros((1, 2, n * feat), dtype=np.float32)
+        cur = mamba_out.numpy().reshape(-1)
+        mamba_seq[0, 1, :] = cur
+        if self._prev_mamba is not None and self._prev_mamba.shape == cur.shape:
+            mamba_seq[0, 0, :] = self._prev_mamba
+        self._prev_mamba = cur.copy()
+        return {
+            "gnn": gnn_out.numpy().tolist(),            # (N, 256) Pillar-1 embeddings
+            "pomdp": {nid: pomdp_out[i].tolist() for i, nid in enumerate(node_ids)},
+            "mamba": mamba_seq.tolist(),
+            "node_ids": node_ids,
+            "n_nodes": n,
+            "ground_truth": gt.tolist(),
+        }
+
+    def _stock_body(self, inputs, snapshot) -> dict:
+        """The PillarEncoder's own tensors (1044-dim GNN input; pre-retrain models)."""
+        node_ids = inputs.node_ids
+        ground_truth = []
+        state_map = {"healthy": 0, "degraded": 1, "failed": 2, "unreachable": 3, "oscillating": 4}
+        for nid in node_ids:
+            node = snapshot.nodes.get(nid)
+            ground_truth.append(state_map.get(node.state, 0) if node and node.state else 0)
+        return {
+            "gnn": inputs.gnn.x.tolist(),
+            "pomdp": {nid: v.tolist() for nid, v in inputs.pomdp.beliefs.items()},
+            "mamba": inputs.mamba.x_input.tolist(),
+            "node_ids": node_ids,
+            "n_nodes": inputs.gnn.n_nodes,
+            "ground_truth": ground_truth,
+        }
+
     def _push_to_engine(self, inputs, snapshot) -> dict | None:
         """Send encoded inputs to the SABLE engine via HTTP API."""
         try:
-            # Convert numpy arrays to lists for JSON serialization
-            gnn_data = inputs.gnn.x.tolist()
-            pomdp_data = {nid: v.tolist() for nid, v in inputs.pomdp.beliefs.items()}
-            mamba_data = inputs.mamba.x_input.tolist()
-
-            # Build ground truth from health scorer states
-            node_ids = inputs.node_ids
-            ground_truth = []
-            state_map = {"healthy": 0, "degraded": 1, "failed": 2, "unreachable": 3, "oscillating": 4}
-            for nid in node_ids:
-                node = snapshot.nodes.get(nid)
-                if node and node.state:
-                    ground_truth.append(state_map.get(node.state, 0))
-                else:
-                    ground_truth.append(0)
-
+            body = self._trained_model_body(snapshot) if self._gnn is not None else self._stock_body(inputs, snapshot)
+            headers = {"X-SABLE-Token": self.sable_token} if getattr(self, "sable_token", None) else {}
             resp = requests.post(
                 f"{self.sable_url}/api/live_tick",
-                json={
-                    "gnn": gnn_data,
-                    "pomdp": pomdp_data,
-                    "mamba": mamba_data,
-                    "node_ids": node_ids,
-                    "n_nodes": inputs.gnn.n_nodes,
-                    "ground_truth": ground_truth,
-                },
+                json=body,
+                headers=headers,
                 timeout=10,
             )
             resp.raise_for_status()
