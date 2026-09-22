@@ -506,6 +506,16 @@ class SableEngine:
             })
             priority += 1
 
+        # Root cause: the earliest hard failure. Unreachable counts — a killed
+        # primary is unreachable to monitoring, not "failed", and it is still
+        # the thing to fix (lab run 2026-09-22: kill_primary produced no root).
+        # Ties at the same tick prefer failed over unreachable.
+        failed_ids = {n["node"] for n in failed}
+        hard = sorted(failed + unreachable,
+                      key=lambda n: (n["first_affected_tick"], 0 if n["node"] in failed_ids else 1))
+        root = hard[0] if hard else None
+        root_state = None if root is None else ("failed" if root["node"] in failed_ids else "unreachable")
+
         # Impact summary
         total_affected = len(failed) + len(unreachable) + len(degraded) + len(oscillating)
         summary_parts = []
@@ -519,14 +529,16 @@ class SableEngine:
         else:
             summary = (f"{total_affected}/{self.n_nodes} nodes affected: "
                       + ", ".join(summary_parts) + ". "
-                      + (f"Root cause likely Node {failed[0]['node']:02d} (first failure at tick {failed[0]['first_affected_tick']})."
-                         if failed else "No hard failures — monitor degraded nodes."))
+                      + (f"Root cause likely Node {root['node']:02d} "
+                         f"({root_state}, first affected at tick {root['first_affected_tick']})."
+                         if root else "No hard failures — monitor degraded nodes."))
 
         return {
             "summary": summary,
             "total_affected": total_affected,
             "actions": actions,
-            "root_cause": failed[0]["node"] if failed else None,
+            "root_cause": root["node"] if root else None,
+            "root_cause_state": root_state,
         }
 
     def get_summary(self) -> dict:
