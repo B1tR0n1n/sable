@@ -83,10 +83,10 @@ class Executor:
             b = b.model_dump()
         return b
 
-    def _check(self, check_id: str, params: dict[str, Any]) -> dict[str, Any]:
+    def _check(self, check_id: str, action_id: str, params: dict[str, Any]) -> dict[str, Any]:
         """{argv, expect} for a precondition check, rendered."""
         if hasattr(self.catalog, "render_check"):
-            c = self.catalog.render_check(check_id, params, self.context)
+            c = self.catalog.render_check(check_id, action_id, params, self.context)
             return c.model_dump() if hasattr(c, "model_dump") else c
         checks = getattr(self.catalog, "checks", {}) or {}
         spec = checks.get(check_id) if isinstance(checks, dict) else None
@@ -166,7 +166,7 @@ class Executor:
             res.session_id = sid
             try:
                 # 3. precondition
-                check = self._check(step.precondition, {**step.params, "target_node": step.target_node})
+                check = self._check(step.precondition, step.action_id, step.params)
                 rc, out = self._run(live, check["argv"], 30, f"{step.step_id}/pre", {**cause, "phase": "precondition"})
                 if not self._expect_ok(rc, out, check.get("expect") or {"exit_code": 0}):
                     live.close().rollback()          # nothing was changed; discard the session
@@ -177,10 +177,10 @@ class Executor:
                     failed_at = step.step_id
                     break
                 # 4. the action, then its follow-up
-                argv = render_argv(list(binding["argv"]), values)
+                argv = list(binding["argv"])
                 rc, out = self._run(live, argv, step.timeout_s, step.step_id, cause)
                 if rc == 0 and binding.get("then"):
-                    rc2, out2 = self._run(live, render_argv(list(binding["then"]), values),
+                    rc2, out2 = self._run(live, list(binding["then"]),
                                           step.timeout_s, f"{step.step_id}/then", {**cause, "phase": "then"})
                     rc, out = rc2, out + out2
                 session = live.close()
@@ -247,7 +247,7 @@ class Executor:
                     entry.session_id = getattr(live, "sid", None)
                     cause = {"plan_id": plan.id, "step_id": step.step_id, "action_id": comp.action_id,
                              "compensates": step.action_id}
-                    rc, out = self._run(live, render_argv(list(binding["argv"]), values), step.timeout_s,
+                    rc, out = self._run(live, list(binding["argv"]), step.timeout_s,
                                         f"{step.step_id}/compensate", cause)
                     session = live.close()
                     if rc == 0:

@@ -1,0 +1,28 @@
+{
+ "summary": "2/32 nodes affected: 2 degraded. Root cause likely ERP Application (first failure at tick 2).",
+ "total_affected": 2,
+ "actions": [
+  {
+   "priority": 1,
+   "action": "MONITOR/INVESTIGATE",
+   "target": "ERP Application",
+   "target_id": "app-erp",
+   "target_type": "APPLICATION_SERVICE",
+   "reason": "Degraded since tick 2. Performance impacted but operational.",
+   "recommendation": "Check resource utilization. May worsen \u2014 watch trajectory."
+  },
+  {
+   "priority": 2,
+   "action": "MONITOR/INVESTIGATE",
+   "target": "Web Server 1",
+   "target_id": "vm-web-1",
+   "target_type": "SERVER_VIRTUAL",
+   "reason": "Degraded since tick 3. Performance impacted but operational.",
+   "recommendation": "Check resource utilization. May worsen \u2014 watch trajectory."
+  }
+ ],
+ "root_cause": 31,
+ "root_cause_label": "ERP Application",
+ "root_cause_id": "app-erp",
+ "root_cause_type": "APPLICATION_SERVICE"
+}
