@@ -1,0 +1,89 @@
+# SABLE topology for the lab (same format as adapters/topologies/msp_demo.yaml).
+#
+# NODE ORDER IS LOAD-BEARING. SABLE's server maps engine node index -> identity by POSITION in
+# the first YAML of its topology dir (docker/server.py:73-83, node_label/node_id/node_type), and
+# the live monitor posts nodes in SORTED id order (adapters/encode.py:138 `sorted(node_ids)`).
+# The nodes below are therefore listed in sorted-id order; console/tests/test_lab.py asserts it.
+# Edge convention: source DEPENDS ON target.
+
+nodes:
+  - id: app
+    type: APPLICATION_SERVICE
+    label: App
+    tier: services
+
+  - id: db
+    type: SERVER_VIRTUAL
+    label: DB primary
+    tier: data
+
+  - id: db-replica
+    type: SERVER_VIRTUAL
+    label: DB replica
+    tier: data
+
+  - id: dns
+    type: DNS_SERVER
+    label: Lab DNS
+    tier: core
+
+  - id: prometheus
+    type: MONITORING_SERVER
+    label: Prometheus
+    tier: management
+
+  - id: proxy
+    type: LOAD_BALANCER
+    label: Reverse proxy
+    tier: edge
+
+edges:
+  - source: app
+    target: dns
+    type: DNS_DEPENDENCY
+    criticality: HARD
+
+  - source: app
+    target: db
+    type: SERVICE_DEPENDENCY
+    criticality: HARD
+
+  - source: db
+    target: db-replica
+    type: REPLICATION_DEPENDENCY
+    criticality: SOFT
+
+  - source: proxy
+    target: app
+    type: SERVICE_DEPENDENCY
+    criticality: HARD
+
+  - source: proxy                      # the proxy fronts the primary (proxy/upstream.env)
+    target: db
+    type: SERVICE_DEPENDENCY
+    criticality: HARD
+
+  - source: prometheus
+    target: dns
+    type: MONITORING_DEPENDENCY
+    criticality: SOFT
+
+  - source: prometheus
+    target: app
+    type: MONITORING_DEPENDENCY
+    criticality: SOFT
+
+  - source: prometheus
+    target: db
+    type: MONITORING_DEPENDENCY
+    criticality: SOFT
+
+  - source: prometheus
+    target: db-replica
+    type: MONITORING_DEPENDENCY
+    criticality: SOFT
+
+  - source: prometheus
+    target: proxy
+    type: MONITORING_DEPENDENCY
+    criticality: SOFT

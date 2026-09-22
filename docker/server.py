@@ -8,6 +8,7 @@ import asyncio
 import json
 import os
 import re
+import os
 import sqlite3
 import sys
 import time
@@ -24,6 +25,7 @@ import sys
 from sable_engine import SableEngine
 from nemotron_bridge import NemotronBridge
 from grafana_shim import make_router as make_grafana_router
+from claude_bridge import ClaudeBridge, bridge_info, make_tools, select_bridge
 
 app = FastAPI(title="SABLE Engine", version="1.0")
 app.include_router(make_grafana_router(sys.modules[__name__]), prefix="/grafana")
@@ -40,7 +42,7 @@ _scenario_cache: list[dict] | None = None  # Cached scenario metadata
 _topo_nodes: list[dict] = []  # Topology node metadata, indexed by position
 _topo_edges: list[dict] = []  # Topology edges
 mc_dropout_samples: int = 0   # 0 = off, >0 = MC dropout enabled with N samples
-nemotron = NemotronBridge()   # Nemotron LLM bridge for natural language reports
+nemotron = select_bridge()    # LLM bridge: SABLE_LLM=claude -> ClaudeBridge, else NemotronBridge (default)
 
 # Scenario name validation: alphanumeric, hyphens, underscores only
 _SAFE_NAME = re.compile(r"^[a-zA-Z0-9_\-]+$")
@@ -50,7 +52,7 @@ _SAFE_NAME = re.compile(r"^[a-zA-Z0-9_\-]+$")
 # When exposed, set SABLE_TOKEN to require an X-SABLE-Token header on every
 # state-mutating endpoint. node ids/labels from the live monitor are sanitized
 # before they ever reach the dashboard (defense against XSS from crafted ids).
-HOST = os.environ.get("SABLE_HOST", "127.0.0.1")
+HOST = os.environ.get("SABLE_HOST") or os.environ.get("SABLE_BIND") or "127.0.0.1"
 PORT = int(os.environ.get("SABLE_PORT", "8080"))
 TOKEN = os.environ.get("SABLE_TOKEN")
 _MAX_NODES = 2000  # hard cap on caller-declared node counts
@@ -214,6 +216,16 @@ async def startup():
         source = scenario_data.get("source", "sable_sim")
         print(f"  Default scenario: {current_scenario} ({scenario_data['n_nodes']} nodes, "
               f"{scenario_data['n_ticks']} ticks, source={source})")
+
+    # Claude path only: hand the bridge READ-ONLY accessors over the initialised
+    # engine + loaded topology (see claude_bridge.make_tools). Never mutates state.
+    if isinstance(nemotron, ClaudeBridge):
+        nemotron.register_tools(**make_tools(
+            engine, enrich_recommendations, node_label, node_id, node_type,
+            _topo_nodes, _topo_edges,
+        ))
+        print(f"  LLM provider: claude ({nemotron.model}), "
+              f"key {'present' if nemotron.is_available() else 'MISSING'}", flush=True)
 
     print("\n  SABLE Engine running at http://localhost:8080\n", flush=True)
 
@@ -659,8 +671,9 @@ async def feedback_stats():
 
 @app.get("/api/nemotron/status")
 async def nemotron_status():
-    """Check if Nemotron is available."""
-    return {"available": nemotron.is_available(), "url": nemotron.llama_url}
+    """Check if the LLM bridge is available; `provider` says which one is active."""
+    return {"available": nemotron.is_available(), "url": nemotron.llama_url,
+            **bridge_info(nemotron)}
 
 
 @app.post("/api/nemotron/report")

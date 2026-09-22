@@ -1,0 +1,157 @@
+# The action catalog — the ONLY things a Plan may ask OVERLORD to do.
+#
+# Ground rule 4: the LLM never invents actions. A planner (template or model)
+# may pick an action_id from this file and fill its params; everything else
+# on a Step is fixed here and re-checked by console.planner.validate_plan.
+#
+# Templates use {name} placeholders filled from the step's params plus the
+# lab context the executor (Phase 4) supplies:
+#   {lab_dir}       the lab checkout OVERLORD opens a transactional session over
+#   {lab_compose}   the lab's docker-compose file
+# and one the catalog fills itself:
+#   {scripts_dir}   console/catalog/scripts/, where shipped helper scripts live
+#
+# Executor bindings are docker-compose based (the lab, Phase 8) and run on the
+# host inside an OVERLORD session (INTEGRATION-NOTES G8): jail=false because
+# `docker compose` needs the host's docker socket; net=none because nothing
+# here needs egress; timeout_s is the CEILING a step may ask for.
+#
+# Destructive actions are excluded entirely from this catalog.
+
+version: 1
+
+context: [lab_dir, lab_compose]          # supplied by the executor at render time
+
+checks:                                  # read-only preconditions, run through OVERLORD before a step
+  service_exists:
+    description: the compose service is defined and known
+    argv: ["docker", "compose", "-f", "{lab_compose}", "ps", "--services", "--all"]
+    expect: {exit_code: 0, stdout_contains: "{service}"}
+  service_running:
+    description: the compose service is currently running
+    argv: ["docker", "compose", "-f", "{lab_compose}", "ps", "--services", "--status", "running"]
+    expect: {exit_code: 0, stdout_contains: "{service}"}
+  replica_running:
+    description: the replica service is currently running (a failover target must be up)
+    argv: ["docker", "compose", "-f", "{lab_compose}", "ps", "--services", "--status", "running"]
+    expect: {exit_code: 0, stdout_contains: "{replica}"}
+  primary_running:
+    description: the primary service is currently running (a failback target must be up)
+    argv: ["docker", "compose", "-f", "{lab_compose}", "ps", "--services", "--status", "running"]
+    expect: {exit_code: 0, stdout_contains: "{primary}"}
+  config_file_exists:
+    description: the config file exists inside the lab directory
+    argv: ["test", "-f", "{lab_dir}/{file}"]
+    expect: {exit_code: 0}
+  none:
+    description: no precondition
+    argv: ["true"]
+    expect: {exit_code: 0}
+
+predicates:                              # verification predicates evaluated by SABLE (Phase 5)
+  node_healthy:
+    description: every node in the blast radius reports healthy in a fresh live tick
+  service_running:
+    description: the target service is up (metric up==1) and healthy
+
+actions:
+  restart_service:
+    description: restart a lab service in place
+    component_types: [DNS_SERVER, APPLICATION_SERVICE, LOAD_BALANCER, SERVER_VIRTUAL, MONITORING_SERVER]
+    params:
+      type: object
+      properties:
+        service: {type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]*$"}
+      required: [service]
+      additionalProperties: false
+    reversibility: compensable           # the prior running state is restorable: restart again
+    compensation: {action_id: restart_service, params_from: [service]}
+    preconditions: [service_exists]
+    verification: node_healthy
+    executor:
+      argv: ["docker", "compose", "-f", "{lab_compose}", "restart", "{service}"]
+      grants: {jail: false, net: none, timeout_s: 60}
+      target_dir: "{lab_dir}"
+
+  set_config_value:
+    description: set key=value in a service's config file inside the lab directory, then restart the service
+    component_types: [APPLICATION_SERVICE, DNS_SERVER, LOAD_BALANCER]
+    params:
+      type: object
+      properties:
+        file: {type: string, pattern: "^(?!/)(?!.*\\.\\.)[A-Za-z0-9_./-]+$"}    # relative to {lab_dir}, no `..`
+        key: {type: string, pattern: "^[A-Za-z_][A-Za-z0-9_.-]*$"}
+        value: {type: string, pattern: "^[^\\r\\n]*$"}
+        service: {type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]*$"}
+      required: [file, key, value, service]
+      additionalProperties: false
+    reversibility: reversible            # the file lives in {lab_dir}: OVERLORD's snapshot/revert restores it
+    compensation: null
+    preconditions: [config_file_exists]
+    verification: node_healthy
+    executor:
+      argv: ["python3", "{scripts_dir}/set_config_value.py", "{lab_dir}/{file}", "{key}", "{value}"]
+      then: ["docker", "compose", "-f", "{lab_compose}", "restart", "{service}"]
+      grants: {jail: false, net: none, timeout_s: 60}
+      target_dir: "{lab_dir}"
+
+  failover_to_replica:
+    description: point the proxy in front of a primary at its replica and restart the proxy
+    component_types: [SERVER_VIRTUAL, STORAGE_ARRAY]
+    params:
+      type: object
+      properties:
+        primary: {type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]*$"}
+        replica: {type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]*$"}
+        proxy: {type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]*$"}
+      required: [primary, replica, proxy]
+      additionalProperties: false
+    reversibility: compensable           # undone by failing back to the primary
+    compensation: {action_id: failback_to_primary, params_from: [primary, replica, proxy]}
+    preconditions: [replica_running]
+    verification: node_healthy
+    executor:
+      argv: ["python3", "{scripts_dir}/set_config_value.py", "{lab_dir}/{proxy}/upstream.env", "UPSTREAM_HOST", "{replica}"]
+      then: ["docker", "compose", "-f", "{lab_compose}", "restart", "{proxy}"]
+      grants: {jail: false, net: none, timeout_s: 120}
+      target_dir: "{lab_dir}"
+
+  failback_to_primary:
+    description: point the proxy back at the primary and restart the proxy (compensation for failover_to_replica)
+    compensation_only: true              # never proposed by a planner; only run as a compensation
+    component_types: [SERVER_VIRTUAL, STORAGE_ARRAY]
+    params:
+      type: object
+      properties:
+        primary: {type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]*$"}
+        replica: {type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]*$"}
+        proxy: {type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]*$"}
+      required: [primary, replica, proxy]
+      additionalProperties: false
+    reversibility: compensable
+    compensation: {action_id: failover_to_replica, params_from: [primary, replica, proxy]}
+    preconditions: [primary_running]
+    verification: node_healthy
+    executor:
+      argv: ["python3", "{scripts_dir}/set_config_value.py", "{lab_dir}/{proxy}/upstream.env", "UPSTREAM_HOST", "{primary}"]
+      then: ["docker", "compose", "-f", "{lab_compose}", "restart", "{proxy}"]
+      grants: {jail: false, net: none, timeout_s: 120}
+      target_dir: "{lab_dir}"
+
+  clear_dns_cache:
+    description: clear the DNS server's cache (SIGHUP to dnsmasq clears the cache and re-reads config)
+    component_types: [DNS_SERVER]
+    params:
+      type: object
+      properties:
+        service: {type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]*$"}
+      required: [service]
+      additionalProperties: false
+    reversibility: reversible            # reversible in effect (the cache refills), low risk
+    compensation: null
+    preconditions: [service_running]
+    verification: service_running
+    executor:
+      argv: ["docker", "compose", "-f", "{lab_compose}", "kill", "-s", "HUP", "{service}"]
+      grants: {jail: false, net: none, timeout_s: 30}
+      target_dir: "{lab_dir}"

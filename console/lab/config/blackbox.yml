@@ -1,0 +1,23 @@
+# Lab blackbox-exporter modules.
+modules:
+  # Ask the lab DNS for db.lab and require the pristine answer: a stopped dnsmasq fails the
+  # probe (no answer), a poisoned record fails it too (answer does not match).
+  dns_db_lab:
+    prober: dns
+    timeout: 3s
+    dns:
+      transport_protocol: udp
+      preferred_ip_protocol: ip4
+      query_name: db.lab
+      query_type: A
+      valid_rcodes: [NOERROR]
+      validate_answer_rrs:
+        fail_if_not_matches_regexp:
+          - "^db\\.lab\\.\\t.*\\tIN\\tA\\t172\\.28\\.0\\.30$"
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: []           # 2xx
+      follow_redirects: false

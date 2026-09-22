@@ -1,0 +1,194 @@
+# OVERLORD x SABLE lab (Phase 8): a small world to break and heal.
+#
+#   proxy (nginx) -> app (python) -> db (python kv, primary)
+#                       |              db-replica (python kv, replica)
+#                       +-> dns (dnsmasq: app.lab / db.lab / db-replica.lab)
+#   prometheus scrapes every service by job = service name, instance = <service>:<port>;
+#   blackbox probes dns:53 (dns module, validates the db.lab answer) and http://proxy:80/health.
+#
+# Every container has a fixed IP on one named subnet so dnsmasq can hold static A records
+# and nginx's resolved upstream stays valid across restarts. Configs are bind-mounted from
+# ./config (pristine twins in ./config/*.pristine, restored by faults/heal_all.sh).
+#
+# Host ports (all optional, for the operator, SABLE and the console running on the host):
+#   dns 15353/udp  app 18000  db 18100  db-replica 18101  proxy 18080  prometheus 9090  blackbox 19115
+
+name: sable-lab
+
+x-python-healthcheck: &python-http-health
+  interval: 5s
+  timeout: 3s
+  retries: 3
+  start_period: 10s
+
+services:
+  dns:
+    build: ./images/dnsmasq            # alpine:3.20 + dnsmasq (see images/dnsmasq/Dockerfile)
+    image: sable-lab/dnsmasq:local
+    container_name: sable-lab-dns
+    volumes:
+      - ./config/dnsmasq.conf:/etc/dnsmasq.conf:ro
+      - ./config/lab.hosts:/etc/dnsmasq.d/lab.hosts:ro
+    networks:
+      lab:
+        ipv4_address: 172.28.0.10
+    ports:
+      - "15353:53/udp"
+    healthcheck:
+      test: ["CMD", "nslookup", "db.lab", "127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  db:
+    image: python:3.12-alpine
+    container_name: sable-lab-db
+    command: ["python3", "-u", "/lab/services/kv.py"]
+    environment:
+      KV_ROLE: primary
+      KV_PORT: "8100"
+    volumes:
+      - ./services:/lab/services:ro
+    networks:
+      lab:
+        ipv4_address: 172.28.0.30
+    ports:
+      - "18100:8100"
+    healthcheck:
+      <<: *python-http-health
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=2).status == 200 else 1)"]
+    restart: unless-stopped
+
+  db-replica:
+    image: python:3.12-alpine
+    container_name: sable-lab-db-replica
+    command: ["python3", "-u", "/lab/services/kv.py"]
+    environment:
+      KV_ROLE: replica
+      KV_PORT: "8100"
+      KV_PRIMARY: db.lab:8100
+    dns: [172.28.0.10]
+    volumes:
+      - ./services:/lab/services:ro
+    networks:
+      lab:
+        ipv4_address: 172.28.0.31
+    ports:
+      - "18101:8100"
+    healthcheck:
+      <<: *python-http-health
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=2).status == 200 else 1)"]
+    restart: unless-stopped
+
+  app:
+    image: python:3.12-alpine
+    container_name: sable-lab-app
+    command: ["python3", "-u", "/lab/services/app.py"]
+    environment:
+      APP_PORT: "8000"
+      APP_CONF: /lab/config/app.conf
+      APP_UPSTREAM_ENV: /lab/app/upstream.env
+    # The app's resolver IS the dns container: Docker's embedded DNS (127.0.0.11) answers
+    # container names itself and forwards everything else (db.lab, ...) to dnsmasq.
+    dns: [172.28.0.10]
+    dns_opt: ["timeout:1", "attempts:1"]
+    volumes:
+      - ./services:/lab/services:ro
+      - ./config:/lab/config:ro
+      - ./app:/lab/app:ro
+    depends_on:
+      dns: {condition: service_healthy}
+      db: {condition: service_healthy}
+    networks:
+      lab:
+        ipv4_address: 172.28.0.20
+    ports:
+      - "18000:8000"
+    healthcheck:
+      <<: *python-http-health
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).status == 200 else 1)"]
+    restart: unless-stopped
+
+  proxy:
+    image: nginx:1.27-alpine
+    container_name: sable-lab-proxy
+    # proxy/upstream.env (UPSTREAM_HOST=db) is the failover knob the catalog rewrites. env_file
+    # alone is read once at container CREATION and `docker compose restart` keeps the old
+    # values, so the file is also bind-mounted and sourced at every start before the image's
+    # entrypoint renders /etc/nginx/templates/default.conf.template.
+    env_file:
+      - ./proxy/upstream.env
+    command: ["/bin/sh", "-c", "set -a; . /lab/proxy/upstream.env; set +a; exec /docker-entrypoint.sh nginx -g 'daemon off;'"]
+    volumes:
+      - ./proxy/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./proxy/upstream.env:/lab/proxy/upstream.env:ro
+    depends_on:
+      app: {condition: service_started}
+      db: {condition: service_started}
+    networks:
+      lab:
+        ipv4_address: 172.28.0.40
+    ports:
+      - "18080:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/metrics"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: sable-lab-blackbox
+    command: ["--config.file=/etc/blackbox/blackbox.yml"]
+    volumes:
+      - ./config/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    networks:
+      lab:
+        ipv4_address: 172.28.0.51
+    ports:
+      - "19115:9115"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9115/-/healthy"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: sable-lab-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=2h"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      blackbox: {condition: service_healthy}
+    networks:
+      lab:
+        ipv4_address: 172.28.0.50
+    ports:
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+networks:
+  lab:
+    name: sable-lab
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+          gateway: 172.28.0.1

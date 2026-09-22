@@ -1,0 +1,45 @@
+{
+  "approvals": [
+    {
+      "actor": "operator@lab",
+      "decision": "approve",
+      "timestamp": "2026-09-22T14:00:00Z"
+    }
+  ],
+  "audit_ref": null,
+  "created_at": "2026-09-22T14:00:00Z",
+  "finding_id": "fnd-example000001",
+  "id": "rcp-example000001",
+  "plan_id": "pln-example000001",
+  "prev_receipt_hash": null,
+  "receipt_hash": "75fadad48426a6429968ce5d751aa1c3452eaaf5b39748ddd3c9bfa8fc521a99",
+  "rollback": {
+    "performed": false,
+    "steps": []
+  },
+  "session_id": "20260922-140000-abc123",
+  "snapshots": [
+    {
+      "node_id": "dns-1",
+      "snapshot_ref": "20260922-140000-abc123"
+    }
+  ],
+  "steps": [
+    {
+      "ended_at": "2026-09-22T14:00:00Z",
+      "error": null,
+      "output_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "session_id": "20260922-140000-abc123",
+      "started_at": "2026-09-22T14:00:00Z",
+      "status": "ok",
+      "step_id": "s1"
+    }
+  ],
+  "verification": {
+    "checked_at": "2026-09-22T14:00:00Z",
+    "observed": {
+      "dns-1": "healthy"
+    },
+    "status": "pass"
+  }
+}

@@ -1,0 +1,236 @@
+{
+  "$defs": {
+    "Confidence": {
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "$ref": "#/$defs/ConfidenceMethod"
+        },
+        "samples": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Samples"
+        },
+        "score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "score",
+        "method"
+      ],
+      "title": "Confidence",
+      "type": "object"
+    },
+    "ConfidenceMethod": {
+      "enum": [
+        "mc_dropout",
+        "engine_native",
+        "heuristic"
+      ],
+      "title": "ConfidenceMethod",
+      "type": "string"
+    },
+    "DetectionMode": {
+      "enum": [
+        "live_feed",
+        "unmonitored_gap"
+      ],
+      "title": "DetectionMode",
+      "type": "string"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Threshold"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "unit": {
+          "default": "",
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "metric",
+        "value",
+        "timestamp"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "FindingStatus": {
+      "enum": [
+        "open",
+        "closed",
+        "reopened"
+      ],
+      "title": "FindingStatus",
+      "type": "string"
+    },
+    "NodeRef": {
+      "additionalProperties": false,
+      "properties": {
+        "component_type": {
+          "title": "Component Type",
+          "type": "string"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id",
+        "component_type",
+        "state"
+      ],
+      "title": "NodeRef",
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Emitted by SABLE. `summary` may be model-written; `summary_generated`\nsays so \u2014 generated text is always flagged (ground rule 8).",
+  "properties": {
+    "affected_nodes": {
+      "items": {
+        "$ref": "#/$defs/NodeRef"
+      },
+      "title": "Affected Nodes",
+      "type": "array"
+    },
+    "confidence": {
+      "$ref": "#/$defs/Confidence"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "detection_mode": {
+      "$ref": "#/$defs/DetectionMode"
+    },
+    "engine_version": {
+      "title": "Engine Version",
+      "type": "string"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/Evidence"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "occurrences": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Occurrences",
+      "type": "integer"
+    },
+    "receipt_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Receipt Ids",
+      "type": "array"
+    },
+    "root_cause": {
+      "$ref": "#/$defs/NodeRef"
+    },
+    "severity": {
+      "$ref": "#/$defs/Severity"
+    },
+    "site_id": {
+      "title": "Site Id",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/FindingStatus",
+      "default": "open"
+    },
+    "summary": {
+      "default": "",
+      "title": "Summary",
+      "type": "string"
+    },
+    "summary_generated": {
+      "default": false,
+      "title": "Summary Generated",
+      "type": "boolean"
+    },
+    "updated_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Updated At"
+    }
+  },
+  "required": [
+    "site_id",
+    "detection_mode",
+    "root_cause",
+    "confidence",
+    "severity",
+    "engine_version"
+  ],
+  "title": "Finding",
+  "type": "object"
+}

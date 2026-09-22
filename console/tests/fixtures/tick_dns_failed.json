@@ -1,0 +1,925 @@
+{
+ "cycle": 4,
+ "nodes": [
+  {
+   "id": 0,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.8924,
+   "probs": {
+    "healthy": 0.8924,
+    "degraded": 0.02451,
+    "failed": 0.040466,
+    "unreachable": 0.020388,
+    "oscillating": 0.022236
+   },
+   "transition": {
+    "improving": 0.06479,
+    "stable": 0.7556,
+    "deteriorating": 0.17961
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.171699,
+    "POMDP": 0.3188,
+    "Mamba": 0.051312,
+    "Fusion": 0.458189
+   },
+   "label": "Core Switch 1",
+   "topo_id": "core-sw-1",
+   "component_type": "CORE_SWITCH"
+  },
+  {
+   "id": 1,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.931,
+   "probs": {
+    "healthy": 0.931,
+    "degraded": 0.001093,
+    "failed": 0.025644,
+    "unreachable": 0.025189,
+    "oscillating": 0.017073
+   },
+   "transition": {
+    "improving": 0.214198,
+    "stable": 0.7654,
+    "deteriorating": 0.020402
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.3119,
+    "POMDP": 0.283152,
+    "Mamba": 0.360166,
+    "Fusion": 0.044782
+   },
+   "label": "Core Switch 2",
+   "topo_id": "core-sw-2",
+   "component_type": "CORE_SWITCH"
+  },
+  {
+   "id": 2,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.8942,
+   "probs": {
+    "healthy": 0.8942,
+    "degraded": 0.019083,
+    "failed": 0.036493,
+    "unreachable": 0.022488,
+    "oscillating": 0.027736
+   },
+   "transition": {
+    "improving": 0.162746,
+    "stable": 0.7249,
+    "deteriorating": 0.112354
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.21774,
+    "POMDP": 0.367997,
+    "Mamba": 0.3814,
+    "Fusion": 0.032864
+   },
+   "label": "Perimeter Firewall",
+   "topo_id": "fw-1",
+   "component_type": "FIREWALL"
+  },
+  {
+   "id": 3,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.8606,
+   "probs": {
+    "healthy": 0.8606,
+    "degraded": 0.056694,
+    "failed": 0.038361,
+    "unreachable": 0.002225,
+    "oscillating": 0.04212
+   },
+   "transition": {
+    "improving": 0.111452,
+    "stable": 0.5878,
+    "deteriorating": 0.300748
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.4916,
+    "POMDP": 0.407322,
+    "Mamba": 0.000262,
+    "Fusion": 0.100816
+   },
+   "label": "WAN Router",
+   "topo_id": "rtr-wan-1",
+   "component_type": "ROUTER"
+  },
+  {
+   "id": 4,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.9656,
+   "probs": {
+    "healthy": 0.9656,
+    "degraded": 0.008417,
+    "failed": 0.017557,
+    "unreachable": 0.007118,
+    "oscillating": 0.001308
+   },
+   "transition": {
+    "improving": 0.170587,
+    "stable": 0.7703,
+    "deteriorating": 0.059113
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.3622,
+    "POMDP": 0.007168,
+    "Mamba": 0.194007,
+    "Fusion": 0.436626
+   },
+   "label": "ISP Primary",
+   "topo_id": "wan-1",
+   "component_type": "WAN_LINK"
+  },
+  {
+   "id": 5,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.8415,
+   "probs": {
+    "healthy": 0.8415,
+    "degraded": 0.067114,
+    "failed": 0.00104,
+    "unreachable": 0.044135,
+    "oscillating": 0.046212
+   },
+   "transition": {
+    "improving": 0.05709,
+    "stable": 0.7887,
+    "deteriorating": 0.15421
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.133699,
+    "POMDP": 0.3838,
+    "Mamba": 0.137567,
+    "Fusion": 0.344934
+   },
+   "label": "Internet Gateway",
+   "topo_id": "igw-1",
+   "component_type": "INTERNET_GATEWAY"
+  },
+  {
+   "id": 6,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.8201,
+   "probs": {
+    "healthy": 0.8201,
+    "degraded": 0.045336,
+    "failed": 0.051133,
+    "unreachable": 0.03109,
+    "oscillating": 0.052342
+   },
+   "transition": {
+    "improving": 0.070149,
+    "stable": 0.5569,
+    "deteriorating": 0.372951
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.3084,
+    "POMDP": 0.169415,
+    "Mamba": 0.511101,
+    "Fusion": 0.011084
+   },
+   "label": "Application LB",
+   "topo_id": "lb-1",
+   "component_type": "LOAD_BALANCER"
+  },
+  {
+   "id": 7,
+   "state": "failed",
+   "state_idx": 2,
+   "confidence": 0.9177,
+   "probs": {
+    "healthy": 0.045571,
+    "degraded": 0.021195,
+    "failed": 0.9177,
+    "unreachable": 0.004077,
+    "oscillating": 0.011457
+   },
+   "transition": {
+    "improving": 0.009172,
+    "stable": 0.218028,
+    "deteriorating": 0.7728
+   },
+   "trend": "deteriorating",
+   "routing": {
+    "GNN": 0.254713,
+    "POMDP": 0.361014,
+    "Mamba": 0.058873,
+    "Fusion": 0.3254
+   },
+   "label": "DNS Primary",
+   "topo_id": "dns-1",
+   "component_type": "DNS_SERVER"
+  },
+  {
+   "id": 8,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.8818,
+   "probs": {
+    "healthy": 0.8818,
+    "degraded": 0.041725,
+    "failed": 0.020675,
+    "unreachable": 0.015192,
+    "oscillating": 0.040607
+   },
+   "transition": {
+    "improving": 0.039465,
+    "stable": 0.8039,
+    "deteriorating": 0.156635
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.23009,
+    "POMDP": 0.4374,
+    "Mamba": 0.285985,
+    "Fusion": 0.046525
+   },
+   "label": "DNS Secondary",
+   "topo_id": "dns-2",
+   "component_type": "DNS_SERVER"
+  },
+  {
+   "id": 9,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.8276,
+   "probs": {
+    "healthy": 0.8276,
+    "degraded": 0.011631,
+    "failed": 0.054646,
+    "unreachable": 0.027216,
+    "oscillating": 0.078907
+   },
+   "transition": {
+    "improving": 0.099328,
+    "stable": 0.6871,
+    "deteriorating": 0.213572
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.116639,
+    "POMDP": 0.478935,
+    "Mamba": 0.045727,
+    "Fusion": 0.3587
+   },
+   "label": "DHCP Server",
+   "topo_id": "dhcp-1",
+   "component_type": "DHCP_SERVER"
+  },
+  {
+   "id": 10,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.8565,
+   "probs": {
+    "healthy": 0.8565,
+    "degraded": 0.034804,
+    "failed": 0.053037,
+    "unreachable": 0.038223,
+    "oscillating": 0.017436
+   },
+   "transition": {
+    "improving": 0.119213,
+    "stable": 0.8711,
+    "deteriorating": 0.009687
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.266344,
+    "POMDP": 0.049831,
+    "Mamba": 0.3823,
+    "Fusion": 0.301525
+   },
+   "label": "Domain Controller 1",
+   "topo_id": "dc-1",
+   "component_type": "DOMAIN_CONTROLLER"
+  },
+  {
+   "id": 11,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.905,
+   "probs": {
+    "healthy": 0.905,
+    "degraded": 0.055889,
+    "failed": 0.005295,
+    "unreachable": 0.00795,
+    "oscillating": 0.025866
+   },
+   "transition": {
+    "improving": 0.195193,
+    "stable": 0.6658,
+    "deteriorating": 0.139007
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.306135,
+    "POMDP": 0.418,
+    "Mamba": 0.157376,
+    "Fusion": 0.118489
+   },
+   "label": "Domain Controller 2",
+   "topo_id": "dc-2",
+   "component_type": "DOMAIN_CONTROLLER"
+  },
+  {
+   "id": 12,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.8699,
+   "probs": {
+    "healthy": 0.8699,
+    "degraded": 0.005638,
+    "failed": 0.100577,
+    "unreachable": 0.012578,
+    "oscillating": 0.011307
+   },
+   "transition": {
+    "improving": 0.222908,
+    "stable": 0.6589,
+    "deteriorating": 0.118192
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.183391,
+    "POMDP": 0.223998,
+    "Mamba": 0.183411,
+    "Fusion": 0.4092
+   },
+   "label": "Root CA",
+   "topo_id": "ca-1",
+   "component_type": "CERTIFICATE_AUTHORITY"
+  },
+  {
+   "id": 13,
+   "state": "degraded",
+   "state_idx": 1,
+   "confidence": 0.9326,
+   "probs": {
+    "healthy": 0.019476,
+    "degraded": 0.9326,
+    "failed": 0.022465,
+    "unreachable": 0.008638,
+    "oscillating": 0.016821
+   },
+   "transition": {
+    "improving": 0.091082,
+    "stable": 0.043618,
+    "deteriorating": 0.8653
+   },
+   "trend": "deteriorating",
+   "routing": {
+    "GNN": 0.4727,
+    "POMDP": 0.191153,
+    "Mamba": 0.208557,
+    "Fusion": 0.12759
+   },
+   "label": "Prometheus/Grafana",
+   "topo_id": "mon-1",
+   "component_type": "MONITORING_SERVER"
+  },
+  {
+   "id": 14,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.9132,
+   "probs": {
+    "healthy": 0.9132,
+    "degraded": 0.022762,
+    "failed": 0.002998,
+    "unreachable": 0.023904,
+    "oscillating": 0.037135
+   },
+   "transition": {
+    "improving": 0.092669,
+    "stable": 0.8579,
+    "deteriorating": 0.049431
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.306751,
+    "POMDP": 0.030655,
+    "Mamba": 0.274494,
+    "Fusion": 0.3881
+   },
+   "label": "Access Switch Floor 1",
+   "topo_id": "acc-sw-1",
+   "component_type": "ACCESS_SWITCH"
+  },
+  {
+   "id": 15,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.8248,
+   "probs": {
+    "healthy": 0.8248,
+    "degraded": 0.05239,
+    "failed": 0.041906,
+    "unreachable": 0.020059,
+    "oscillating": 0.060846
+   },
+   "transition": {
+    "improving": 0.110493,
+    "stable": 0.724,
+    "deteriorating": 0.165507
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.170618,
+    "POMDP": 0.066411,
+    "Mamba": 0.4793,
+    "Fusion": 0.283671
+   },
+   "label": "Access Switch Floor 2",
+   "topo_id": "acc-sw-2",
+   "component_type": "ACCESS_SWITCH"
+  },
+  {
+   "id": 16,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.9029,
+   "probs": {
+    "healthy": 0.9029,
+    "degraded": 0.028988,
+    "failed": 0.013172,
+    "unreachable": 0.035776,
+    "oscillating": 0.019163
+   },
+   "transition": {
+    "improving": 0.225738,
+    "stable": 0.6345,
+    "deteriorating": 0.139762
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.348104,
+    "POMDP": 0.092393,
+    "Mamba": 0.098804,
+    "Fusion": 0.4607
+   },
+   "label": "Access Switch Floor 3",
+   "topo_id": "acc-sw-3",
+   "component_type": "ACCESS_SWITCH"
+  },
+  {
+   "id": 17,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.8551,
+   "probs": {
+    "healthy": 0.8551,
+    "degraded": 0.082565,
+    "failed": 0.01882,
+    "unreachable": 0.012065,
+    "oscillating": 0.03145
+   },
+   "transition": {
+    "improving": 0.05289,
+    "stable": 0.8635,
+    "deteriorating": 0.08361
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.040023,
+    "POMDP": 0.167199,
+    "Mamba": 0.4644,
+    "Fusion": 0.328378
+   },
+   "label": "ESXi Host 1",
+   "topo_id": "hyp-1",
+   "component_type": "HYPERVISOR"
+  },
+  {
+   "id": 18,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.9529,
+   "probs": {
+    "healthy": 0.9529,
+    "degraded": 0.007865,
+    "failed": 0.01069,
+    "unreachable": 0.013819,
+    "oscillating": 0.014726
+   },
+   "transition": {
+    "improving": 0.102662,
+    "stable": 0.8447,
+    "deteriorating": 0.052638
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.3556,
+    "POMDP": 0.249865,
+    "Mamba": 0.278941,
+    "Fusion": 0.115594
+   },
+   "label": "ESXi Host 2",
+   "topo_id": "hyp-2",
+   "component_type": "HYPERVISOR"
+  },
+  {
+   "id": 19,
+   "state": "failed",
+   "state_idx": 2,
+   "confidence": 0.8767,
+   "probs": {
+    "healthy": 0.035431,
+    "degraded": 0.030779,
+    "failed": 0.8767,
+    "unreachable": 0.034978,
+    "oscillating": 0.022111
+   },
+   "transition": {
+    "improving": 0.284845,
+    "stable": 0.098655,
+    "deteriorating": 0.6165
+   },
+   "trend": "deteriorating",
+   "routing": {
+    "GNN": 0.440239,
+    "POMDP": 0.4594,
+    "Mamba": 0.051586,
+    "Fusion": 0.048775
+   },
+   "label": "Web Server 1",
+   "topo_id": "vm-web-1",
+   "component_type": "SERVER_VIRTUAL"
+  },
+  {
+   "id": 20,
+   "state": "failed",
+   "state_idx": 2,
+   "confidence": 0.9057,
+   "probs": {
+    "healthy": 0.046974,
+    "degraded": 0.027064,
+    "failed": 0.9057,
+    "unreachable": 0.005723,
+    "oscillating": 0.014538
+   },
+   "transition": {
+    "improving": 0.042671,
+    "stable": 0.119029,
+    "deteriorating": 0.8383
+   },
+   "trend": "deteriorating",
+   "routing": {
+    "GNN": 0.020603,
+    "POMDP": 0.128973,
+    "Mamba": 0.443424,
+    "Fusion": 0.407
+   },
+   "label": "Web Server 2",
+   "topo_id": "vm-web-2",
+   "component_type": "SERVER_VIRTUAL"
+  },
+  {
+   "id": 21,
+   "state": "degraded",
+   "state_idx": 1,
+   "confidence": 0.9064,
+   "probs": {
+    "healthy": 0.034043,
+    "degraded": 0.9064,
+    "failed": 0.017993,
+    "unreachable": 0.035841,
+    "oscillating": 0.005724
+   },
+   "transition": {
+    "improving": 0.115835,
+    "stable": 0.037065,
+    "deteriorating": 0.8471
+   },
+   "trend": "deteriorating",
+   "routing": {
+    "GNN": 0.284067,
+    "POMDP": 0.051086,
+    "Mamba": 0.178348,
+    "Fusion": 0.4865
+   },
+   "label": "App Server 1",
+   "topo_id": "vm-app-1",
+   "component_type": "SERVER_VIRTUAL"
+  },
+  {
+   "id": 22,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.9201,
+   "probs": {
+    "healthy": 0.9201,
+    "degraded": 0.026585,
+    "failed": 0.011008,
+    "unreachable": 0.016618,
+    "oscillating": 0.025689
+   },
+   "transition": {
+    "improving": 0.114749,
+    "stable": 0.8289,
+    "deteriorating": 0.056351
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.22759,
+    "POMDP": 0.3198,
+    "Mamba": 0.209761,
+    "Fusion": 0.242849
+   },
+   "label": "App Server 2",
+   "topo_id": "vm-app-2",
+   "component_type": "SERVER_VIRTUAL"
+  },
+  {
+   "id": 23,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.8398,
+   "probs": {
+    "healthy": 0.8398,
+    "degraded": 0.037677,
+    "failed": 0.06068,
+    "unreachable": 0.01366,
+    "oscillating": 0.048183
+   },
+   "transition": {
+    "improving": 0.084393,
+    "stable": 0.8919,
+    "deteriorating": 0.023707
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.3697,
+    "POMDP": 0.048578,
+    "Mamba": 0.258758,
+    "Fusion": 0.322964
+   },
+   "label": "Database Primary",
+   "topo_id": "vm-db-1",
+   "component_type": "SERVER_VIRTUAL"
+  },
+  {
+   "id": 24,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.9429,
+   "probs": {
+    "healthy": 0.9429,
+    "degraded": 0.020038,
+    "failed": 0.001168,
+    "unreachable": 0.033261,
+    "oscillating": 0.002633
+   },
+   "transition": {
+    "improving": 0.05787,
+    "stable": 0.83,
+    "deteriorating": 0.11213
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.250472,
+    "POMDP": 0.3941,
+    "Mamba": 0.225607,
+    "Fusion": 0.129821
+   },
+   "label": "Database Replica",
+   "topo_id": "vm-db-2",
+   "component_type": "SERVER_VIRTUAL"
+  },
+  {
+   "id": 25,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.9285,
+   "probs": {
+    "healthy": 0.9285,
+    "degraded": 0.01216,
+    "failed": 0.024309,
+    "unreachable": 0.015994,
+    "oscillating": 0.019036
+   },
+   "transition": {
+    "improving": 0.081352,
+    "stable": 0.8152,
+    "deteriorating": 0.103448
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.292833,
+    "POMDP": 0.4046,
+    "Mamba": 0.194373,
+    "Fusion": 0.108194
+   },
+   "label": "Backup Server",
+   "topo_id": "srv-backup",
+   "component_type": "SERVER_PHYSICAL"
+  },
+  {
+   "id": 26,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.881,
+   "probs": {
+    "healthy": 0.881,
+    "degraded": 0.035862,
+    "failed": 0.038207,
+    "unreachable": 0.008835,
+    "oscillating": 0.036096
+   },
+   "transition": {
+    "improving": 0.053033,
+    "stable": 0.889,
+    "deteriorating": 0.057967
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.142273,
+    "POMDP": 0.3822,
+    "Mamba": 0.006145,
+    "Fusion": 0.469382
+   },
+   "label": "SAN Primary",
+   "topo_id": "san-1",
+   "component_type": "STORAGE_ARRAY"
+  },
+  {
+   "id": 27,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.9061,
+   "probs": {
+    "healthy": 0.9061,
+    "degraded": 0.001654,
+    "failed": 0.034529,
+    "unreachable": 0.020476,
+    "oscillating": 0.037241
+   },
+   "transition": {
+    "improving": 0.14604,
+    "stable": 0.5927,
+    "deteriorating": 0.26126
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.274751,
+    "POMDP": 0.265148,
+    "Mamba": 0.077301,
+    "Fusion": 0.3828
+   },
+   "label": "SAN LUN Group 1",
+   "topo_id": "san-tgt-1",
+   "component_type": "STORAGE_TARGET"
+  },
+  {
+   "id": 28,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.8957,
+   "probs": {
+    "healthy": 0.8957,
+    "degraded": 0.005816,
+    "failed": 0.019866,
+    "unreachable": 0.037366,
+    "oscillating": 0.041252
+   },
+   "transition": {
+    "improving": 0.176609,
+    "stable": 0.7168,
+    "deteriorating": 0.106591
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.4851,
+    "POMDP": 0.071559,
+    "Mamba": 0.430746,
+    "Fusion": 0.012595
+   },
+   "label": "SAN LUN Group 2",
+   "topo_id": "san-tgt-2",
+   "component_type": "STORAGE_TARGET"
+  },
+  {
+   "id": 29,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.8511,
+   "probs": {
+    "healthy": 0.8511,
+    "degraded": 0.021259,
+    "failed": 0.06427,
+    "unreachable": 0.03013,
+    "oscillating": 0.033241
+   },
+   "transition": {
+    "improving": 0.029253,
+    "stable": 0.7669,
+    "deteriorating": 0.203847
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.4704,
+    "POMDP": 0.161667,
+    "Mamba": 0.186083,
+    "Fusion": 0.18185
+   },
+   "label": "Horizon Broker",
+   "topo_id": "vdi-broker",
+   "component_type": "VDI_BROKER"
+  },
+  {
+   "id": 30,
+   "state": "healthy",
+   "state_idx": 0,
+   "confidence": 0.9606,
+   "probs": {
+    "healthy": 0.9606,
+    "degraded": 0.000437,
+    "failed": 0.011892,
+    "unreachable": 0.015502,
+    "oscillating": 0.011569
+   },
+   "transition": {
+    "improving": 0.161663,
+    "stable": 0.7384,
+    "deteriorating": 0.099937
+   },
+   "trend": "stable",
+   "routing": {
+    "GNN": 0.218013,
+    "POMDP": 0.4059,
+    "Mamba": 0.156664,
+    "Fusion": 0.219423
+   },
+   "label": "VDI Host 1",
+   "topo_id": "vdi-host-1",
+   "component_type": "VDI_HOST"
+  },
+  {
+   "id": 31,
+   "state": "degraded",
+   "state_idx": 1,
+   "confidence": 0.8572,
+   "probs": {
+    "healthy": 0.038191,
+    "degraded": 0.8572,
+    "failed": 0.041786,
+    "unreachable": 0.046538,
+    "oscillating": 0.016285
+   },
+   "transition": {
+    "improving": 0.27483,
+    "stable": 0.06497,
+    "deteriorating": 0.6602
+   },
+   "trend": "deteriorating",
+   "routing": {
+    "GNN": 0.063626,
+    "POMDP": 0.4775,
+    "Mamba": 0.113705,
+    "Fusion": 0.345169
+   },
+   "label": "ERP Application",
+   "topo_id": "app-erp",
+   "component_type": "APPLICATION_SERVICE"
+  }
+ ],
+ "class_counts": {
+  "healthy": 26,
+  "degraded": 3,
+  "failed": 3,
+  "unreachable": 0,
+  "oscillating": 0
+ },
+ "routing": {
+  "GNN": 0.268375,
+  "POMDP": 0.258594,
+  "Mamba": 0.221453,
+  "Fusion": 0.251578
+ },
+ "avg_confidence": 0.891163,
+ "min_confidence": {
+  "node": 6,
+  "value": 0.8201
+ },
+ "max_confidence": {
+  "node": 4,
+  "value": 0.9656
+ },
+ "accuracy": 0.9259,
+ "inference_ms": 6.52
+}

@@ -1,0 +1,50 @@
+{
+  "blast_radius": {
+    "count": 3,
+    "nodes": [
+      "dns-1",
+      "app-erp",
+      "vdi-broker"
+    ]
+  },
+  "created_at": "2026-09-22T14:00:00Z",
+  "finding_id": "fnd-example000001",
+  "gate": {
+    "decision": "human",
+    "delay_s": null,
+    "reason": "shipped default: every cell is human",
+    "rule_id": "default-deny"
+  },
+  "id": "pln-example000001",
+  "planner": {
+    "kind": "template",
+    "model": null,
+    "output_sha256": null,
+    "prompt_sha256": null,
+    "provider": null,
+    "template_id": "failed_service_restart"
+  },
+  "steps": [
+    {
+      "action_id": "restart_service",
+      "compensation": {
+        "action_id": "restart_service",
+        "params": {
+          "service": "dnsmasq"
+        }
+      },
+      "params": {
+        "service": "dnsmasq"
+      },
+      "precondition": "service_exists",
+      "reversibility": "compensable",
+      "step_id": "s1",
+      "target_node": "dns-1",
+      "timeout_s": 60
+    }
+  ],
+  "verification": {
+    "predicate": "node_healthy",
+    "window_s": 30
+  }
+}

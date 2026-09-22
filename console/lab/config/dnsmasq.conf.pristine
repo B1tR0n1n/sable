@@ -1,0 +1,13 @@
+# Lab DNS (dnsmasq). Bind-mounted read-only at /etc/dnsmasq.conf in the `dns` container.
+# Records live in hosts files, not here, because dnsmasq re-reads hosts files on SIGHUP
+# but never re-reads this file: the catalog's clear_dns_cache (kill -s HUP) must be able
+# to clear a poisoned record (see images/dnsmasq/entrypoint.sh).
+port=53
+user=root
+no-resolv
+no-hosts                         # ignore the container's own /etc/hosts
+server=127.0.0.11                # forward everything else to Docker's embedded DNS
+addn-hosts=/run/dnsmasq/hosts    # the LIVE records (regenerated from lab.hosts on start / HUP)
+cache-size=1000
+log-queries
+log-facility=-

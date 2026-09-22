@@ -1,0 +1,64 @@
+# Lab Prometheus. job = compose service name, instance = <service>:<port>, so SABLE's
+# node_map (sable_prometheus.yaml) can be keyed by instance. 5s scrapes so a fault shows
+# up within ~10s.
+global:
+  scrape_interval: 5s
+  scrape_timeout: 4s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: app
+    static_configs:
+      - targets: ["app:8000"]
+
+  - job_name: db
+    static_configs:
+      - targets: ["db:8100"]
+
+  - job_name: db-replica
+    static_configs:
+      - targets: ["db-replica:8100"]
+
+  - job_name: proxy
+    metrics_path: /metrics             # nginx shim: nginx_up 1 (the synthetic `up` is what matters)
+    static_configs:
+      - targets: ["proxy:80"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["prometheus:9090"]
+
+  - job_name: blackbox                 # the exporter itself (not a topology node)
+    static_configs:
+      - targets: ["blackbox:9115"]
+
+  # dns has no /metrics: blackbox asks dnsmasq for db.lab and validates the answer, so a
+  # stopped dnsmasq AND a poisoned record both surface as probe_success 0 on instance dns:53.
+  - job_name: dns
+    metrics_path: /probe
+    params:
+      module: [dns_db_lab]
+    static_configs:
+      - targets: ["dns:53"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # End-to-end: the proxy's /health is the fronted primary's /health (see proxy/default.conf.template).
+  - job_name: proxy-http
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: ["http://proxy:80/health"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115

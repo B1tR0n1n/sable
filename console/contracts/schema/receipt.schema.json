@@ -1,0 +1,356 @@
+{
+  "$defs": {
+    "Approval": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "title": "Actor",
+          "type": "string"
+        },
+        "decision": {
+          "title": "Decision",
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        }
+      },
+      "required": [
+        "actor",
+        "decision"
+      ],
+      "title": "Approval",
+      "type": "object"
+    },
+    "Rollback": {
+      "additionalProperties": false,
+      "properties": {
+        "performed": {
+          "default": false,
+          "title": "Performed",
+          "type": "boolean"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/RollbackStep"
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "title": "Rollback",
+      "type": "object"
+    },
+    "RollbackStep": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "title": "Action Id",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "status": {
+          "$ref": "#/$defs/StepStatus"
+        },
+        "step_id": {
+          "title": "Step Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "action_id",
+        "status"
+      ],
+      "title": "RollbackStep",
+      "type": "object"
+    },
+    "Snapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "snapshot_ref": {
+          "title": "Snapshot Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id",
+        "snapshot_ref"
+      ],
+      "title": "Snapshot",
+      "type": "object"
+    },
+    "StepResult": {
+      "additionalProperties": false,
+      "properties": {
+        "ended_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ended At"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "output_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Digest"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "status": {
+          "$ref": "#/$defs/StepStatus"
+        },
+        "step_id": {
+          "title": "Step Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "status"
+      ],
+      "title": "StepResult",
+      "type": "object"
+    },
+    "StepStatus": {
+      "enum": [
+        "pending",
+        "running",
+        "ok",
+        "failed",
+        "skipped",
+        "precondition_failed",
+        "timed_out"
+      ],
+      "title": "StepStatus",
+      "type": "string"
+    },
+    "VerificationResult": {
+      "additionalProperties": false,
+      "properties": {
+        "checked_at": {
+          "format": "date-time",
+          "title": "Checked At",
+          "type": "string"
+        },
+        "observed": {
+          "additionalProperties": true,
+          "title": "Observed",
+          "type": "object"
+        },
+        "status": {
+          "$ref": "#/$defs/VerificationStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "VerificationResult",
+      "type": "object"
+    },
+    "VerificationStatus": {
+      "enum": [
+        "pass",
+        "fail",
+        "inconclusive"
+      ],
+      "title": "VerificationStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Produced by the executor after execution and verification. The hash\nchain: `receipt_hash` is sha256 over the canonical JSON of every field\nbut itself and `audit_ref`, including `prev_receipt_hash` \u2014 so a changed\nreceipt, or a removed one, breaks every hash after it. `audit_ref` is\nexcluded because it points at OVERLORD's audit entry, which itself\ncommits to `receipt_hash` (the two chains reference each other; one\ndirection must be outside the hash).",
+  "properties": {
+    "approvals": {
+      "items": {
+        "$ref": "#/$defs/Approval"
+      },
+      "title": "Approvals",
+      "type": "array"
+    },
+    "audit_ref": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Audit Ref"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "finding_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finding Id"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "plan_id": {
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "prev_receipt_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Prev Receipt Hash"
+    },
+    "receipt_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Receipt Hash"
+    },
+    "rollback": {
+      "$ref": "#/$defs/Rollback"
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Session Id"
+    },
+    "snapshots": {
+      "items": {
+        "$ref": "#/$defs/Snapshot"
+      },
+      "title": "Snapshots",
+      "type": "array"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/StepResult"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "verification": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VerificationResult"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "plan_id"
+  ],
+  "title": "Receipt",
+  "type": "object"
+}

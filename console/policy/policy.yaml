@@ -1,0 +1,27 @@
+# Autonomy gate policy — SHIPPED DEFAULT (PLAN.md Phase 6).
+#
+# Every cell is `human`: nothing runs without an operator, whatever SABLE's
+# confidence and whatever the plan's reversibility. The matrix the plan
+# describes (auto / delay / human_plus / report_only) lives in
+# policy.target.yaml; an operator opts into it deliberately by pointing the
+# console at that file (or copying its matrix here).
+#
+# decision words: auto | delay | human | human_plus | report_only
+
+version: 1
+
+bands:            # confidence bands (score thresholds), configurable
+  high: 0.85      # score >= high   -> band high
+  medium: 0.60    # score >= medium -> band medium; below -> low
+
+matrix:           # confidence band x plan reversibility -> decision
+  high:   {reversible: human, compensable: human, irreversible: human}
+  medium: {reversible: human, compensable: human, irreversible: human}
+  low:    {reversible: human, compensable: human, irreversible: human}
+
+delay_s: 120      # countdown for a `delay` decision (operator may execute now, hold, or reject)
+
+unmonitored_gap_cap: 1   # an unmonitored_gap finding is capped this many bands BELOW its score band
+
+hard_rules:
+  irreversible_never_auto: true   # an irreversible plan can never be auto, whatever the matrix says

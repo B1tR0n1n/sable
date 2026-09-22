@@ -1,0 +1,64 @@
+{
+ "summary": "6/32 nodes affected: 3 failed, 2 unreachable, 1 degraded. Root cause likely SAN Primary (first failure at tick 2).",
+ "total_affected": 6,
+ "actions": [
+  {
+   "priority": 1,
+   "action": "INVESTIGATE ROOT CAUSE",
+   "target": "ESXi Host 1",
+   "target_id": "hyp-1",
+   "target_type": "HYPERVISOR",
+   "reason": "First failure at tick 3. 3 total failed nodes likely depend on this.",
+   "recommendation": "Restart service, check hardware, review recent changes."
+  },
+  {
+   "priority": 2,
+   "action": "RESTART/RECOVER",
+   "target": "ESXi Host 2",
+   "target_id": "hyp-2",
+   "target_type": "HYPERVISOR",
+   "reason": "Failed since tick 3. May recover if root cause (ESXi Host 1) is fixed.",
+   "recommendation": "Wait for root cause fix, then verify. Manual restart if no auto-recovery."
+  },
+  {
+   "priority": 3,
+   "action": "RESTART/RECOVER",
+   "target": "Database Primary",
+   "target_id": "vm-db-1",
+   "target_type": "SERVER_VIRTUAL",
+   "reason": "Failed since tick 4. May recover if root cause (ESXi Host 1) is fixed.",
+   "recommendation": "Wait for root cause fix, then verify. Manual restart if no auto-recovery."
+  },
+  {
+   "priority": 4,
+   "action": "CHECK CONNECTIVITY",
+   "target": "SAN Primary",
+   "target_id": "san-1",
+   "target_type": "STORAGE_ARRAY",
+   "reason": "Unreachable since tick 2. Likely isolated by upstream failures.",
+   "recommendation": "Verify network path. May auto-resolve when upstream nodes recover."
+  },
+  {
+   "priority": 5,
+   "action": "CHECK CONNECTIVITY",
+   "target": "SAN LUN Group 1",
+   "target_id": "san-tgt-1",
+   "target_type": "STORAGE_TARGET",
+   "reason": "Unreachable since tick 3. Likely isolated by upstream failures.",
+   "recommendation": "Verify network path. May auto-resolve when upstream nodes recover."
+  },
+  {
+   "priority": 6,
+   "action": "MONITOR/INVESTIGATE",
+   "target": "Prometheus/Grafana",
+   "target_id": "mon-1",
+   "target_type": "MONITORING_SERVER",
+   "reason": "Degraded since tick 4. Performance impacted but operational.",
+   "recommendation": "Check resource utilization. May worsen \u2014 watch trajectory."
+  }
+ ],
+ "root_cause": 26,
+ "root_cause_label": "SAN Primary",
+ "root_cause_id": "san-1",
+ "root_cause_type": "STORAGE_ARRAY"
+}

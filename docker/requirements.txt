@@ -1,0 +1,10 @@
+# Runtime dependencies of the SABLE docker server (docker/server.py).
+# torch itself comes from the base image (pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime).
+fastapi
+uvicorn
+websockets
+torch-geometric
+h5py
+pyyaml
+requests
+anthropic
