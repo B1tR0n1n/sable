@@ -36,7 +36,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Iterable, Any, Callable, Optional
 
 from console.catalog import Catalog
 from console.contracts import Approval, Finding, Plan, Receipt, now_utc
@@ -174,7 +174,22 @@ class Loop:
         elif finding.status == "reopened" and self._unanswered_reopen(finding):
             self._replan_or_escalate(finding)
 
-    def _propose(self, finding: Finding) -> None:
+    def _propose(self, finding: Finding, exclude_actions: Iterable[str] = ()) -> None:
+        """Prefer an action the finding's failed attempts have not tried; when
+        the template chain has nothing else, the same action goes again (a fix
+        that was verified too early is the common case), up to the attempt cap."""
+        exclude = set(exclude_actions)
+        try:
+            self.plan(finding.id, "template", exclude_actions=exclude)
+            return
+        except NoTemplate as e:
+            if not exclude:
+                self.note(f"no plan for {finding.id}: {e}", level="warn")
+                return
+            self.note(f"no untried template for {finding.id} ({e}); retrying the same action", source="gate")
+        except PlanValidationError as e:
+            self.note(f"no plan for {finding.id}: {e}", level="warn")
+            return
         try:
             self.plan(finding.id, "template")
         except (NoTemplate, PlanValidationError) as e:
@@ -227,9 +242,24 @@ class Loop:
         if attempts >= self.cfg.max_attempts:
             self._escalate(finding, attempts)
             return
+        tried = self._tried_actions(finding)
         self.note(f"finding {finding.id} reopened after failed attempt {attempts}/{self.cfg.max_attempts}; "
-                  f"proposing a fresh plan", source="gate")
-        self._propose(finding)
+                  f"proposing a fresh plan (already tried: {sorted(tried) or 'nothing'})", source="gate")
+        self._propose(finding, exclude_actions=tried)
+
+    def _tried_actions(self, finding: Finding) -> set[str]:
+        """Catalog actions the finding's failed attempts executed: from sealed
+        receipts, plus the plan of the attempt that just reopened it (its
+        receipt may not be in the chain yet)."""
+        tried: set[str] = set()
+        for rid in finding.receipt_ids:
+            r = self.chain.get(rid)
+            if r is not None:
+                tried.update(s.action_id for s in r.steps if s.status in ("ok", "failed"))
+        pid = self.plan_of.get(finding.id)
+        if pid is not None and self.plans[pid].status in ("executing", "done", "failed"):
+            tried.update(s.action_id for s in self.plans[pid].plan.steps)
+        return tried
 
     def _failed_attempts(self, finding: Finding) -> int:
         """Receipts attached to a still-open finding are failed attempts (a
@@ -259,7 +289,8 @@ class Loop:
                                          model=self.cfg.llm_model, purpose=purpose)
         return complete
 
-    def plan(self, finding_id: str, planner: str = "template", force_action: Optional[str] = None) -> Plan:
+    def plan(self, finding_id: str, planner: str = "template", force_action: Optional[str] = None,
+             exclude_actions: Iterable[str] = ()) -> Plan:
         """(Re)plan a finding; the gate annotates the plan; a gated plan whose
         decision is auto/delay starts on its own. Raises PlanValidationError
         for an LLM plan that failed validation (never repaired), NoTemplate
@@ -278,7 +309,7 @@ class Loop:
             # a disabled action makes the template fall back (restart instead of
             # a config restore, say) — the lab's negative scenario is exactly that
             plan = TemplatePlanner(self.catalog, self.topology, golden=self.golden,
-                                   disabled=self.cfg.disabled_actions).plan(finding)
+                                   disabled=self.cfg.disabled_actions).plan(finding, exclude_actions=exclude_actions)
         if force_action:
             plan = self._force_action(plan, finding, force_action)
         plan = self.policy.apply(finding, plan)

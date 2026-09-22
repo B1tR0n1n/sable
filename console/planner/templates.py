@@ -13,8 +13,9 @@ sources:
                    the node's known-good config entry from the golden map
                    (lab/golden.yaml: node_id -> {file, key, value})
 
-When a source cannot be resolved — or the template's action is disabled —
-`fallback` is tried; with no fallback the planner raises NoTemplate.
+When a source cannot be resolved — or the template's action is disabled, or
+the loop says the action was already tried for this finding — `fallback` is
+tried; with no fallback the planner raises NoTemplate.
 Nothing here is executed: the template planner builds a Plan from the row
 and validate_plan re-checks it against the catalog like any other plan.
 
@@ -50,11 +51,16 @@ GOLDEN = {"file": "golden_file", "key": "golden_key", "value": "golden_value", "
 
 _DNS_RESTART = Template("dns_failed_restart", "restart_service", RESTART)
 _DNS_CLEAR = Template("dns_degraded_clear_cache", "clear_dns_cache", RESTART, fallback=_DNS_RESTART)
-_APP_RESTART = Template("app_unhealthy_restart", "restart_service", RESTART)
+# second attempt for a failed app/proxy: when a restart did not hold (the loop
+# excludes actions already tried for the finding), restore the golden config —
+# the trained engine reads a config-corrupted app as failed, not degraded
+_APP_GOLDEN_RETRY = Template("app_failed_restore_config", "set_config_value", GOLDEN)
+_APP_RESTART = Template("app_unhealthy_restart", "restart_service", RESTART, fallback=_APP_GOLDEN_RETRY)
 _APP_GOLDEN = Template("app_degraded_restore_config", "set_config_value", GOLDEN, fallback=_APP_RESTART)
 _DB_RESTART = Template("db_failed_restart", "restart_service", RESTART)
 _DB_DEGRADED = Template("db_degraded_restart", "restart_service", RESTART)
-_LB_RESTART = Template("lb_unhealthy_restart", "restart_service", RESTART)
+_LB_GOLDEN_RETRY = Template("lb_failed_restore_config", "set_config_value", GOLDEN)
+_LB_RESTART = Template("lb_unhealthy_restart", "restart_service", RESTART, fallback=_LB_GOLDEN_RETRY)
 _LB_GOLDEN = Template("lb_degraded_restore_config", "set_config_value", GOLDEN, fallback=_LB_RESTART)
 _MON_RESTART = Template("monitoring_unhealthy_restart", "restart_service", RESTART)
 

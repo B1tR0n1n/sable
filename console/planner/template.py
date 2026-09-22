@@ -67,13 +67,17 @@ class TemplatePlanner:
             return g[source[len("golden_"):]]
         raise CatalogError(f"template param source {source!r} is not known")
 
-    def _pick(self, template: Template, node_id: str) -> tuple[Template, dict[str, str]]:
+    def _pick(self, template: Template, node_id: str,
+              exclude: Iterable[str] = ()) -> tuple[Template, dict[str, str]]:
+        exclude = set(exclude)
         t: Optional[Template] = template
         tried = []
         while t is not None:
             try:
                 if t.action_id in self.disabled:
                     raise _Unresolvable(f"action {t.action_id} is disabled")
+                if t.action_id in exclude:
+                    raise _Unresolvable(f"action {t.action_id} was already tried for this finding")
                 return t, {k: self._resolve(src, node_id) for k, src in t.params.items()}
             except _Unresolvable as e:
                 tried.append(f"{t.template_id}: {e}")
@@ -94,9 +98,11 @@ class TemplatePlanner:
             raise NoTemplate(f"no template for ({ct}, {rc.state})")
         return t
 
-    def plan(self, finding: Finding) -> Plan:
+    def plan(self, finding: Finding, exclude_actions: Iterable[str] = ()) -> Plan:
+        """`exclude_actions`: catalog actions a previous attempt on this finding
+        already executed without the fix holding; the template chain skips them."""
         rc = finding.root_cause
-        template, params = self._pick(self.template_for(finding), rc.node_id)
+        template, params = self._pick(self.template_for(finding), rc.node_id, exclude_actions)
         action = self.catalog.get(template.action_id)
         step = Step(action_id=action.action_id, target_node=rc.node_id, params=params,
                     reversibility=action.reversibility,

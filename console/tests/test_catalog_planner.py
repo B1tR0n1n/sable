@@ -440,3 +440,26 @@ def test_restart_service_waits_a_full_minute_before_verifying(catalog):
     healthy while app still read degraded/oscillating at the old window."""
     assert catalog.get("restart_service").verification_window_s == 60
     assert catalog.get("clear_dns_cache").verification_window_s is None       # the planner default applies
+
+
+def test_a_replan_skips_actions_already_tried_and_a_failed_app_gets_its_config_restored(catalog, topology):
+    """The trained engine reads a config-corrupted app as failed: the first
+    attempt is a restart; when the loop replans with that action excluded,
+    the chain moves on to the golden-config restore (2026-09-22 lab run)."""
+    finding = make_finding("app", "failed", topology, affected=[])
+    golden = {"app": {"file": "config/app.conf", "key": "db_host", "value": "db.lab"}}
+    planner = TemplatePlanner(catalog, topology, SERVICE_MAP, golden=golden)
+    first = planner.plan(finding)
+    assert first.steps[0].action_id == "restart_service" and first.planner.template_id == "app_unhealthy_restart"
+    second = planner.plan(finding, exclude_actions={"restart_service"})
+    assert second.steps[0].action_id == "set_config_value" and second.planner.template_id == "app_failed_restore_config"
+    assert second.reversibility == Reversibility.reversible
+    # everything tried → NoTemplate, never a silent repeat from the planner itself
+    with pytest.raises(NoTemplate):
+        planner.plan(finding, exclude_actions={"restart_service", "set_config_value"})
+    # without a golden entry the retry template cannot resolve → NoTemplate too
+    with pytest.raises(NoTemplate):
+        TemplatePlanner(catalog, topology, SERVICE_MAP).plan(finding, exclude_actions={"restart_service"})
+    # a template with no alternative (dns restart) has nothing untried
+    with pytest.raises(NoTemplate):
+        planner.plan(make_finding("dns", "failed", topology, affected=[]), exclude_actions={"restart_service"})
