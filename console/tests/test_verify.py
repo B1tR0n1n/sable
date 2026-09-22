@@ -129,8 +129,9 @@ def test_target_unreachable_is_a_fail_when_telemetry_agrees_and_inconclusive_wit
 def test_a_terminal_inconclusive_beats_a_recheck():
     """dns (target) unreachable without telemetry escalates at once even though
     app is merely disagreeing: absent telemetry is not something to wait out."""
-    v = evaluate(plan(), receipt(), tick({"dns": "unreachable", "app": "degraded"}, truth={"app": "healthy", "dns": "healthy"}),
-                 LATER, TOPO, now=NOW)
+    t = tick({"dns": "unreachable", "app": "degraded"}, truth={"app": "healthy"})
+    t["ground_truth"][0] = None                       # dns: no telemetry at all
+    v = evaluate(plan(), receipt(), t, LATER, TOPO, now=NOW)
     assert v.status == "inconclusive" and v.recheck is False
 
 
@@ -380,8 +381,14 @@ def test_telemetry_oscillating_is_settling_not_evidence_against_the_fix():
     v = evaluate(plan(), receipt(), tick({"app": "degraded"}, truth={"app": "oscillating", "dns": "healthy"}),
                  LATER, TOPO, now=NOW)
     assert v.status == "inconclusive" and v.recheck is True and "app model=degraded telemetry=oscillating" in v.reason
-    # model unreachable on the target with telemetry oscillating: terminal, never fail
+    # model unreachable with telemetry present and settling: a disagreement to
+    # re-check, not terminal — the model held a restarted db unreachable
     v = evaluate(plan(), receipt(), tick({"dns": "unreachable"}, truth={"dns": "oscillating"}), LATER, TOPO, now=NOW)
+    assert v.status == "inconclusive" and v.recheck is True
+    v = evaluate(plan(), receipt(), tick({"dns": "unreachable"}, truth={"dns": "healthy"}), LATER, TOPO, now=NOW)
+    assert v.status == "inconclusive" and v.recheck is True and "telemetry=healthy" in v.reason
+    # no telemetry at all: terminal, as before
+    v = evaluate(plan(), receipt(), tick({"dns": "unreachable"}), LATER, TOPO, now=NOW)
     assert v.status == "inconclusive" and v.recheck is False
     # telemetry degraded still confirms the model: fail
     v = evaluate(plan(), receipt(), tick({"app": "degraded"}, truth={"app": "degraded", "dns": "healthy"}),

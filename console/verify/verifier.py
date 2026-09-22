@@ -119,7 +119,15 @@ def _sort_nodes(observed: dict[str, str], truth: dict[str, str], targets: set[st
         # It is not evidence against the fix; it is telemetry still settling.
         settling = telemetry in ("healthy", "oscillating")
         if state == "unreachable":
-            buckets["fail" if not (telemetry is None or settling) else "terminal"].append(node)
+            # absence of telemetry is not health (terminal); telemetry that is
+            # present and healthy is not absence — the model is settling
+            # (live: db held unreachable after a working restart, 2026-09-22)
+            if telemetry is None:
+                buckets["terminal"].append(node)
+            elif settling:
+                buckets["disagree"].append(node)
+            else:
+                buckets["fail"].append(node)
         elif node in targets and state == "failed":
             buckets["fail"].append(node)
         elif settling:
