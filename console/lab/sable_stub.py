@@ -33,6 +33,8 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+
 ROOT = Path(__file__).resolve().parents[2]              # the sable checkout
 for p in (ROOT, ROOT / "docker"):
     if str(p) not in sys.path:
@@ -147,7 +149,6 @@ class StubEngine:
 
 def build_app(config_path: str, poll_interval: float = 5.0):
     import yaml
-    from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
     from console.lab.live_monitor_lab import build_prometheus_config, load_lab_config
     from adapters.health_scorer import HealthScorer
