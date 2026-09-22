@@ -65,10 +65,12 @@ class Severity(str, Enum):
     critical = "critical"
 
 
-class FindingStatus(str, Enum):            # additive: dedup (Phase 2) and verification (Phase 5)
+class FindingStatus(str, Enum):            # additive: dedup (Phase 2), verification (Phase 5), lifecycle
     open = "open"
-    closed = "closed"
-    reopened = "reopened"
+    closed = "closed"                      # a verified fix; the receipt is attached
+    reopened = "reopened"                  # a fix failed verification and was compensated
+    resolved = "resolved"                  # cleared on its own — no action was taken (a transient blip)
+    escalated = "escalated"                # still open; re-planning is capped, a human decides
 
 
 class Reversibility(str, Enum):

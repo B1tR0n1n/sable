@@ -64,6 +64,35 @@ def test_fail_when_a_node_in_scope_is_not_healthy():
     assert v.status == "fail" and "app=degraded" in v.reason
 
 
+def test_oscillating_dependent_is_inconclusive_and_asks_for_one_recheck():
+    v = evaluate(plan(), receipt(), tick({"app": "oscillating"}), LATER, TOPO, now=NOW)
+    assert v.status == "inconclusive" and v.recheck is True
+    assert "app=oscillating" in v.reason and "settling" in v.reason
+    assert v.to_result().status == "inconclusive"                    # the contract shape is unchanged
+
+
+def test_oscillating_dependent_is_not_rechecked_twice():
+    v = evaluate(plan(), receipt(), tick({"app": "oscillating"}), LATER, TOPO, now=NOW, allow_recheck=False)
+    assert v.status == "inconclusive" and v.recheck is False and "still oscillating" in v.reason
+
+
+def test_oscillating_target_node_is_a_fail():
+    v = evaluate(plan(), receipt(), tick({"dns": "oscillating"}), LATER, TOPO, now=NOW)
+    assert v.status == "fail" and v.recheck is False and "dns=oscillating" in v.reason
+
+
+def test_oscillating_dependent_beside_an_unhealthy_node_is_a_fail():
+    v = evaluate(plan(), receipt(), tick({"app": "oscillating", "dns": "degraded"}), LATER, TOPO, now=NOW)
+    assert v.status == "fail" and v.recheck is False
+
+
+def test_after_bound_demands_a_tick_newer_than_the_first_look():
+    v = evaluate(plan(), receipt(), tick({}), LATER, TOPO, now=NOW, after=LATER)
+    assert v.status == "inconclusive" and "predates" in v.reason
+    v = evaluate(plan(), receipt(), tick({}), LATER + timedelta(seconds=1), TOPO, now=NOW, after=LATER)
+    assert v.status == "pass"
+
+
 def test_service_running_predicate_scopes_to_step_targets():
     v = evaluate(plan("service_running"), receipt(), tick({"app": "degraded"}), LATER, TOPO, now=NOW)
     assert v.status == "pass" and v.observed == {"dns": "healthy"}
@@ -174,3 +203,63 @@ def test_window_is_honoured(tmp_path):
     p = plan().model_copy(update={"verification": Verification(predicate="node_healthy", window_s=30)})
     v.verify(p, finding(), receipt())
     assert slept[0] == 30
+
+
+# ---------------------------------------------------------------- the oscillating re-check
+
+def _settle_ticks(first_state, second_state, poll_stale_once=False):
+    t1 = datetime.now(timezone.utc)
+    t2 = t1 + timedelta(seconds=20)
+    seq = [(tick({"app": first_state}), t1)]
+    if poll_stale_once:
+        seq.append((tick({"app": first_state}), t1))                 # the same tick again: not newer
+    seq.append((tick({"app": second_state}), t2))
+    return iter(seq)
+
+
+def test_oscillating_dependent_is_rechecked_once_after_the_settle_and_passes(tmp_path):
+    ticks = _settle_ticks("oscillating", "healthy", poll_stale_once=True)
+    store, ex, chain, slept, events = Store(), Exec(), ReceiptChain(tmp_path / "r.jsonl"), [], []
+    v = Verifier(lambda: next(ticks), store, ex, chain, TOPO, emit=events.append, sleep=slept.append,
+                 poll_s=1, max_wait_s=30, settle_s=15)
+    r = v.verify(plan(), finding(), receipt())
+    assert r.verification.status == "pass"
+    assert slept == [15, 1]                                           # the settle, then one poll for a NEWER tick
+    assert store.closed == [("fnd-1", r.id)] and not store.reopened and ex.compensated == []
+    assert r.verification.observed["recheck"]["after_s"] == 15 and "oscillating" in r.verification.observed["recheck"]["first"]
+    assert [e["type"] for e in events if e["type"] == "log"]          # the settle is announced in the session log
+
+
+def test_still_oscillating_after_the_recheck_escalates_and_does_not_compensate(tmp_path):
+    ticks = _settle_ticks("oscillating", "oscillating")
+    store, ex, chain, slept, events = Store(), Exec(), ReceiptChain(tmp_path / "r.jsonl"), [], []
+    v = Verifier(lambda: next(ticks), store, ex, chain, TOPO, emit=events.append, sleep=slept.append,
+                 poll_s=1, max_wait_s=30, settle_s=15)
+    r = v.verify(plan(), finding(), receipt())
+    assert r.verification.status == "inconclusive" and "still oscillating" in r.verification.observed["reason"]
+    assert slept == [15]
+    assert not store.closed and not store.reopened and ex.compensated == []
+    assert [e for e in events if e["type"] == "escalation"][0]["decision"] == "human_plus"
+
+
+def test_a_failed_recheck_compensates_and_reopens(tmp_path):
+    ticks = _settle_ticks("oscillating", "failed")
+    store, ex, chain, slept, _ = Store(), Exec(), ReceiptChain(tmp_path / "r.jsonl"), [], []
+    v = Verifier(lambda: next(ticks), store, ex, chain, TOPO, sleep=slept.append, poll_s=1, max_wait_s=30)
+    r = v.verify(plan(), finding(), receipt())
+    assert r.verification.status == "fail" and slept == [15.0]
+    assert ex.compensated == [["s1"]] and store.reopened == [("fnd-1", r.id)]
+
+
+async def test_async_path_rechecks_too(tmp_path, monkeypatch):
+    import asyncio
+    ticks = _settle_ticks("oscillating", "healthy")
+    naps = []
+
+    async def nap(s):
+        naps.append(s)
+    monkeypatch.setattr(asyncio, "sleep", nap)
+    store, ex, chain = Store(), Exec(), ReceiptChain(tmp_path / "r.jsonl")
+    v = Verifier(lambda: next(ticks), store, ex, chain, TOPO, sleep=lambda s: None, max_wait_s=0, settle_s=15)
+    r = await v.verify_async(plan(), finding(), receipt())
+    assert r.verification.status == "pass" and naps == [15]

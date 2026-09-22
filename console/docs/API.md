@@ -30,6 +30,18 @@ Phase 1 contract (Finding / Plan / Receipt) serialised with `model_dump(mode="js
 
 Errors: `{"error": "<message>"}` with 4xx/5xx.
 
+## Authentication
+
+Set `CONSOLE_TOKEN` and every mutating route (`POST`/`PUT`: plan, approve,
+policy, analyst chat, lab fault) requires `Authorization: Bearer <token>`;
+a missing or wrong bearer is `401 {"error": "..."}`. `GET` routes and `/ws`
+stay open (read-only). Unset — the lab default — everything is open and the
+server logs one warning line at startup:
+`console: CONSOLE_TOKEN unset — mutating routes are unauthenticated`.
+The UI sends the header when a token is stored (`localStorage["console_token"]`);
+a link carrying `?token=…` or `#token=…` stores it on load and strips it from
+the address bar.
+
 ## WebSocket `/ws`
 
 One JSON message per event, `{"type": T, "ts": ISO, ...payload}`; on connect
@@ -46,6 +58,7 @@ the server sends `{"type":"hello","state":<GET /api/state>}`.
 | `receipt` | `{receipt}` |
 | `log` | `{line}` |
 | `state` | `{state}` (the strip, on any change) |
+| `escalation` | `{finding_id, plan_id?, receipt_id?, decision:"human_plus", reason}` — an inconclusive verification, or the re-plan cap |
 
 ## Loop semantics the server implements
 
@@ -53,5 +66,9 @@ the server sends `{"type":"hello","state":<GET /api/state>}`.
 2. **Plan**: the template planner runs automatically for a new finding; `llm` on request. The gate (Phase 6) annotates it → `plan` event.
 3. **Gate**: `auto` → execute now; `delay` → countdown, operator may `execute_now`/`hold`/`reject`; `human`/`human_plus` → wait for `approve`; `report_only` → never executes.
 4. **Execute** (Phase 4) through OVERLORD; each step → `step` event; log lines → `log`.
-5. **Verify** (Phase 5) after `verification.window_s`: pass → finding `closed`, receipt attached; fail → compensations run, finding `reopened`; inconclusive → `human_plus` escalation, never a pass.
+5. **Verify** (Phase 5) after `verification.window_s` (the catalog may pin it per action; `restart_service` waits 60s): pass → finding `closed`, receipt attached; fail → compensations run, finding `reopened`; inconclusive → `human_plus` escalation, never a pass. An `oscillating` dependent (non-target) node is re-checked once after a 15s settle against a newer tick before it counts as inconclusive.
 6. **Receipt** sealed into the hash chain and mirrored onto OVERLORD's audit chain (`receipt.close`) → `receipt` event.
+7. **Reopened → re-plan**: a `reopened` finding gets a fresh template plan (gated like any other) — up to `CONSOLE_MAX_ATTEMPTS` (2) failed receipts, then it becomes `escalated` (`escalation` event, log line) and the loop stops proposing; an operator may still `POST …/plan`.
+8. **Resolved without action**: an open/reopened/escalated finding whose root cause reads `healthy` for `CONSOLE_RESOLVE_TICKS` (3) consecutive ticks, with no plan executing, becomes `resolved`; its pending plan is withdrawn (a countdown stops, approvals no longer start it) and `GET …/plan` is 404. A resolved or closed finding never absorbs a later occurrence — the same fault again is a new finding.
+
+Finding `status` values: `open`, `reopened`, `escalated` (still open — `counts.findings_open`), `closed` (verified fix, receipt attached), `resolved` (no action taken). The UI lists `closed` and `resolved` under the closed filter.

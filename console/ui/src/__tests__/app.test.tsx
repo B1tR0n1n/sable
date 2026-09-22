@@ -45,8 +45,7 @@ class FakeSocket {
 function routes(url: string): Response {
   const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status });
   if (url === "/api/state") return json(state);
-  if (url === "/api/findings?status=open") return json([finding]);
-  if (url === "/api/findings?status=closed") return json([]);
+  if (url === "/api/findings") return json([finding]);
   if (url === "/api/receipts") return json([receipt]);
   if (url.startsWith("/api/log")) return json([{ ts: "2026-09-22T14:00:00Z", level: "info", source: "bridge", text: "finding ingested" }]);
   if (url === "/api/policy") return json({ ...state.policy, delay_s: 120, unmonitored_gap_cap: 1 });

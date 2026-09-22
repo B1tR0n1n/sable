@@ -81,6 +81,39 @@ environment (no Docker daemon). First live run is the acceptance test:
 (nginx template escapes, dnsmasq HUP path, blackbox DNS validation, image
 healthchecks).
 
+## Post-first-run fixes
+What the first live run against the lab turned up, and what changed:
+
+- **Findings lifecycle.** A finding born from a transient blip (a heal-all
+  recreate) stayed `open` for ever and later faults deduped into it. Now
+  the loop resolves an open finding whose root cause reads healthy for
+  `CONSOLE_RESOLVE_TICKS` (3) consecutive ticks with nothing executing —
+  status `resolved` (no action, no receipt), pending plan withdrawn, plan
+  mapping cleared. A `reopened` finding was never re-planned (`plan_of` was
+  never cleared); now a failed verification proposes a fresh plan, once per
+  failed receipt, capped at `CONSOLE_MAX_ATTEMPTS` (2) — then the finding is
+  `escalated` (event + warn line + audit mirror) and the loop stops proposing.
+  `FindingStatus` grew `resolved` and `escalated` (schema regenerated); the
+  UI treats `resolved` as closed and tags `escalated`. Tests:
+  `tests/test_lifecycle.py`.
+- **Auth on the console API.** `CONSOLE_TOKEN` gates every mutating route
+  behind `Authorization: Bearer <token>` (constant-time compare, 401 with the
+  documented error shape); reads and `/ws` stay open; unset → open, one
+  startup warning. The UI reads the token from `localStorage["console_token"]`
+  or a `?token=`/`#token=` on the link (stored, stripped). Tests:
+  `tests/test_auth.py`, `ui/src/__tests__/api.test.ts`.
+- **Verification window.** dns came back healthy while the lab app still read
+  `degraded`/`oscillating` at 30s — the app's dependency probe settles slower.
+  `restart_service` now declares `verification_window_s: 60` in the catalog
+  (`ActionSpec.verification_window_s`, planner default still 30); the verifier
+  treats `oscillating` on an affected (non-target) node as inconclusive and
+  re-checks once after a 15s settle against a NEWER tick — still oscillating
+  then escalates (the fix landed; the flapping dependents need eyes), an
+  oscillating target is a fail as before. Contract shapes unchanged; the
+  receipt's `observed.recheck` records both looks.
+- `requests` added to `console/requirements.txt` (the stub's Nemotron bridge
+  imports it; `make test` failed on a fresh box).
+
 ## Not in the MVP
 Multi-site policy, Graph/M365 adapters, signed (not just chained)
 receipts, prompt caching, an eval set of scenarios, per-site egress policy.

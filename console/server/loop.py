@@ -13,6 +13,13 @@
              closes / compensates+reopens / escalates.
     RECEIPT  sealed onto the chain, mirrored onto OVERLORD's audit chain.
 
+Lifecycle around the loop: a finding whose root cause SABLE reports healthy
+for `resolve_after_ticks` ticks in a row, with nothing executing for it,
+resolves itself (no action, no receipt) and its pending plan is withdrawn.
+A finding reopened by a failed verification gets a fresh plan — up to
+`max_attempts` failed receipts, after which it escalates to a human instead
+of looping fix / fail / fix.
+
 Every state change is an event (emit) that the server broadcasts.
 Nothing here imports FastAPI.
 """
@@ -38,7 +45,7 @@ from console.planner import LLMPlanner, NoTemplate, PlanValidationError, Templat
 from console.policy import Policy
 from console.sable_bridge import FindingEmitter, FindingStore
 from console.topology import Topology
-from console.verify import Verifier
+from console.verify import Verifier, node_states
 
 HERE = Path(__file__).resolve().parent
 CONSOLE_DIR = HERE.parent
@@ -58,6 +65,9 @@ class Config:
     disabled_actions: tuple[str, ...] = tuple(
         a for a in os.environ.get("CONSOLE_DISABLE_ACTIONS", "").split(",") if a)
     verify_stale_after_s: int = int(os.environ.get("CONSOLE_VERIFY_STALE_S", "120"))
+    # lifecycle: healthy ticks before a no-action resolve; failed receipts before escalation
+    resolve_after_ticks: int = int(os.environ.get("CONSOLE_RESOLVE_TICKS", "3"))
+    max_attempts: int = int(os.environ.get("CONSOLE_MAX_ATTEMPTS", "2"))
     log_lines: int = 2000
 
 
@@ -66,7 +76,8 @@ class _PlanState:
     plan: Plan
     finding_id: str
     approvals: list[Approval] = field(default_factory=list)
-    status: str = "proposed"            # proposed | countdown | held | rejected | executing | done
+    # proposed | countdown | held | rejected | executing | done | superseded | withdrawn
+    status: str = "proposed"
     remaining_s: Optional[int] = None
     receipt_id: Optional[str] = None
 
@@ -85,6 +96,8 @@ class Loop:
         # state that note()/emit() need must exist before anything can fail
         self.plans: dict[str, _PlanState] = {}          # plan_id -> state
         self.plan_of: dict[str, str] = {}               # finding_id -> current plan_id
+        self._healthy_streak: dict[str, int] = {}       # finding_id -> consecutive ticks with a healthy root
+        self._answered: dict[str, int] = {}             # finding_id -> receipts answered by a replan/escalation
         self.log: deque = deque(maxlen=cfg.log_lines)
         self._tick: tuple[Optional[dict], Optional[datetime]] = (None, None)
         self._threads: list[threading.Thread] = []
@@ -143,22 +156,100 @@ class Loop:
     # ---------------------------------------------------------------- DETECT
 
     def on_tick(self, tick: dict[str, Any]) -> Optional[Finding]:
-        """A SABLE tick: remember it (verification reads the freshest) and
-        let the emitter turn it into a finding."""
+        """A SABLE tick: remember it (verification reads the freshest), let
+        the emitter turn it into a finding, then resolve what has healed."""
         self._tick = (tick, self._clock())
         self.stations["DETECT"] = time.time()
-        return self.emitter.on_tick(tick) if self.emitter else None
+        finding = self.emitter.on_tick(tick) if self.emitter else None
+        self._sweep_healed(tick)
+        return finding
 
     def latest_tick(self) -> tuple[Optional[dict], Optional[datetime]]:
         return self._tick
 
     def _on_finding_change(self, finding: Finding) -> None:
         self.emit({"type": "finding", "finding": finding.model_dump(mode="json")})
-        if finding.status in ("open", "reopened") and finding.id not in self.plan_of:
-            try:
-                self.plan(finding.id, "template")
-            except (NoTemplate, PlanValidationError) as e:
-                self.note(f"no plan for {finding.id}: {e}", level="warn")
+        if finding.status == "open" and finding.id not in self.plan_of:
+            self._propose(finding)
+        elif finding.status == "reopened" and self._unanswered_reopen(finding):
+            self._replan_or_escalate(finding)
+
+    def _propose(self, finding: Finding) -> None:
+        try:
+            self.plan(finding.id, "template")
+        except (NoTemplate, PlanValidationError) as e:
+            self.note(f"no plan for {finding.id}: {e}", level="warn")
+
+    # ---------------------------------------------------------------- lifecycle
+
+    def _sweep_healed(self, tick: dict[str, Any]) -> None:
+        """Resolve every open finding whose root cause has read healthy for
+        `resolve_after_ticks` ticks in a row and has nothing executing. A
+        transient blip must not stay open for ever and swallow the next real
+        fault into its dedup key; a plan in flight is the verifier's to judge."""
+        states = node_states(tick, self.topology)
+        for f in self.store.list_open():
+            healthy = states.get(f.root_cause.node_id) == "healthy"
+            streak = self._healthy_streak.get(f.id, 0) + 1 if healthy else 0
+            self._healthy_streak[f.id] = streak
+            if streak >= self.cfg.resolve_after_ticks and not self._executing(f.id):
+                self._resolve(f, streak)
+
+    def _executing(self, finding_id: str) -> bool:
+        pid = self.plan_of.get(finding_id)
+        return pid is not None and self.plans[pid].status == "executing"
+
+    def _resolve(self, finding: Finding, streak: int) -> None:
+        """No action: withdraw the pending plan (a countdown stops, an approval
+        no longer starts anything), drop the mapping, mark the finding resolved."""
+        with self._lock:
+            pid = self.plan_of.pop(finding.id, None)
+            st = self.plans.get(pid) if pid else None
+            if st is not None and st.status in ("proposed", "countdown", "held"):
+                st.status = "withdrawn"
+        self._healthy_streak.pop(finding.id, None)
+        self._answered.pop(finding.id, None)
+        self.note(f"finding {finding.id} resolved without action: {finding.root_cause.node_id} "
+                  f"healthy for {streak} consecutive tick(s)"
+                  + (f"; plan {pid} withdrawn" if st is not None and st.status == "withdrawn" else ""),
+                  source="detect")
+        self.store.resolve(finding.id)
+
+    def _unanswered_reopen(self, finding: Finding) -> bool:
+        """A reopen is answered once per failed receipt. A later occurrence of
+        the same condition (the store's dedup refresh) carries no new receipt
+        and is not a second reopen — even while the next attempt is executing."""
+        return len(finding.receipt_ids) > self._answered.get(finding.id, 0)
+
+    def _replan_or_escalate(self, finding: Finding) -> None:
+        self._answered[finding.id] = len(finding.receipt_ids)
+        attempts = self._failed_attempts(finding)
+        if attempts >= self.cfg.max_attempts:
+            self._escalate(finding, attempts)
+            return
+        self.note(f"finding {finding.id} reopened after failed attempt {attempts}/{self.cfg.max_attempts}; "
+                  f"proposing a fresh plan", source="gate")
+        self._propose(finding)
+
+    def _failed_attempts(self, finding: Finding) -> int:
+        """Receipts attached to a still-open finding are failed attempts (a
+        pass closes it); the one that just reopened it may not be sealed yet."""
+        n = 0
+        for rid in finding.receipt_ids:
+            r = self.chain.get(rid)
+            if r is None or (r.verification is not None and r.verification.status == "fail"):
+                n += 1
+        return n
+
+    def _escalate(self, finding: Finding, attempts: int) -> None:
+        reason = (f"{attempts} failed attempt(s) for {finding.id} (max {self.cfg.max_attempts}); "
+                  f"not re-planning — a human decides")
+        self.note(f"finding {finding.id} escalated: {reason}", source="gate", level="warn")
+        self.emit({"type": "escalation", "finding_id": finding.id, "plan_id": self.plan_of.get(finding.id),
+                   "decision": "human_plus", "reason": reason})
+        self._audit("approval.escalated", finding_id=finding.id, attempts=attempts,
+                    max_attempts=self.cfg.max_attempts)
+        self.store.escalate(finding.id)
 
     # ---------------------------------------------------------------- PROPOSE + GATE
 
@@ -338,7 +429,7 @@ class Loop:
         now = time.time()
         return {
             "sable": sable, "overlord": ov,
-            "counts": {"findings_open": len(self.store.list("open")) + len(self.store.list("reopened")),
+            "counts": {"findings_open": len(self.store.list_open()),
                        "plans_pending": sum(1 for s in self.plans.values() if s.status in ("proposed", "countdown", "held")),
                        "receipts": self.chain.verify()["count"]},
             "policy": {"matrix": self.policy.matrix.model_dump(), "bands": self.policy.bands.model_dump(),

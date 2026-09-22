@@ -8,7 +8,10 @@
 export type Severity = "low" | "medium" | "high" | "critical";
 export type DetectionMode = "live_feed" | "unmonitored_gap";
 export type ConfidenceMethod = "mc_dropout" | "engine_native" | "heuristic";
-export type FindingStatus = "open" | "closed" | "reopened";
+// closed: a verified fix (receipt attached) · resolved: cleared on its own, no action
+// reopened: a fix failed and was compensated · escalated: re-planning capped, a human decides
+export type FindingStatus = "open" | "closed" | "reopened" | "resolved" | "escalated";
+export const CLOSED_STATUSES: ReadonlySet<FindingStatus> = new Set<FindingStatus>(["closed", "resolved"]);
 
 export interface NodeRef {
   node_id: string;

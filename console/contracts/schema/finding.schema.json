@@ -96,7 +96,9 @@
       "enum": [
         "open",
         "closed",
-        "reopened"
+        "reopened",
+        "resolved",
+        "escalated"
       ],
       "title": "FindingStatus",
       "type": "string"

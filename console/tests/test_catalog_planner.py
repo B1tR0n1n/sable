@@ -232,7 +232,8 @@ def test_every_lab_fault_scenario_yields_a_valid_plan(catalog, topology, node, s
     assert (step.compensation.action_id if step.compensation else None) == comp
     assert plan.blast_radius.nodes == topology.blast_radius(node)
     assert plan.blast_radius.count == len(topology.blast_radius(node))
-    assert plan.verification.predicate == catalog.get(action).verification and plan.verification.window_s == 30
+    assert plan.verification.predicate == catalog.get(action).verification
+    assert plan.verification.window_s == (catalog.get(action).verification_window_s or 30)
     assert plan.planner.kind == "template" and plan.planner.template_id
     assert plan.gate is None                                    # the gate is Phase 6's
     # it passes the same gate a model's plan would, unchanged
@@ -432,3 +433,10 @@ def test_extract_json_object_takes_the_first_object():
     assert extract_json_object("[1, 2, 3]") is None
     assert extract_json_object("{not json} {\"ok\": true}") == {"ok": True}
     assert extract_json_object("") is None
+
+
+def test_restart_service_waits_a_full_minute_before_verifying(catalog):
+    """The lab app's dependency probe settles slower than 30s: dns came back
+    healthy while app still read degraded/oscillating at the old window."""
+    assert catalog.get("restart_service").verification_window_s == 60
+    assert catalog.get("clear_dns_cache").verification_window_s is None       # the planner default applies

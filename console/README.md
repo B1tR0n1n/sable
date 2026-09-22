@@ -66,6 +66,10 @@ overlord daemon                                   # ~/.overlord/overlordd.sock b
 # 4. the console
 export SABLE_URL=http://127.0.0.1:8080  CONSOLE_LAB=1  SITE_ID=lab
 python3 -m console.server                         # http://127.0.0.1:7780
+# optional: CONSOLE_TOKEN=<secret> gates POST/PUT behind `Authorization: Bearer` (open + one warning when unset);
+#           open the UI as http://127.0.0.1:7780/?token=<secret> once — it is stored and stripped from the URL.
+#           CONSOLE_RESOLVE_TICKS (3) healthy ticks before a no-action resolve; CONSOLE_MAX_ATTEMPTS (2) failed
+#           receipts before a finding escalates instead of being re-planned.
 ```
 
 Then break something and watch the loop:

@@ -20,6 +20,11 @@ class _Unresolvable(Exception):
     pass
 
 
+def _window_for(action) -> int:
+    """The catalog may pin an action's verification window; else the planner default."""
+    return VERIFICATION_WINDOW_S if action.verification_window_s is None else int(action.verification_window_s)
+
+
 class TemplatePlanner:
     def __init__(self, catalog: Catalog, topology: Topology, service_map: Optional[dict[str, str]] = None,
                  golden: Optional[dict[str, dict[str, str]]] = None, disabled: Iterable[str] = ()):
@@ -101,7 +106,7 @@ class TemplatePlanner:
         nodes = expected_blast_radius([rc.node_id], self.topology)
         plan = Plan(finding_id=finding.id, steps=[step],
                     blast_radius=BlastRadius(nodes=nodes, count=len(nodes)),
-                    verification=Verification(predicate=action.verification, window_s=VERIFICATION_WINDOW_S),
+                    verification=Verification(predicate=action.verification, window_s=_window_for(action)),
                     planner=PlannerProvenance(kind="template", template_id=template.template_id))
         # the template planner is not trusted either: its output goes through the same gate
         return validate_plan(plan.model_dump(mode="json"), self.catalog, finding, self.topology)

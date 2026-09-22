@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
+import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Optional
@@ -17,10 +20,42 @@ from console.planner import NoTemplate, PlanValidationError
 from .loop import Loop
 
 UI_DIST = Path(__file__).resolve().parent.parent / "ui" / "dist"
+MUTATING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+TOKEN_ENV = "CONSOLE_TOKEN"
+UNSET_WARNING = "console: CONSOLE_TOKEN unset — mutating routes are unauthenticated"
+
+log = logging.getLogger("console")
 
 
 def _err(status: int, msg: str) -> JSONResponse:
     return JSONResponse({"error": msg}, status_code=status)
+
+
+def bearer_ok(header: Optional[str], token: str) -> bool:
+    """`Authorization: Bearer <token>`, compared in constant time. The scheme
+    is case-insensitive; the token is exact (no trimming)."""
+    if not header:
+        return False
+    scheme, _, presented = header.partition(" ")
+    if scheme.lower() != "bearer" or not presented:
+        return False
+    return hmac.compare_digest(presented.encode("utf-8"), token.encode("utf-8"))
+
+
+def _install_auth(app: FastAPI, loop: Loop, token: Optional[str]) -> None:
+    """With a token: every mutating /api route wants the bearer; reads and
+    /ws stay open (read-only). Without: everything open, said once."""
+    if not token:
+        loop.note(UNSET_WARNING, level="warn")
+        log.warning(UNSET_WARNING)
+        return
+
+    @app.middleware("http")
+    async def require_token(request: Request, call_next):
+        if request.method in MUTATING and request.url.path.startswith("/api/"):
+            if not bearer_ok(request.headers.get("authorization"), token):
+                return _err(401, "unauthorized: this route needs `Authorization: Bearer <CONSOLE_TOKEN>`")
+        return await call_next(request)
 
 
 class Broadcaster:
@@ -69,8 +104,10 @@ def receipt_markdown(r: Receipt) -> str:
 
 
 def create_app(loop: Loop, broadcaster: Optional[Broadcaster] = None, serve_ui: bool = True,
-               ui_dist: Optional[Path] = None) -> FastAPI:
+               ui_dist: Optional[Path] = None, token: Optional[str] = None) -> FastAPI:
+    """`token` defaults to the CONSOLE_TOKEN environment variable."""
     bc = broadcaster or Broadcaster()
+    token = os.environ.get(TOKEN_ENV) if token is None else token
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -94,6 +131,7 @@ def create_app(loop: Loop, broadcaster: Optional[Broadcaster] = None, serve_ui: 
     inner_emit = loop._emit
     loop._emit = lambda ev: (inner_emit(ev), bc.emit(ev))
     app.state.loop, app.state.bc = loop, bc
+    _install_auth(app, loop, token)
 
     # ---------------------------------------------------------------- REST
 

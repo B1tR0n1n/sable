@@ -3,7 +3,9 @@ optional JSON persistence.
 
 Dedup (PLAN.md Phase 2): a persisting condition updates its open Finding
 rather than creating a new one. "Same condition" is `Finding.dedup_key`
-(site, root node, root state); "open" is status open or reopened.
+(site, root node, root state); "open" is status open, reopened or escalated.
+A resolved or closed finding never absorbs a later occurrence: the same
+fault returning is a new finding.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from console.contracts import Finding, FindingStatus
 
 log = logging.getLogger(__name__)
 
-OPEN_STATUSES = (FindingStatus.open.value, FindingStatus.reopened.value)
+OPEN_STATUSES = (FindingStatus.open.value, FindingStatus.reopened.value, FindingStatus.escalated.value)
 
 Subscriber = Callable[[Finding], None]
 
@@ -46,6 +48,12 @@ class FindingStore:
         want = _status_value(status)
         with self._lock:
             items = [f for f in self._findings.values() if want is None or f.status == want]
+        return sorted(items, key=_recency, reverse=True)
+
+    def list_open(self) -> list[Finding]:
+        """Every finding still awaiting an outcome (open, reopened, escalated), newest first."""
+        with self._lock:
+            items = [f for f in self._findings.values() if f.status in OPEN_STATUSES]
         return sorted(items, key=_recency, reverse=True)
 
     def find_open(self, dedup_key: tuple[str, str, str]) -> Optional[Finding]:
@@ -96,6 +104,14 @@ class FindingStore:
 
     def reopen(self, finding_id: str, receipt_id: Optional[str] = None) -> Finding:
         return self._transition(finding_id, FindingStatus.reopened, receipt_id)
+
+    def resolve(self, finding_id: str) -> Finding:
+        """The condition cleared on its own; nothing was executed, no receipt."""
+        return self._transition(finding_id, FindingStatus.resolved, None)
+
+    def escalate(self, finding_id: str) -> Finding:
+        """Still open, but the loop stops proposing: a human decides."""
+        return self._transition(finding_id, FindingStatus.escalated, None)
 
     def _transition(self, finding_id: str, status: FindingStatus, receipt_id: Optional[str]) -> Finding:
         with self._lock:

@@ -29,10 +29,56 @@ export class ApiError extends Error {
   }
 }
 
+// ---------------------------------------------------------------- token
+// CONSOLE_TOKEN on the server gates every mutating route behind
+// `Authorization: Bearer <token>`. The UI keeps it in localStorage; a shared
+// link may carry it as `?token=` or `#token=`, captured once at boot and
+// stripped from the address bar so it lands in neither history nor a screenshot.
+
+export const TOKEN_KEY = "console_token";
+
+export function getToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function captureTokenFromUrl(): string | null {
+  if (typeof window === "undefined" || !window.location) return getToken();
+  const url = new URL(window.location.href);
+  let found = url.searchParams.get("token");
+  if (found !== null) url.searchParams.delete("token");
+  const m = /^#?token=([^&]*)$/.exec(url.hash); // the app's own routes are "#/…", never "#token="
+  if (m) {
+    found = found ?? decodeURIComponent(m[1]);
+    url.hash = "";
+  }
+  if (found) {
+    try {
+      localStorage.setItem(TOKEN_KEY, found);
+    } catch {
+      /* private mode: the token lives for this page load only */
+    }
+    try {
+      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    } catch {
+      /* ignore */
+    }
+  }
+  return getToken();
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { authorization: `Bearer ${token}` } : {};
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
-    headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
+    headers: { "content-type": "application/json", ...authHeaders(), ...(init?.headers ?? {}) },
   });
   const text = await res.text();
   let body: unknown = null;

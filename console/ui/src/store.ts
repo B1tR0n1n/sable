@@ -15,6 +15,7 @@ import type {
   VerificationResult,
   WsEvent,
 } from "./types";
+import { CLOSED_STATUSES } from "./types";
 
 export const LOG_RING_SIZE = 500;
 
@@ -235,13 +236,13 @@ function mergeReceipts(existing: Receipt[], incoming: Receipt[]): Receipt[] {
 
 export function openFindings(s: Snapshot): Finding[] {
   return Object.values(s.findings)
-    .filter((f) => f.status !== "closed")
+    .filter((f) => !CLOSED_STATUSES.has(f.status))
     .sort(byNewest);
 }
 
 export function closedFindings(s: Snapshot): Finding[] {
   return Object.values(s.findings)
-    .filter((f) => f.status === "closed")
+    .filter((f) => CLOSED_STATUSES.has(f.status))
     .sort(byNewest);
 }
 

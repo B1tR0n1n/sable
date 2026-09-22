@@ -95,9 +95,9 @@ class Overlord(FakeClient):
 
 @pytest.fixture
 def world(tmp_path):
-    def make(policy=None, lab=False, sleep_scale=0.0):
+    def make(policy=None, lab=False, sleep_scale=0.0, **cfg_overrides):
         cfg = Config(data_dir=tmp_path / "data", lab_dir=tmp_path / "lab", lab_enabled=lab,
-                     verify_stale_after_s=120)
+                     verify_stale_after_s=120, **cfg_overrides)
         sable, ov = FakeSable(), Overlord()
         loop = Loop(cfg, sable, ov, policy=policy or Policy.load(), sleep=lambda s: time.sleep(s * sleep_scale))
         loop.verifier.max_wait_s = 5

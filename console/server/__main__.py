@@ -2,7 +2,10 @@
 
 Environment: SABLE_URL, OVERLORD_SOCKET (or OVERLORD_SDK to find the SDK),
 CONSOLE_DATA, SITE_ID, LAB_DIR, CONSOLE_LAB=1, CONSOLE_POLICY,
-CONSOLE_LLM_PROVIDER, CONSOLE_LLM_MODEL, CONSOLE_DISABLE_ACTIONS."""
+CONSOLE_LLM_PROVIDER, CONSOLE_LLM_MODEL, CONSOLE_DISABLE_ACTIONS,
+CONSOLE_TOKEN (bearer for mutating routes; unset = open, warned once),
+CONSOLE_RESOLVE_TICKS (healthy ticks before a no-action resolve, 3),
+CONSOLE_MAX_ATTEMPTS (failed receipts before escalation, 2)."""
 
 import argparse
 import sys

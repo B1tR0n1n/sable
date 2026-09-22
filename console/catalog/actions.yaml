@@ -68,6 +68,7 @@ actions:
     compensation: {action_id: restart_service, params_from: [service]}
     preconditions: [service_exists]
     verification: node_healthy
+    verification_window_s: 60            # the lab app's dependency probe settles slower than 30s (observed: dns healthy, app still degraded/oscillating)
     executor:
       argv: ["docker", "compose", "-f", "{lab_compose}", "restart", "{service}"]
       grants: {jail: false, net: none, timeout_s: 60}

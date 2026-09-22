@@ -90,16 +90,14 @@ export default function App() {
   const refresh = useCallback(async () => {
     const results = await Promise.allSettled([
       api.state(),
-      api.findings("open"),
-      api.findings("closed"),
+      api.findings(),
       api.receipts(),
       api.log(200),
       api.policy(),
     ]);
-    const [st, open, closed, receipts, log, pol] = results;
+    const [st, findings, receipts, log, pol] = results;
     if (st.status === "fulfilled") store.setState(st.value);
-    if (open.status === "fulfilled") store.setFindings(open.value);
-    if (closed.status === "fulfilled") store.setFindings(closed.value);
+    if (findings.status === "fulfilled") store.setFindings(findings.value);
     if (receipts.status === "fulfilled") store.setReceipts(receipts.value);
     if (log.status === "fulfilled" && store.get().log.length === 0) store.setLog(log.value);
     if (pol.status === "fulfilled") setPolicy(pol.value);

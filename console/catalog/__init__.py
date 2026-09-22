@@ -184,6 +184,7 @@ class ActionSpec(_Strict):
     compensation: Optional[CompensationSpec] = None
     preconditions: list[str] = Field(min_length=1)
     verification: str
+    verification_window_s: Optional[int] = Field(default=None, ge=0)   # None: the planner's default
     executor: ExecutorBinding
     compensation_only: bool = False
     action_id: str = ""                   # filled from the mapping key at load

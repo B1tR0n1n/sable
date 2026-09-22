@@ -109,6 +109,16 @@ function FindingRow({
           </span>
         )}
         {f.status === "reopened" && <span className="tag tag-red">reopened</span>}
+        {f.status === "escalated" && (
+          <span className="tag tag-red" title="re-planning capped; a human decides">
+            escalated
+          </span>
+        )}
+        {f.status === "resolved" && (
+          <span className="tag tag-dim" title="cleared on its own; no action was taken">
+            resolved · no action
+          </span>
+        )}
       </div>
     </div>
   );

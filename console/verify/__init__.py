@@ -7,9 +7,11 @@ re-evaluate the affected nodes from a FRESH tick:
     fail          → the completed steps are compensated (OVERLORD) and the
                     finding is reopened with the failed attempt attached
     inconclusive  → escalated to a human; it never counts as a pass
+                    (an oscillating dependent gets ONE re-check after a
+                    settle before it counts as inconclusive)
 
 The receipt's verification is written, then the receipt is sealed onto the
 hash chain in its final form.
 """
 
-from .verifier import Verdict, Verifier, evaluate  # noqa: F401
+from .verifier import Verdict, Verifier, evaluate, node_states  # noqa: F401

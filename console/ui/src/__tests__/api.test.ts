@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { api, ApiError, WsClient } from "../api";
+import { api, ApiError, captureTokenFromUrl, getToken, TOKEN_KEY, WsClient } from "../api";
 
 describe("api", () => {
   beforeEach(() => vi.restoreAllMocks());
@@ -57,6 +57,68 @@ describe("api", () => {
     expect((err as ApiError).status).toBe(422);
     expect((err as ApiError).message).toBe("steps.0.action_id: not in catalog");
     expect((err as ApiError).body).toEqual({ error: "steps.0.action_id: not in catalog" });
+  });
+});
+
+describe("console token", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    localStorage.removeItem(TOKEN_KEY);
+    window.history.replaceState(null, "", "/");
+  });
+  afterEach(() => localStorage.removeItem(TOKEN_KEY));
+
+  function capture() {
+    const calls: Array<[string, RequestInit | undefined]> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push([url, init]);
+        return new Response("{}", { status: 200 });
+      }),
+    );
+    return calls;
+  }
+  const auth = (init?: RequestInit) => (init?.headers as Record<string, string> | undefined)?.authorization;
+
+  it("attaches Authorization: Bearer from localStorage to reads and writes", async () => {
+    localStorage.setItem(TOKEN_KEY, "tok-1");
+    const calls = capture();
+    await api.state();
+    await api.approve("p1", { actor: "op", decision: "approve" });
+    await api.putPolicy({ bands: { high: 0.85, medium: 0.6 }, matrix: {} as never });
+    expect(calls.map(([, i]) => auth(i))).toEqual(["Bearer tok-1", "Bearer tok-1", "Bearer tok-1"]);
+    expect((calls[1][1]?.headers as Record<string, string>)["content-type"]).toBe("application/json");
+  });
+
+  it("sends no Authorization header without a token", async () => {
+    const calls = capture();
+    await api.approve("p1", { actor: "op", decision: "approve" });
+    expect(auth(calls[0][1])).toBeUndefined();
+    expect(getToken()).toBeNull();
+  });
+
+  it("captures ?token= from the URL, stores it and strips it from the address bar", () => {
+    window.history.replaceState(null, "", "/?token=abc%20def&x=1#/receipts/r1");
+    expect(captureTokenFromUrl()).toBe("abc def");
+    expect(getToken()).toBe("abc def");
+    expect(window.location.search).toBe("?x=1");
+    expect(window.location.hash).toBe("#/receipts/r1");
+    expect(window.location.pathname).toBe("/");
+  });
+
+  it("captures #token= too and leaves a clean URL", () => {
+    window.history.replaceState(null, "", "/#token=xyz");
+    expect(captureTokenFromUrl()).toBe("xyz");
+    expect(getToken()).toBe("xyz");
+    expect(window.location.hash).toBe("");
+    expect(window.location.search).toBe("");
+  });
+
+  it("keeps the stored token when the URL carries none", () => {
+    localStorage.setItem(TOKEN_KEY, "kept");
+    expect(captureTokenFromUrl()).toBe("kept");
+    expect(getToken()).toBe("kept");
   });
 });
 
