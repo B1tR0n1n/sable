@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, WsClient, type WsStatus } from "./api";
 import { closedFindings, openFindings, planForFinding, store, useStore } from "./store";
 import { gateCell, isDefaultDeny, TARGET_MATRIX } from "./gate";
-import type { ApproveDecisionBody, Policy } from "./types";
+import type { ApproveDecisionBody, Policy, WsEvent } from "./types";
 import { LoopStrip } from "./components/LoopStrip";
 import { FindingsList } from "./components/FindingsList";
 import { PlanPanel } from "./components/PlanPanel";
@@ -12,9 +12,18 @@ import { ReceiptsList } from "./components/ReceiptsList";
 import { ReceiptRoute } from "./components/ReceiptView";
 import { AnalystPanel } from "./components/AnalystPanel";
 import { LabControls } from "./components/LabControls";
+import { SettingsPanel } from "./components/SettingsPanel";
 
 const OPERATOR_KEY = "console.operator";
 const POLL_MS = 5000;
+const STATE_DEBOUNCE_MS = 750;
+
+/** Events after which the strip's counts (open / pending / receipts) move. */
+function changesCounts(ev: WsEvent): boolean {
+  if (ev.type === "plan" || ev.type === "plan_status" || ev.type === "receipt") return true;
+  if (ev.type === "finding") return store.get().findings[ev.finding.id]?.status !== ev.finding.status;
+  return false;
+}
 
 function readOperator(): string {
   try {
@@ -74,6 +83,7 @@ export default function App() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [analystOpen, setAnalystOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const wsRef = useRef<WsStatus>("connecting");
 
@@ -105,8 +115,20 @@ export default function App() {
 
   useEffect(() => {
     void refresh();
+    let stateTimer: ReturnType<typeof setTimeout> | null = null;
+    const refreshState = () => {
+      if (stateTimer) return;
+      stateTimer = setTimeout(() => {
+        stateTimer = null;
+        api.state().then((s) => store.setState(s)).catch(() => {});
+      }, STATE_DEBOUNCE_MS);
+    };
     const client = new WsClient({
-      onEvent: (ev) => store.apply(ev),
+      onEvent: (ev) => {
+        const stale = changesCounts(ev);
+        store.apply(ev);
+        if (stale) refreshState();
+      },
       onStatus: (s) => {
         wsRef.current = s;
         setWs(s);
@@ -114,7 +136,10 @@ export default function App() {
       },
     });
     client.connect();
-    return () => client.close();
+    return () => {
+      client.close();
+      if (stateTimer) clearTimeout(stateTimer);
+    };
   }, [refresh]);
 
   // Polling fallback while the socket is down.
@@ -155,6 +180,7 @@ export default function App() {
 
   const finding = selectedId ? (snap.findings[selectedId] ?? null) : null;
   const plan = planForFinding(snap, selectedId);
+  const planStatus = plan ? (snap.planStatus[plan.id] ?? null) : null;
 
   // Fetch the plan for the selection when the stream has not delivered it.
   useEffect(() => {
@@ -183,20 +209,23 @@ export default function App() {
     setActionError(null);
     try {
       const res = await api.approve(planId, { actor: operator.trim(), decision });
-      store.setPlan(res.plan);
+      store.setPlan(res.plan, res.status);
       store.apply({ type: "approval", ts: new Date().toISOString(), plan_id: planId, approval: res.approval });
       if (decision !== "execute_now" && decision !== "approve") store.clearCountdown(planId);
     } catch (e) {
       setActionError(`${decision}: ${(e as Error).message}`);
+      // a 409 means the plan moved on (executed, rejected, superseded): resync it
+      const fid = snap.plans[planId]?.finding_id;
+      if (fid) api.findingPlan(fid).then((p) => store.setPlan(p)).catch(() => {});
     } finally {
       setBusy(false);
     }
   };
 
-  const onReplan = async (findingId: string) => {
+  const onReplan = async (findingId: string, planner: "template" | "llm") => {
     setReplanError(null);
     try {
-      const p = await api.replan(findingId, "llm");
+      const p = await api.replan(findingId, planner);
       store.setPlan(p);
     } catch (e) {
       const err = e as ApiError;
@@ -241,6 +270,7 @@ export default function App() {
         ws={ws}
         polling={polling}
         onOpenAnalyst={() => setAnalystOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
       {snap.state?.lab && <LabControls />}
       {actionError && (
@@ -263,6 +293,8 @@ export default function App() {
           <PlanPanel
             finding={finding}
             plan={plan}
+            planStatus={planStatus}
+            llm={snap.state?.model ?? null}
             progress={plan ? (snap.progress[plan.id] ?? null) : null}
             approvals={plan ? (snap.approvals[plan.id] ?? []) : []}
             countdown={plan ? (snap.countdowns[plan.id] ?? null) : null}
@@ -280,7 +312,18 @@ export default function App() {
           <ReceiptsList receipts={snap.receipts} onOpen={(id) => go({ name: "receipt", id })} now={now} />
         </div>
       </div>
-      <AnalystPanel open={analystOpen} finding={finding} onClose={() => setAnalystOpen(false)} />
+      <AnalystPanel
+        open={analystOpen}
+        finding={finding}
+        model={snap.state?.model ?? null}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onClose={() => setAnalystOpen(false)}
+      />
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSaved={() => api.state().then((s) => store.setState(s)).catch(() => {})}
+      />
     </div>
   );
 }

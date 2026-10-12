@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from console.policy import Policy
+from console.server.model_settings import ModelSettings
 from console.server import Config, Loop, create_app
 from console.tests.test_executor import FakeClient
 
@@ -97,8 +98,20 @@ class Overlord(FakeClient):
     def ping(self):
         return {"version": "0.30.0", "pid": 1}
 
+    def models(self, provider="anthropic", **kw):
+        self.model_lists = getattr(self, "model_lists", []) + [provider]
+        if provider == "openai":
+            return [{"id": "gpt-5.5"}, {"id": "text-embedding-3-large"}, {"id": "tts-1"}, {"id": "gpt-5.5-mini"}]
+        return [{"id": "claude-sonnet-5", "name": "Claude Sonnet 5"}, {"id": "claude-opus-5-5"}]
+
     def complete(self, prompt, system="", provider="anthropic", model=None, purpose=None, **kw):
         import hashlib
+        self.completions = getattr(self, "completions", []) + [
+            {"prompt": prompt, "system": system, "provider": provider, "model": model, "purpose": purpose, **kw}]
+        if (purpose or "").startswith(("analyst:", "settings:")):
+            text = "SABLE says dns is failed; the receipt shows restart_service verified."
+            return {"text": text, "provider": provider, "model": model, "stop": "end_turn", "usage": {},
+                    "refusal": None, "prompt_sha256": "", "output_sha256": ""}
         return {"text": self.llm_text, "provider": provider, "model": model or "fake", "stop": "end_turn",
                 "usage": {"in": 1, "out": 1}, "refusal": None,
                 "prompt_sha256": hashlib.sha256((system + "\n" + prompt).encode()).hexdigest(),
@@ -111,7 +124,8 @@ def world(tmp_path):
         cfg = Config(data_dir=tmp_path / "data", lab_dir=tmp_path / "lab", lab_enabled=lab,
                      verify_stale_after_s=120, **cfg_overrides)
         sable, ov = FakeSable(), Overlord()
-        loop = Loop(cfg, sable, ov, policy=policy or Policy.load(), sleep=lambda s: time.sleep(s * sleep_scale))
+        loop = Loop(cfg, sable, ov, policy=policy or Policy.load(), sleep=lambda s: time.sleep(s * sleep_scale),
+                    models=ModelSettings(home=tmp_path / "overlord-home", env={}))
         loop.verifier.max_wait_s = 5
         loop.verifier.poll_s = 0.05
         app = create_app(loop, serve_ui=False)
@@ -132,7 +146,8 @@ def test_state_reports_both_engines_and_the_default_deny_policy(world):
     _, _, _, loop, app = world()
     with TestClient(app) as c:
         s = c.get("/api/state").json()
-    assert s["sable"]["ok"] and s["sable"]["provider"] == "claude" and s["overlord"]["ok"]
+    assert s["sable"]["ok"] and "provider" not in s["sable"] and s["overlord"]["ok"]
+    assert s["model"] == {"provider": "anthropic", "model": "claude-sonnet-5", "ready": False}
     assert s["overlord"]["version"] == "0.30.0" and s["policy"]["default_deny"] is True
     assert s["counts"] == {"findings_open": 0, "plans_pending": 0, "receipts": 0}
 
@@ -204,6 +219,118 @@ def test_reject_and_hold_never_execute(world):
         assert ov.execs == []
 
 
+def test_decisions_on_a_plan_that_moved_on_are_409_and_leave_no_trace(world):
+    _, sable, ov, loop, app = world()
+    with TestClient(app) as c:
+        f = open_finding(loop, sable)
+        pid = loop.plan_of[f.id]
+        # hold only stops a countdown; a human-gated plan has none
+        r = c.post(f"/api/plans/{pid}/approve", json={"actor": "k", "decision": "hold"})
+        assert r.status_code == 409 and "countdown" in r.json()["error"]
+        assert c.post(f"/api/plans/{pid}/approve", json={"actor": "k", "decision": "reject"}).json()["status"] == "rejected"
+        n = len(loop.plans[pid].approvals)
+        for d in ("approve", "reject", "execute_now", "hold"):
+            r = c.post(f"/api/plans/{pid}/approve", json={"actor": "k", "decision": d})
+            assert r.status_code == 409 and "rejected" in r.json()["error"], d
+        assert len(loop.plans[pid].approvals) == n and ov.execs == []
+        assert loop.plans[pid].status == "rejected"
+
+
+def test_every_plan_status_change_is_streamed(world):
+    _, sable, ov, loop, app = world()
+    seen = []
+    inner = loop._emit
+    loop._emit = lambda ev: (seen.append(ev), inner(ev))
+    with TestClient(app) as c:
+        f = open_finding(loop, sable)
+        pid = loop.plan_of[f.id]
+        c.post(f"/api/plans/{pid}/approve", json={"actor": "k", "decision": "approve"})
+        loop.on_tick(tick({}))
+        assert loop.wait_idle(10)
+    statuses = [e["status"] for e in seen if e.get("type") == "plan_status" and e["plan_id"] == pid]
+    assert statuses == ["executing", "done"]
+    done = [e for e in seen if e.get("type") == "plan_status" and e["status"] == "done"][0]
+    assert done["receipt_id"] and done["finding_id"] == f.id
+
+
+def test_a_plan_is_fetched_by_its_own_id_after_it_is_superseded(world):
+    _, sable, ov, loop, app = world()
+    with TestClient(app) as c:
+        f = open_finding(loop, sable)
+        old = loop.plan_of[f.id]
+        new = c.post(f"/api/findings/{f.id}/plan", json={"planner": "template"}).json()["id"]
+        assert new != old
+        got = c.get(f"/api/plans/{old}").json()
+        assert got["id"] == old and got["_status"] == "superseded"
+        assert c.get(f"/api/plans/{new}").json()["_status"] == "proposed"
+        assert c.get("/api/plans/pln-nope").status_code == 404
+
+
+def test_an_unreachable_llm_provider_is_a_502_with_the_reason(world):
+    _, sable, ov, loop, app = world()
+    def down(*a, **kw):
+        raise RuntimeError("error: no API key for anthropic: set ANTHROPIC_API_KEY or add it in Settings")
+    ov.complete = down
+    with TestClient(app) as c:
+        f = open_finding(loop, sable)
+        r = c.post(f"/api/findings/{f.id}/plan", json={"planner": "llm"})
+        assert r.status_code == 502 and "no API key for anthropic" in r.json()["error"]
+        # the template plan is still the finding's plan
+        assert c.get(f"/api/findings/{f.id}/plan").json()["steps"][0]["action_id"] == "restart_service"
+
+
+def test_model_settings_drive_the_planner_and_never_echo_the_key(world, tmp_path):
+    _, sable, ov, loop, app = world()
+    with TestClient(app) as c:
+        pub = c.get("/api/settings/model").json()
+        assert pub["provider"] == "anthropic" and pub["ready"] is False and pub["effective_model"] == "claude-sonnet-5"
+        assert c.get("/api/state").json()["model"] == {"provider": "anthropic", "model": "claude-sonnet-5", "ready": False}
+        r = c.put("/api/settings/model", json={"provider": "openai", "model": "gpt-5.5-mini", "key": "sk-test-123"})
+        assert r.status_code == 200 and "sk-test-123" not in r.text
+        pub = r.json()
+        assert pub["provider"] == "openai" and pub["ready"] is True
+        assert {p["id"]: p["key"] for p in pub["providers"]} == {"anthropic": "none", "openai": "store"}
+        # the key lands in OVERLORD's store, 0600, where the daemon reads it
+        keys = tmp_path / "overlord-home" / "keys.json"
+        assert json.loads(keys.read_text()) == {"openai": "sk-test-123"} and (keys.stat().st_mode & 0o777) == 0o600
+        assert "sk-test-123" not in c.get("/api/settings/model").text
+        assert "sk-test-123" not in json.dumps(c.get("/api/state").json())
+        f = open_finding(loop, sable)
+        c.post(f"/api/findings/{f.id}/plan", json={"planner": "llm"})
+        plan_call = [x for x in ov.completions if (x["purpose"] or "").startswith("plan:")][-1]
+        assert plan_call["provider"] == "openai" and plan_call["model"] == "gpt-5.5-mini"
+        # clearing the key; a bad provider is a 400; an empty key leaves the stored one alone
+        assert c.put("/api/settings/model", json={"key": ""}).json()["ready"] is True
+        assert c.put("/api/settings/model", json={"clear_key": True}).json()["ready"] is False
+        assert c.put("/api/settings/model", json={"provider": "nemotron"}).status_code == 400
+        assert c.put("/api/settings/model", json={"key": "has a space"}).status_code == 400
+
+
+def test_model_list_is_live_and_drops_non_chat_models(world):
+    _, sable, ov, loop, app = world()
+    with TestClient(app) as c:
+        ids = [m["id"] for m in c.get("/api/settings/models?provider=openai").json()["models"]]
+        assert ids == ["gpt-5.5", "gpt-5.5-mini"]
+        assert [m["id"] for m in c.get("/api/settings/models").json()["models"]] == ["claude-sonnet-5", "claude-opus-5-5"]
+        def down(**kw):
+            raise RuntimeError("error: no API key for anthropic")
+        ov.models = down
+        r = c.get("/api/settings/models")
+        assert r.status_code == 502 and "no API key" in r.json()["error"]
+
+
+def test_model_test_button_reports_ok_or_the_reason(world):
+    _, sable, ov, loop, app = world()
+    with TestClient(app) as c:
+        r = c.post("/api/settings/model/test").json()
+        assert r["ok"] is True and r["provider"] == "anthropic" and r["reply"]
+        def down(*a, **kw):
+            raise RuntimeError("error: 401 invalid x-api-key")
+        ov.complete = down
+        r = c.post("/api/settings/model/test")
+        assert r.status_code == 502 and r.json()["ok"] is False and "401" in r.json()["error"]
+
+
 def test_target_policy_auto_executes_a_high_confidence_reversible_plan(world):
     _, sable, ov, loop, app = world(policy=Policy.target())
     with TestClient(app) as c:
@@ -257,9 +384,17 @@ def test_analyst_chat_is_scoped_to_the_finding_and_flagged_generated(world):
     _, sable, ov, loop, app = world()
     with TestClient(app) as c:
         f = open_finding(loop, sable)
-        r = c.post("/api/analyst/chat", json={"finding_id": f.id, "message": "what is upstream?", "history": []}).json()
-        assert r["generated"] is True and r["provider"] == "claude" and "dns" in r["reply"]
-        assert sable.chats[0]["message"].startswith(f"Regarding finding {f.id}")
+        r = c.post("/api/analyst/chat", json={"finding_id": f.id, "message": "what is upstream?", "history": [
+            {"role": "user", "content": "earlier question"}, {"role": "assistant", "content": "earlier answer"}]}).json()
+        assert r["generated"] is True and r["provider"] == "anthropic" and r["model"] == "claude-sonnet-5"
+        call = ov.completions[-1]
+        assert call["purpose"] == f"analyst:{f.id}" and call["provider"] == "anthropic"
+        # the finding, its plan and SABLE's reading are in the prompt; the history too; no tools anywhere
+        assert f.id in call["prompt"] and '"plan"' in call["prompt"] and "sable_now" in call["prompt"]
+        assert "OPERATOR: earlier question" in call["prompt"] and "ANALYST: earlier answer" in call["prompt"]
+        assert r["tool_calls"] == [] and set(r["context"]) >= {"finding", "plan", "receipts", "sable_now"}
+        assert sable.chats == []                     # SABLE's own LLM bridge is out of the loop
+        assert c.post("/api/analyst/chat", json={"finding_id": "fnd-nope", "message": "x"}).status_code == 404
 
 
 def test_lab_faults_are_gated_and_whitelisted(world, tmp_path):

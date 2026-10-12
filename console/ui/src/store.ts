@@ -10,6 +10,7 @@ import type {
   LogLine,
   LoopStation,
   Plan,
+  PlanStatus,
   Receipt,
   StepResult,
   VerificationResult,
@@ -31,6 +32,7 @@ export interface Snapshot {
   plans: Record<string, Plan>; // by plan id
   planByFinding: Record<string, string>; // finding id -> newest plan id
   approvals: Record<string, Approval[]>; // plan id -> approvals
+  planStatus: Record<string, PlanStatus>; // plan id -> server lifecycle
   progress: Record<string, ExecutionProgress>; // plan id -> live execution
   receipts: Receipt[]; // newest first
   log: LogLine[]; // ring buffer, oldest first
@@ -46,6 +48,7 @@ export const emptySnapshot = (): Snapshot => ({
   plans: {},
   planByFinding: {},
   approvals: {},
+  planStatus: {},
   progress: {},
   receipts: [],
   log: [],
@@ -92,11 +95,18 @@ export class Store {
     this.set({ findings });
   }
 
-  setPlan(plan: Plan): void {
+  setPlan(plan: Plan, status?: PlanStatus): void {
+    const s = status ?? plan._status;
     this.set({
       plans: { ...this.snap.plans, [plan.id]: plan },
       planByFinding: { ...this.snap.planByFinding, [plan.finding_id]: plan.id },
+      ...(s ? { planStatus: { ...this.snap.planStatus, [plan.id]: s } } : {}),
     });
+  }
+
+  setPlanStatus(planId: string, status: PlanStatus): void {
+    if (this.snap.planStatus[planId] === status) return;
+    this.set({ planStatus: { ...this.snap.planStatus, [planId]: status } });
   }
 
   setReceipts(list: Receipt[]): void {
@@ -140,9 +150,11 @@ export class Store {
         const p = ev.plan;
         const countdowns = { ...this.snap.countdowns };
         if (p.gate?.decision !== "delay") delete countdowns[p.id];
+        const s = ev.status ?? p._status;
         this.set({
           plans: { ...this.snap.plans, [p.id]: p },
           planByFinding: { ...this.snap.planByFinding, [p.finding_id]: p.id },
+          ...(s ? { planStatus: { ...this.snap.planStatus, [p.id]: s } } : {}),
           countdowns,
           activeStation: p.gate ? "GATE" : "PROPOSE",
           activeStationAt: now,
@@ -151,10 +163,24 @@ export class Store {
         return;
       }
 
+      case "plan_status": {
+        const countdowns = { ...this.snap.countdowns };
+        if (ev.status !== "countdown") delete countdowns[ev.plan_id];
+        this.set({
+          planStatus: { ...this.snap.planStatus, [ev.plan_id]: ev.status },
+          countdowns,
+          lastEventAt: now,
+        });
+        return;
+      }
+
       case "approval": {
         const prev = this.snap.approvals[ev.plan_id] ?? [];
+        // the POST response and the /ws echo carry the same approval: keep one
+        const a = ev.approval;
+        if (prev.some((p) => p.actor === a.actor && p.decision === a.decision && p.timestamp === a.timestamp)) return;
         this.set({
-          approvals: { ...this.snap.approvals, [ev.plan_id]: [...prev, ev.approval] },
+          approvals: { ...this.snap.approvals, [ev.plan_id]: [...prev, a] },
           activeStation: "GATE",
           activeStationAt: now,
           lastEventAt: now,

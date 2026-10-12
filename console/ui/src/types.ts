@@ -108,7 +108,22 @@ export interface Plan {
   gate?: Gate | null;
   planner?: PlannerProvenance | null;
   created_at: string;
+  /** server-side lifecycle, present on GET /api/findings/{id}/plan */
+  _status?: PlanStatus;
+  _receipt_id?: string | null;
 }
+
+export type PlanStatus =
+  | "proposed"
+  | "countdown"
+  | "held"
+  | "rejected"
+  | "executing"
+  | "done"
+  | "superseded"
+  | "withdrawn";
+/** A decision (approve / hold / reject / execute_now) only applies while pending. */
+export const PENDING_PLAN_STATUSES: ReadonlySet<PlanStatus> = new Set(["proposed", "countdown", "held"]);
 
 // ---------------------------------------------------------------- Receipt
 
@@ -211,8 +226,47 @@ export interface Policy {
 export interface SableStatus {
   url: string;
   ok: boolean;
-  provider: "claude" | "nemotron" | string | null;
   device?: string | null;
+  cycle?: number | null;
+}
+
+// ---------------------------------------------------------------- Model settings
+// One choice (Claude or GPT + key) behind the analyst and the LLM planner.
+// The key is write-only: nothing the server returns ever contains it.
+
+export type ModelProvider = "anthropic" | "openai";
+export type KeySource = "env" | "store" | "none";
+
+export interface ModelProviderInfo {
+  id: ModelProvider;
+  label: string;
+  key_env: string;
+  default_model: string;
+  key: KeySource;
+}
+
+export interface ModelSettings {
+  provider: ModelProvider;
+  /** "" = the provider's default */
+  model: string;
+  effective_model: string;
+  ready: boolean;
+  providers: ModelProviderInfo[];
+}
+
+export interface ModelSettingsUpdate {
+  provider?: ModelProvider;
+  model?: string;
+  key?: string;
+  clear_key?: boolean;
+}
+
+export interface ModelTestResult {
+  ok: boolean;
+  provider: string;
+  model: string;
+  reply?: string;
+  error?: string;
 }
 
 export interface OverlordStatus {
@@ -233,6 +287,8 @@ export interface ConsoleState {
   counts: Counts;
   policy: { matrix: Matrix; bands: Bands; default_deny: boolean };
   lab?: boolean;
+  /** the model the analyst and the LLM planner use */
+  model?: { provider: ModelProvider; model: string; ready: boolean };
 }
 
 // ---------------------------------------------------------------- Log
@@ -255,6 +311,7 @@ export interface ApproveResult {
   approval: Approval;
   plan: Plan;
   started: boolean;
+  status?: PlanStatus;
 }
 
 export interface VerifyChainResult {
@@ -275,7 +332,10 @@ export interface AnalystTurn {
 export interface AnalystChatResult {
   reply: string;
   tool_calls: AnalystToolCall[];
-  provider: "claude" | "local" | string;
+  provider: string;
+  model?: string | null;
+  /** the records the analyst was given (finding, plan, receipts, sable_now) */
+  context?: string[];
   generated: true;
 }
 
@@ -298,7 +358,8 @@ interface EventBase {
 export type WsEvent =
   | (EventBase & { type: "hello"; state: ConsoleState })
   | (EventBase & { type: "finding"; finding: Finding })
-  | (EventBase & { type: "plan"; plan: Plan })
+  | (EventBase & { type: "plan"; plan: Plan; status?: PlanStatus })
+  | (EventBase & { type: "plan_status"; plan_id: string; finding_id: string; status: PlanStatus; receipt_id?: string | null })
   | (EventBase & { type: "approval"; plan_id: string; approval: Approval })
   | (EventBase & { type: "countdown"; plan_id: string; remaining_s: number })
   | (EventBase & { type: "step"; plan_id: string; step: StepResult })

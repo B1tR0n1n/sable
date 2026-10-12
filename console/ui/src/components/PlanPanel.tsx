@@ -1,5 +1,6 @@
 import { useState } from "react";
-import type { Approval, ApproveDecisionBody, Finding, Plan, StepResult } from "../types";
+import type { Approval, ApproveDecisionBody, ConsoleState, Finding, Plan, PlanStatus, StepResult } from "../types";
+import { PENDING_PLAN_STATUSES } from "../types";
 import { DECISION_LABEL, planReversibility } from "../gate";
 import { fmtNum, fmtParams, mmss } from "../format";
 import type { ExecutionProgress } from "../store";
@@ -7,13 +8,17 @@ import type { ExecutionProgress } from "../store";
 export interface PlanPanelProps {
   finding: Finding | null;
   plan: Plan | null;
+  /** server lifecycle; null = not known yet (treated as pending) */
+  planStatus?: PlanStatus | null;
+  /** the model the LLM planner uses (from /api/state) */
+  llm?: ConsoleState["model"] | null;
   progress: ExecutionProgress | null;
   approvals: Approval[];
   countdown: number | null;
   operator: string;
   onOperator: (v: string) => void;
   onDecision: (planId: string, decision: ApproveDecisionBody["decision"]) => Promise<void>;
-  onReplan: (findingId: string) => Promise<void>;
+  onReplan: (findingId: string, planner: "template" | "llm") => Promise<void>;
   /** A 422 (or any error) from the planner, shown verbatim. */
   replanError: string | null;
   busy: boolean;
@@ -152,12 +157,14 @@ function stepStatusClass(s: StepResult["status"] | undefined): string {
 }
 
 function PlanBody(p: PlanPanelProps & { plan: Plan; finding: Finding }) {
-  const { plan, progress, approvals, countdown, operator, onOperator, onDecision, busy } = p;
+  const { plan, planStatus, progress, approvals, countdown, operator, onOperator, onDecision, busy } = p;
   const gate = plan.gate;
   const decision = gate?.decision ?? null;
   const worst = planReversibility(plan);
-  const canApprove = decision === "human" || decision === "human_plus" || decision === "delay";
+  const pending = !planStatus || PENDING_PLAN_STATUSES.has(planStatus);
+  const canApprove = pending && (decision === "human" || decision === "human_plus" || decision === "delay");
   const isDelay = decision === "delay";
+  const inCountdown = planStatus === "countdown" || (!planStatus && countdown !== null);
   const noOperator = operator.trim().length === 0;
 
   return (
@@ -165,6 +172,11 @@ function PlanBody(p: PlanPanelProps & { plan: Plan; finding: Finding }) {
       <div className="section">
         <div className="section-label">
           <span className="label">Plan {plan.id}</span>
+          {planStatus && (
+            <span className={`tag ${pending ? "tag-gold" : "tag-dim"}`} data-testid="plan-status">
+              {planStatus}
+            </span>
+          )}
           <span className="meta">
             {plan.planner ? `${plan.planner.kind}${plan.planner.template_id ? ` · ${plan.planner.template_id}` : ""}${plan.planner.provider ? ` · ${plan.planner.provider}` : ""}${plan.planner.model ? ` · ${plan.planner.model}` : ""}` : ""}
           </span>
@@ -275,7 +287,7 @@ function PlanBody(p: PlanPanelProps & { plan: Plan; finding: Finding }) {
           )}
           {isDelay && (
             <button
-              disabled={busy || noOperator}
+              disabled={busy || noOperator || !pending}
               onClick={() => onDecision(plan.id, "execute_now")}
               data-testid="btn-execute-now"
             >
@@ -292,7 +304,8 @@ function PlanBody(p: PlanPanelProps & { plan: Plan; finding: Finding }) {
           </button>
           <button
             className="quiet"
-            disabled={busy || noOperator || !canApprove}
+            disabled={busy || noOperator || !canApprove || !inCountdown}
+            title={!inCountdown ? "hold stops a running countdown" : undefined}
             onClick={() => onDecision(plan.id, "hold")}
             data-testid="btn-hold"
           >
@@ -307,6 +320,17 @@ function PlanBody(p: PlanPanelProps & { plan: Plan; finding: Finding }) {
             Reject
           </button>
         </div>
+        {pending && canApprove && noOperator && (
+          <p className="meta" style={{ marginTop: 6 }} data-testid="operator-hint">
+            Name the operator to enable the decision buttons — every decision is recorded against it.
+          </p>
+        )}
+        {!pending && (
+          <p className="meta" style={{ marginTop: 6 }} data-testid="plan-closed-hint">
+            This plan is {planStatus}; decisions no longer apply.
+            {planStatus === "done" && plan._receipt_id ? ` Receipt ${plan._receipt_id}.` : ""}
+          </p>
+        )}
         {decision === "report_only" && (
           <p className="meta" style={{ marginTop: 6 }}>
             report_only — the gate never executes this plan.
@@ -342,30 +366,38 @@ function ReplanControls({
   onReplan,
   replanError,
   busy,
-}: Pick<PlanPanelProps, "onReplan" | "replanError" | "busy"> & { findingId: string }) {
-  const [pending, setPending] = useState(false);
+  llm,
+}: Pick<PlanPanelProps, "onReplan" | "replanError" | "busy" | "llm"> & { findingId: string }) {
+  const [pending, setPending] = useState<null | "template" | "llm">(null);
+  const run = async (planner: "template" | "llm") => {
+    setPending(planner);
+    try {
+      await onReplan(findingId, planner);
+    } finally {
+      setPending(null);
+    }
+  };
+  const llmLabel = llm ? llm.model : "LLM";
+  const noKey = !!llm && !llm.ready;
   return (
     <div className="section">
       <div className="section-label">
         <span className="label">Planner</span>
       </div>
       <div className="controls">
+        <button className="quiet" disabled={busy || pending !== null} onClick={() => void run("template")} data-testid="btn-plan-template">
+          {pending === "template" ? "Planning…" : "Plan (template)"}
+        </button>
         <button
           className="quiet"
-          disabled={busy || pending}
-          onClick={async () => {
-            setPending(true);
-            try {
-              await onReplan(findingId);
-            } finally {
-              setPending(false);
-            }
-          }}
+          disabled={busy || pending !== null || noKey}
+          onClick={() => void run("llm")}
           data-testid="btn-replan"
+          title={noKey ? "no API key — set one under Settings" : `LLM planner: ${llm?.provider ?? ""} · ${llmLabel}`}
         >
-          Re-plan (LLM)
+          {pending === "llm" ? "Planning…" : `Re-plan (${llmLabel})`}
         </button>
-        <span className="meta">invalid output is rejected, never repaired</span>
+        <span className="meta">a new plan supersedes a pending one; invalid LLM output is rejected, never repaired</span>
       </div>
       {replanError && (
         <pre className="error-block" style={{ marginTop: 8 }} data-testid="replan-error">

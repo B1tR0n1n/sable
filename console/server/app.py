@@ -17,7 +17,8 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from console.contracts import Receipt
 from console.planner import NoTemplate, PlanValidationError
 
-from .loop import Loop
+from .loop import Loop, PlanStateError
+from .model_settings import SettingsError
 
 UI_DIST = Path(__file__).resolve().parent.parent / "ui" / "dist"
 MUTATING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
@@ -170,12 +171,15 @@ def create_app(loop: Loop, broadcaster: Optional[Broadcaster] = None, serve_ui: 
             return JSONResponse({"error": "plan rejected", "reasons": list(getattr(e, "reasons", [str(e)]))}, status_code=422)
         except NoTemplate as e:
             return _err(422, f"no template: {e}")
+        except Exception as e:                        # noqa: BLE001 — the model provider is down or unconfigured
+            loop.note(f"planner {body.get('planner', 'template')} failed for {fid}: {e}", source="propose", level="warn")
+            return _err(502, f"planner unavailable: {e}")
         return loop.plan_for(fid) or plan.model_dump(mode="json")
 
     @app.get("/api/plans/{pid}")
     async def plan(pid: str):
-        st = loop.plans.get(pid)
-        return loop.plan_for(st.finding_id) if st else _err(404, f"no plan {pid}")
+        p = loop.plan_by_id(pid)
+        return p if p else _err(404, f"no plan {pid}")
 
     @app.post("/api/plans/{pid}/approve")
     async def approve(pid: str, request: Request):
@@ -187,6 +191,8 @@ def create_app(loop: Loop, broadcaster: Optional[Broadcaster] = None, serve_ui: 
             return loop.approve(pid, actor, decision)
         except KeyError:
             return _err(404, f"no plan {pid}")
+        except PlanStateError as e:
+            return _err(409, str(e))
 
     @app.get("/api/receipts")
     async def receipts(finding_id: Optional[str] = None):
@@ -239,8 +245,64 @@ def create_app(loop: Loop, broadcaster: Optional[Broadcaster] = None, serve_ui: 
         try:
             return await asyncio.to_thread(loop.analyst_chat, body.get("finding_id"), str(body.get("message") or ""),
                                            list(body.get("history") or []))
-        except Exception as e:                        # noqa: BLE001
+        except KeyError as e:
+            return _err(404, str(e).strip("'\""))
+        except ValueError as e:
+            return _err(400, str(e))
+        except Exception as e:                        # noqa: BLE001 — no key, bad model, provider down
             return _err(502, f"analyst unavailable: {e}")
+
+    # ---------------------------------------------------------------- model settings
+    # The key is write-only: PUT takes it, nothing ever returns it.
+
+    @app.get("/api/settings/model")
+    async def model_settings():
+        return loop.models.public()
+
+    @app.put("/api/settings/model")
+    async def put_model_settings(request: Request):
+        body = await request.json()
+        if not isinstance(body, dict):
+            return _err(400, "expected a JSON object")
+        try:
+            pub = loop.models.update(provider=body.get("provider"), model=body.get("model"),
+                                     key=body.get("key"), clear_key=bool(body.get("clear_key")))
+        except SettingsError as e:
+            return _err(400, str(e))
+        loop._audit("ext.console.model_settings", provider=pub["provider"], model=pub["effective_model"],
+                    key_changed=bool(body.get("key")) or bool(body.get("clear_key")))
+        loop.note(f"model set to {pub['provider']} · {pub['effective_model']}"
+                  + (" (key updated)" if body.get("key") else " (key cleared)" if body.get("clear_key") else ""),
+                  source="settings")
+        loop.emit({"type": "state", "state": loop.state()})
+        return pub
+
+    @app.get("/api/settings/models")
+    async def model_list(provider: Optional[str] = None):
+        if loop.overlord is None:
+            return _err(503, "no OVERLORD connection")
+        try:
+            rows = await asyncio.to_thread(loop.models.models, loop.overlord.models, provider)
+        except SettingsError as e:
+            return _err(400, str(e))
+        except Exception as e:                        # noqa: BLE001 — no key / bad key: the reason is the answer
+            return _err(502, str(e))
+        return {"provider": provider or loop.models.current()["provider"], "models": rows}
+
+    @app.post("/api/settings/model/test")
+    async def model_test():
+        """One tiny completion on the saved provider/model/key."""
+        if loop.overlord is None:
+            return _err(503, "no OVERLORD connection")
+        kw = loop.models.complete_kwargs()
+        try:
+            res = await asyncio.to_thread(loop.overlord.complete, "Reply with the single word: ready",
+                                          system="", purpose="settings:test", **kw)
+        except Exception as e:                        # noqa: BLE001
+            return JSONResponse({"ok": False, "provider": kw["provider"], "model": kw["model"], "error": str(e)},
+                                status_code=502)
+        return {"ok": True, "provider": res.get("provider") or kw["provider"], "model": res.get("model") or kw["model"],
+                "reply": (res.get("text") or "").strip()[:200]}
 
     @app.post("/api/lab/fault")
     async def lab_fault(request: Request):

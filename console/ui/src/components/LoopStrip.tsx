@@ -8,9 +8,10 @@ export interface LoopStripProps {
   ws: WsStatus;
   polling: boolean;
   onOpenAnalyst: () => void;
+  onOpenSettings: () => void;
 }
 
-export function LoopStrip({ state, active, ws, polling, onOpenAnalyst }: LoopStripProps) {
+export function LoopStrip({ state, active, ws, polling, onOpenAnalyst, onOpenSettings }: LoopStripProps) {
   const sable = state?.sable;
   const overlord = state?.overlord;
   const counts = state?.counts;
@@ -50,7 +51,6 @@ export function LoopStrip({ state, active, ws, polling, onOpenAnalyst }: LoopStr
           <span>
             <span className={`dot ${sable ? (sable.ok ? "ok" : "down") : ""}`} />
             {sable ? (sable.ok ? "ok" : "down") : "—"}
-            {sable?.provider ? ` · ${sable.provider}` : ""}
             {sable?.device ? ` · ${sable.device}` : ""}
           </span>
         </div>
@@ -60,6 +60,14 @@ export function LoopStrip({ state, active, ws, polling, onOpenAnalyst }: LoopStr
             <span className={`dot ${overlord ? (overlord.ok ? "ok" : "down") : ""}`} />
             {overlord ? (overlord.ok ? "ok" : "down") : "—"}
             {overlord?.version ? ` · ${overlord.version}` : ""}
+          </span>
+        </div>
+        <div className="stat" data-testid="model-stat">
+          <span className="label">Model</span>
+          <span>
+            <span className={`dot ${state?.model ? (state.model.ready ? "ok" : "down") : ""}`} />
+            {state?.model ? `${state.model.model} · ${state.model.provider}` : "—"}
+            {state?.model && !state.model.ready ? <span className="sem-fail"> · no key</span> : null}
           </span>
         </div>
         <div className="stat">
@@ -76,6 +84,9 @@ export function LoopStrip({ state, active, ws, polling, onOpenAnalyst }: LoopStr
         )}
         <button className="quiet" onClick={onOpenAnalyst} data-testid="open-analyst">
           Analyst
+        </button>
+        <button className="quiet" onClick={onOpenSettings} data-testid="open-settings">
+          Settings
         </button>
       </div>
     </header>

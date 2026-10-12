@@ -79,8 +79,11 @@ class ApiError(Exception):
 
 def api(method: str, path: str, body: Optional[dict[str, Any]] = None, timeout: float = 15.0) -> Any:
     data = None if body is None else json.dumps(body).encode()
-    req = urllib.request.Request(CONSOLE_URL + path, data=data, method=method,
-                                 headers={"Content-Type": "application/json", "Accept": "application/json"})
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    # a console started with CONSOLE_TOKEN wants the bearer on every write
+    if os.environ.get("CONSOLE_TOKEN"):
+        headers["Authorization"] = f"Bearer {os.environ['CONSOLE_TOKEN']}"
+    req = urllib.request.Request(CONSOLE_URL + path, data=data, method=method, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read().decode() or "null"

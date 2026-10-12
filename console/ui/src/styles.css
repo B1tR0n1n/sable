@@ -871,3 +871,160 @@ table.t td.num {
 .notice.down {
   color: var(--red);
 }
+
+/* ---------------------------------------------------------------- settings modal */
+.modal-back {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 9, 8, 0.72);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh 16px 16px;
+  z-index: 40;
+}
+.modal {
+  width: min(520px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--border-lt);
+  box-shadow: 0 0 0 1px var(--accent-glow);
+}
+.modal .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
+.modal .field input,
+.modal .field select {
+  width: 100%;
+}
+select {
+  font-family: var(--mono);
+  font-size: var(--mono-size);
+  color: var(--text-bright);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 7px 8px;
+}
+select:focus {
+  outline: none;
+  border-color: var(--accent-dim);
+}
+
+/* the strip carries five stats + three controls: under ~1500px the loop
+   stations take their own row instead of squeezing everything sideways */
+.strip-status .stat > span:last-child {
+  white-space: nowrap;
+}
+@media (max-width: 1500px) {
+  .strip {
+    grid-template-columns: auto 1fr;
+    row-gap: 8px;
+  }
+  .strip-status {
+    justify-self: end;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .stations {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+/* ---------------------------------------------------------------- analyst markdown */
+.prose.md {
+  white-space: normal;
+}
+.prose.md > :first-child {
+  margin-top: 0;
+}
+.prose.md > :last-child {
+  margin-bottom: 0;
+}
+.prose.md p {
+  margin: 0 0 8px;
+}
+.prose.md h1,
+.prose.md h2,
+.prose.md h3,
+.prose.md h4 {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 14px 0 6px;
+}
+.prose.md strong {
+  color: var(--text-bright);
+  font-weight: 600;
+}
+.prose.md ul,
+.prose.md ol {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+.prose.md li {
+  margin: 2px 0;
+}
+.prose.md li::marker {
+  color: var(--accent-dim);
+}
+.prose.md code {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-bright);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 0 4px;
+}
+.prose.md pre {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  overflow-x: auto;
+  margin: 6px 0 8px;
+}
+.prose.md pre code {
+  border: 0;
+  padding: 0;
+  background: none;
+  white-space: pre;
+}
+.prose.md blockquote {
+  margin: 6px 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--border-lt);
+  color: var(--text-dim);
+}
+.prose.md table {
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  margin: 6px 0 8px;
+  display: block;
+  overflow-x: auto;
+}
+.prose.md th,
+.prose.md td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: left;
+}
+.prose.md th {
+  color: var(--text-dim);
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.prose.md a {
+  color: var(--accent);
+}
+.prose.md hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 10px 0;
+}

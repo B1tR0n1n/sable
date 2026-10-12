@@ -109,11 +109,58 @@ describe("PlanPanel", () => {
 
   it("posts the decision with the plan id", async () => {
     const onDecision = vi.fn(async () => {});
-    render(<PlanPanel {...baseProps} onDecision={onDecision} finding={finding} plan={plan} />);
-    fireEvent.click(screen.getByTestId("btn-hold"));
-    expect(onDecision).toHaveBeenCalledWith(plan.id, "hold");
+    render(<PlanPanel {...baseProps} onDecision={onDecision} finding={finding} plan={plan} planStatus="proposed" />);
+    fireEvent.click(screen.getByTestId("btn-approve"));
+    expect(onDecision).toHaveBeenCalledWith(plan.id, "approve");
     fireEvent.click(screen.getByTestId("btn-reject"));
     expect(onDecision).toHaveBeenCalledWith(plan.id, "reject");
+  });
+
+  it("offers Hold only while a countdown runs", () => {
+    const onDecision = vi.fn(async () => {});
+    const { unmount } = render(<PlanPanel {...baseProps} finding={finding} plan={plan} planStatus="proposed" />);
+    expect(screen.getByTestId("btn-hold")).toBeDisabled();
+    unmount();
+    const delay: Plan = { ...plan, gate: { decision: "delay", rule_id: "matrix:high:compensable", reason: "wait", delay_s: 120 } };
+    render(<PlanPanel {...baseProps} onDecision={onDecision} finding={finding} plan={delay} planStatus="countdown" countdown={30} />);
+    fireEvent.click(screen.getByTestId("btn-hold"));
+    expect(onDecision).toHaveBeenCalledWith(plan.id, "hold");
+  });
+
+  it.each(["executing", "done", "rejected", "superseded", "withdrawn"] as const)(
+    "disables every decision on a %s plan and says why",
+    (status) => {
+      render(<PlanPanel {...baseProps} finding={finding} plan={plan} planStatus={status} />);
+      expect(screen.getByTestId("plan-status")).toHaveTextContent(status);
+      expect(screen.getByTestId("btn-approve")).toBeDisabled();
+      expect(screen.getByTestId("btn-hold")).toBeDisabled();
+      expect(screen.getByTestId("btn-reject")).toBeDisabled();
+      expect(screen.getByTestId("plan-closed-hint")).toHaveTextContent(status);
+    },
+  );
+
+  it("explains the disabled decisions when no operator is named", () => {
+    render(<PlanPanel {...baseProps} operator="" finding={finding} plan={plan} planStatus="proposed" />);
+    expect(screen.getByTestId("operator-hint")).toBeInTheDocument();
+  });
+
+  it("offers both planners and passes the choice", () => {
+    const onReplan = vi.fn(async () => {});
+    render(
+      <PlanPanel {...baseProps} onReplan={onReplan} finding={finding} plan={null}
+        llm={{ provider: "openai", model: "gpt-5.5", ready: true }} />,
+    );
+    expect(screen.getByTestId("btn-replan")).toHaveTextContent("gpt-5.5");
+    expect(screen.getByTestId("btn-replan")).toBeEnabled();
+    fireEvent.click(screen.getByTestId("btn-plan-template"));
+    expect(onReplan).toHaveBeenCalledWith(finding.id, "template");
+  });
+
+  it("disables the LLM planner without a key but keeps the template planner", () => {
+    render(<PlanPanel {...baseProps} finding={finding} plan={null} llm={{ provider: "anthropic", model: "claude-sonnet-5", ready: false }} />);
+    expect(screen.getByTestId("btn-replan")).toBeDisabled();
+    expect(screen.getByTestId("btn-replan")).toHaveAttribute("title", expect.stringContaining("Settings"));
+    expect(screen.getByTestId("btn-plan-template")).toBeEnabled();
   });
 
   it("shows the countdown and Execute now for a delay gate", () => {

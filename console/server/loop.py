@@ -47,8 +47,20 @@ from console.sable_bridge import FindingEmitter, FindingStore, attach_ground_tru
 from console.topology import Topology
 from console.verify import Verifier, node_states
 
+from .model_settings import ModelSettings
+
 HERE = Path(__file__).resolve().parent
 CONSOLE_DIR = HERE.parent
+
+
+ANALYST_SYSTEM = """You are the analyst in an infrastructure remediation console. SABLE (a trained
+diagnosis model) finds faults; OVERLORD executes approved plans; you explain. You never act and
+you never recommend anything outside the plan and the action catalog.
+
+Answer only from the DATA block. Name the source of every fact (finding, plan, receipt, SABLE
+recommendation). If the data does not say, say that it does not say; never guess what fixed
+something — a receipt's steps and verification are the record of what was done. Do not overrule
+SABLE's diagnosis unless you cite conflicting data from the block. Be brief and plain."""
 
 
 @dataclass
@@ -60,8 +72,6 @@ class Config:
     lab_dir: Path = Path(os.environ.get("LAB_DIR", str(CONSOLE_DIR / "lab")))
     lab_enabled: bool = os.environ.get("CONSOLE_LAB", "") == "1"
     policy_path: Optional[str] = os.environ.get("CONSOLE_POLICY")
-    llm_provider: str = os.environ.get("CONSOLE_LLM_PROVIDER", "anthropic")
-    llm_model: Optional[str] = os.environ.get("CONSOLE_LLM_MODEL")
     disabled_actions: tuple[str, ...] = tuple(
         a for a in os.environ.get("CONSOLE_DISABLE_ACTIONS", "").split(",") if a)
     verify_stale_after_s: int = int(os.environ.get("CONSOLE_VERIFY_STALE_S", "120"))
@@ -83,13 +93,22 @@ class _PlanState:
     receipt_id: Optional[str] = None
 
 
+PENDING = ("proposed", "countdown", "held")
+
+
+class PlanStateError(Exception):
+    """A decision that does not apply to the plan's current status (409)."""
+
+
 class Loop:
     def __init__(self, cfg: Config, sable, overlord, catalog: Optional[Catalog] = None,
                  policy: Optional[Policy] = None, topology: Optional[Topology] = None,
                  store: Optional[FindingStore] = None, chain: Optional[ReceiptChain] = None,
                  emit: Optional[Callable[[dict], None]] = None, sleep: Callable[[float], Any] = time.sleep,
-                 clock: Callable[[], datetime] = now_utc):
+                 clock: Callable[[], datetime] = now_utc, models: Optional[ModelSettings] = None):
         self.cfg, self.sable, self.overlord = cfg, sable, overlord
+        # the one model choice (Claude or GPT + key) behind the analyst and the LLM planner
+        self.models = models or ModelSettings()
         self.catalog = catalog or Catalog.load()
         self.policy = policy or (Policy.load(cfg.policy_path) if cfg.policy_path else Policy.load())
         self._emit = emit or (lambda ev: None)
@@ -233,8 +252,8 @@ class Loop:
         with self._lock:
             pid = self.plan_of.pop(finding.id, None)
             st = self.plans.get(pid) if pid else None
-            if st is not None and st.status in ("proposed", "countdown", "held"):
-                st.status = "withdrawn"
+            if st is not None and st.status in PENDING:
+                self._set_status(st, "withdrawn")
         self._healthy_streak.pop(finding.id, None)
         self._answered.pop(finding.id, None)
         self.note(f"finding {finding.id} resolved without action: {finding.root_cause.node_id} "
@@ -298,8 +317,7 @@ class Loop:
 
     def _complete_fn(self):
         def complete(prompt: str, system: str, purpose: str) -> dict:
-            return self.overlord.complete(prompt, system=system, provider=self.cfg.llm_provider,
-                                         model=self.cfg.llm_model, purpose=purpose)
+            return self.overlord.complete(prompt, system=system, purpose=purpose, **self.models.complete_kwargs())
         return complete
 
     def plan(self, finding_id: str, planner: str = "template", force_action: Optional[str] = None,
@@ -314,7 +332,8 @@ class Loop:
         if planner == "llm":
             if self.overlord is None:
                 raise PlanValidationError(["no OVERLORD connection for the LLM planner"])
-            plan = LLMPlanner(self.catalog, self.topology, self._complete_fn(), model=self.cfg.llm_model).plan(finding)
+            plan = LLMPlanner(self.catalog, self.topology, self._complete_fn(),
+                              model=self.models.current()["model"]).plan(finding)
             disabled = [s.action_id for s in plan.steps if s.action_id in self.cfg.disabled_actions]
             if disabled:
                 raise PlanValidationError([f"action disabled by CONSOLE_DISABLE_ACTIONS: {', '.join(disabled)}"])
@@ -328,8 +347,8 @@ class Loop:
         plan = self.policy.apply(finding, plan)
         with self._lock:
             old = self.plan_of.get(finding_id)
-            if old and self.plans[old].status in ("proposed", "countdown", "held"):
-                self.plans[old].status = "superseded"
+            if old and self.plans[old].status in PENDING:
+                self._set_status(self.plans[old], "superseded")
             st = _PlanState(plan=plan, finding_id=finding_id)
             self.plans[plan.id] = st
             self.plan_of[finding_id] = plan.id
@@ -365,7 +384,8 @@ class Loop:
         if decision == "auto":
             self._start(st, Approval(actor="policy", decision="approve"))
         elif decision == "delay":
-            st.status, st.remaining_s = "countdown", int(st.plan.gate.delay_s or 0)
+            st.remaining_s = int(st.plan.gate.delay_s or 0)
+            self._set_status(st, "countdown")
             t = threading.Thread(target=self._countdown, args=(st,), daemon=True)
             self._threads.append(t)
             t.start()
@@ -387,6 +407,12 @@ class Loop:
         st = self.plans.get(plan_id)
         if st is None:
             raise KeyError(plan_id)
+        # a decision only means something while the plan is pending; recording
+        # an "approve" on a rejected or finished plan would be a lie in the audit
+        if st.status not in PENDING:
+            raise PlanStateError(f"plan {plan_id} is {st.status}; {decision} applies only to a pending plan")
+        if decision == "hold" and st.status != "countdown":
+            raise PlanStateError(f"plan {plan_id} is {st.status}; hold stops a running countdown")
         approval = Approval(actor=actor, decision=decision)
         with self._lock:
             st.approvals.append(approval)
@@ -396,14 +422,13 @@ class Loop:
         started = False
         gate = st.plan.gate.decision
         if decision == "reject":
-            st.status = "rejected"
+            self._set_status(st, "rejected")
         elif decision == "hold":
-            if st.status == "countdown":
-                st.status = "held"
+            self._set_status(st, "held")
         elif decision in ("approve", "execute_now"):
             if gate == "report_only":
                 self.note(f"plan {plan_id} is report-only; an approval does not execute it", source="gate", level="warn")
-            elif st.status in ("proposed", "countdown", "held"):
+            else:
                 started = self._start(st, approval)
         return {"approval": approval.model_dump(mode="json"), "plan": st.plan.model_dump(mode="json"),
                 "started": started, "status": st.status}
@@ -417,7 +442,7 @@ class Loop:
         with self._lock:
             if st.status == "executing":
                 return False
-            st.status = "executing"
+            self._set_status(st, "executing")
             if approval not in st.approvals:
                 st.approvals.append(approval)
         t = threading.Thread(target=self._run_plan, args=(st,), daemon=True)
@@ -437,7 +462,14 @@ class Loop:
         except Exception as e:                        # noqa: BLE001 — the loop never dies on one plan
             self.note(f"plan {st.plan.id} crashed: {e}", level="error")
         finally:
-            st.status = "done"
+            self._set_status(st, "done")
+
+    def _set_status(self, st: _PlanState, status: str) -> None:
+        """Every plan status change goes out on the stream, so a UI never
+        offers a decision on a plan that has moved on."""
+        st.status = status
+        self.emit({"type": "plan_status", "plan_id": st.plan.id, "finding_id": st.finding_id,
+                   "status": status, "receipt_id": st.receipt_id})
 
     def wait_idle(self, timeout: float = 30.0) -> bool:
         """Join execution/countdown threads (tests and the e2e runner)."""
@@ -454,13 +486,7 @@ class Loop:
         if self.sable is not None:
             try:
                 s = self.sable.status()
-                nm = {}
-                try:
-                    nm = self.sable.get("/api/nemotron/status")
-                except Exception:                     # noqa: BLE001
-                    pass
-                sable.update(ok=True, device=s.get("device"), cycle=s.get("cycle"),
-                             provider=nm.get("provider", "local"), model=nm.get("model"))
+                sable.update(ok=True, device=s.get("device"), cycle=s.get("cycle"))
             except Exception as e:                    # noqa: BLE001
                 sable["error"] = str(e)
         ov = {"socket": self.cfg.overlord_socket, "ok": False}
@@ -480,13 +506,18 @@ class Loop:
                        "default_deny": self.policy.is_default_deny, "delay_s": self.policy.delay_s},
             "stations": {k: (now - v) < 10 for k, v in self.stations.items()},
             "lab": self.cfg.lab_enabled,
+            "model": self.model_state(),
         }
 
     def plan_for(self, finding_id: str) -> Optional[dict]:
         pid = self.plan_of.get(finding_id)
-        if pid is None:
+        return self.plan_by_id(pid) if pid is not None else None
+
+    def plan_by_id(self, plan_id: str) -> Optional[dict]:
+        """That plan as it stands — superseded, rejected or current alike."""
+        st = self.plans.get(plan_id)
+        if st is None:
             return None
-        st = self.plans[pid]
         return {**st.plan.model_dump(mode="json"), "_status": st.status, "_remaining_s": st.remaining_s,
                 "_approvals": [a.model_dump(mode="json") for a in st.approvals], "_receipt_id": st.receipt_id}
 
@@ -498,31 +529,62 @@ class Loop:
 
     # ---------------------------------------------------------------- analyst + lab
 
+    def model_state(self) -> dict:
+        """The strip's view of the model: which one, and whether it has a key."""
+        pub = self.models.public()
+        return {"provider": pub["provider"], "model": pub["effective_model"], "ready": pub["ready"]}
+
+    def analyst_context(self, f: Finding) -> dict:
+        """Everything the analyst may cite, gathered read-only up front: the
+        finding, its plan and gate, every receipt (what was done and whether it
+        verified) and SABLE's current reading and recommendations. The
+        model gets no tools; it cannot reach anything that is not here."""
+        ctx: dict[str, Any] = {"finding": f.model_dump(mode="json")}
+        plan = self.plan_for(f.id)
+        if plan:
+            ctx["plan"] = {k: plan.get(k) for k in ("id", "steps", "gate", "verification", "planner", "_status")}
+        ctx["receipts"] = [{"id": r.id, "created_at": r.created_at.isoformat(),
+                            "steps": [{"step_id": x.step_id, "status": x.status, "error": x.error} for x in r.steps],
+                            "verification": r.verification.model_dump(mode="json") if r.verification else None,
+                            "rollback": r.rollback.model_dump(mode="json")}
+                           for r in self.chain.list(f.id)]
+        if self.sable is not None:
+            try:
+                recs = self.sable.recommendations() or {}
+                # SABLE's reading NOW, which may differ from when the finding was raised
+                ctx["sable_now"] = {k: recs.get(k) for k in ("summary", "root_cause", "root_cause_state", "total_affected")}
+                ctx["sable_now"]["actions"] = list(recs.get("actions") or [])[:10]
+            except Exception as e:                    # noqa: BLE001 — the analyst still answers from the rest
+                ctx["sable_now_error"] = str(e)
+        return ctx
+
     def analyst_chat(self, finding_id: Optional[str], message: str, history: list[dict]) -> dict:
-        if self.sable is None:
-            return {"reply": "[SABLE unavailable]", "tool_calls": [], "provider": "none", "generated": True}
-        scope = ""
+        """Operator chat about one finding, on the model chosen in Settings,
+        through OVERLORD (audited as model.complete). Read-only by construction:
+        a single tool-less completion over data gathered here."""
         f = self.store.get(finding_id) if finding_id else None
-        if f is not None:
-            scope = (f"Regarding finding {f.id}: root cause {f.root_cause.node_id} ({f.root_cause.component_type}) "
-                     f"is {f.root_cause.state}; affected: "
-                     f"{', '.join(a.node_id for a in f.affected_nodes) or 'none'}; confidence {f.confidence.score:.2f} "
-                     f"({f.confidence.method}); mode {f.detection_mode}.\n\n")
-        r = self.sable.post("/api/nemotron/chat", {"message": scope + message, "history": history})
-        nm = {}
-        try:
-            nm = self.sable.get("/api/nemotron/status")
-        except Exception:                             # noqa: BLE001
-            pass
+        if f is None:
+            raise KeyError(f"no finding {finding_id}")
+        if not message.strip():
+            raise ValueError("message is empty")
+        if self.overlord is None:
+            raise RuntimeError("no OVERLORD connection for the analyst")
+        ctx = self.analyst_context(f)
+        turns = [f"{'OPERATOR' if t.get('role') == 'user' else 'ANALYST'}: {str(t.get('content') or '')[:4000]}"
+                 for t in history[-12:] if t.get("role") in ("user", "assistant")]
+        prompt = ("DATA (from SABLE and the console's records — the only facts you have):\n"
+                  + json.dumps(ctx, indent=1, default=str)[:24000]
+                  + ("\n\nCONVERSATION SO FAR:\n" + "\n".join(turns) if turns else "")
+                  + f"\n\nOPERATOR: {message[:4000]}\nANALYST:")
+        res = self.overlord.complete(prompt, system=ANALYST_SYSTEM, purpose=f"analyst:{f.id}",
+                                     **self.models.complete_kwargs())
         # SABLE's own facts ride in a ```sable fence so the UI can render them
         # apart from the model's inference — data first, generated text after
-        reply = r.get("reply", "")
-        if f is not None:
-            facts = {"finding": f.id, "root_cause": f.root_cause.model_dump(), "affected": [a.node_id for a in f.affected_nodes],
-                     "confidence": f.confidence.model_dump(), "detection_mode": f.detection_mode, "severity": f.severity}
-            reply = "```sable\n" + json.dumps(facts, indent=2) + "\n```\n" + reply
-        return {"reply": reply, "tool_calls": r.get("tool_calls", []),
-                "provider": nm.get("provider", "local"), "generated": True}
+        facts = {"finding": f.id, "root_cause": f.root_cause.model_dump(), "affected": [a.node_id for a in f.affected_nodes],
+                 "confidence": f.confidence.model_dump(), "detection_mode": f.detection_mode, "severity": f.severity}
+        reply = "```sable\n" + json.dumps(facts, indent=2) + "\n```\n" + (res.get("text") or "").strip()
+        return {"reply": reply, "tool_calls": [], "provider": res.get("provider"), "model": res.get("model"),
+                "context": sorted(k for k in ctx if not k.endswith("_error")), "generated": True}
 
     _ARG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$")
 

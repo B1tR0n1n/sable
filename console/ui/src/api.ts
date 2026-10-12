@@ -11,6 +11,9 @@ import type {
   Finding,
   FindingStatus,
   LogLine,
+  ModelSettings,
+  ModelSettingsUpdate,
+  ModelTestResult,
   Plan,
   Policy,
   Receipt,
@@ -138,6 +141,15 @@ export const api = {
     request<AnalystChatResult>("/api/analyst/chat", json({ finding_id, message, history })),
 
   labFault: (name: string) => request<unknown>("/api/lab/fault", json({ name })),
+
+  modelSettings: () => request<ModelSettings>("/api/settings/model"),
+  putModelSettings: (body: ModelSettingsUpdate) =>
+    request<ModelSettings>("/api/settings/model", { method: "PUT", body: JSON.stringify(body) }),
+  modelList: (provider: string) =>
+    request<{ provider: string; models: Array<{ id: string; name: string }> }>(
+      `/api/settings/models?provider=${encodeURIComponent(provider)}`,
+    ),
+  modelTest: () => request<ModelTestResult>("/api/settings/model/test", { method: "POST" }),
 };
 
 // ---------------------------------------------------------------- WebSocket

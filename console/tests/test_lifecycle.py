@@ -44,7 +44,8 @@ def test_transient_blip_resolves_after_n_healthy_ticks(world):
         # the pending plan is withdrawn, unmapped, and can no longer be approved into execution
         assert loop.plans[pid].status == "withdrawn" and f.id not in loop.plan_of
         assert c.get(f"/api/findings/{f.id}/plan").status_code == 404
-        assert approve(c, pid)["started"] is False and ov.execs == []
+        r = c.post(f"/api/plans/{pid}/approve", json={"actor": "k", "decision": "approve"})
+        assert r.status_code == 409 and "withdrawn" in r.json()["error"] and ov.execs == []
         assert c.get("/api/state").json()["counts"] == {"findings_open": 0, "plans_pending": 0, "receipts": 0}
         assert any("resolved" in ln["text"] and f.id in ln["text"] for ln in c.get("/api/log").json())
         # the same fault later is a NEW finding, not an occurrence of the resolved one

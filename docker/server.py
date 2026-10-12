@@ -350,9 +350,14 @@ async def reset(_: None = Depends(require_token)):
         if autoplay_task:
             autoplay_task.cancel()
             autoplay_task = None
-        if scenario_data:
-            engine.reset_state(scenario_data["n_nodes"])
-        return {"reset": True, "cycle": 0}
+        # replay mode resets to the scenario's size; live mode (no scenario)
+        # to the topology the live monitor is posting — before, live mode
+        # answered {"reset": true} and reset nothing
+        n = scenario_data["n_nodes"] if scenario_data else engine.n_nodes
+        if not n:
+            return {"reset": False, "reason": "no scenario loaded and no live topology yet"}
+        engine.reset_state(n)
+        return {"reset": True, "cycle": 0, "n_nodes": n, "mode": "replay" if scenario_data else "live"}
 
 
 # ── Topology ─────────────────────────────────────────────────────────────

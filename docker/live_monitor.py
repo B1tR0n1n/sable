@@ -206,6 +206,21 @@ class LiveMonitor:
             log.warning("No nodes discovered from Prometheus")
             return
 
+        # A cycle with no telemetry for ANY node is a monitoring gap (Prometheus
+        # down, restarting, unreachable), not an observation that everything
+        # failed. Posting it would tell the model the whole fleet went
+        # unreachable; after a long real outage that has latched the temporal
+        # chain on a node for hours of healthy telemetry. No data, no tick.
+        if all(not node.metrics for node in snapshot.nodes.values()):
+            self._gap_cycles = getattr(self, "_gap_cycles", 0) + 1
+            if self._gap_cycles == 1 or self._gap_cycles % 12 == 0:
+                log.warning("No telemetry for any node (Prometheus unreachable?) — skipping this cycle "
+                            "instead of posting a blackout as an outage (%d cycle(s) so far)", self._gap_cycles)
+            return
+        if getattr(self, "_gap_cycles", 0):
+            log.info("Telemetry back after %d skipped cycle(s)", self._gap_cycles)
+            self._gap_cycles = 0
+
         # Step 2: Score health
         for node in snapshot.nodes.values():
             if node.health is None:

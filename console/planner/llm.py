@@ -46,8 +46,11 @@ Rules — violations are rejected outright, never repaired:
    scripts or parameters. If no listed action fits, reply with exactly: {"steps": []}
 2. Reply with ONE JSON object and nothing else: no prose, no markdown fences, no comments.
 3. Each step must copy `reversibility`, `precondition` (one of the action's listed checks)
-   and `compensation` (the action's listed compensation with the params it names, or null)
-   EXACTLY from the catalog entry. `timeout_s` must not exceed the action's ceiling.
+   and `compensation` EXACTLY from the catalog entry (null when the catalog says null).
+   A compensation's `params` are not empty: the catalog lists their names in `params_from`,
+   and each takes THIS step's value for the same name — restart_service with
+   params {"service": "dns"} compensates as {"action_id": "restart_service", "params": {"service": "dns"}}.
+   `timeout_s` must not exceed the action's ceiling.
 4. `target_node` must be a node id from the topology, and the action must apply to that
    node's component type. `params` must satisfy the action's params schema exactly.
 5. `verification.predicate` must be the predicate the chosen action declares.
@@ -121,7 +124,8 @@ class LLMPlanner:
             "finding_id": finding.id,
             "steps": [{"action_id": "<catalog action_id>", "target_node": "<topology node id>",
                        "params": {"<param>": "<value>"}, "reversibility": "<from catalog>",
-                       "compensation": {"action_id": "<from catalog>", "params": {}},
+                       "compensation": {"action_id": "<from catalog>",
+                                        "params": {"<each name in params_from>": "<this step's value for it>"}},
                        "precondition": "<one of the action's preconditions>",
                        "timeout_s": "<int, at most the ceiling>"}],
             "verification": {"predicate": "<the action's verification>", "window_s": 30},

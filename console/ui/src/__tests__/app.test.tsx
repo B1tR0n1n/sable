@@ -12,9 +12,10 @@ const plan = planFx as Plan;
 const receipt = receiptFx as Receipt;
 
 const state: ConsoleState = {
-  sable: { url: "http://127.0.0.1:8080", ok: true, provider: "nemotron", device: "cuda:0" },
+  sable: { url: "http://127.0.0.1:8080", ok: true, device: "cuda:0" },
   overlord: { socket: "/run/overlord.sock", ok: true, version: "1.2.0" },
   counts: { findings_open: 1, plans_pending: 1, receipts: 1 },
+  model: { provider: "anthropic", model: "claude-sonnet-5", ready: true },
   policy: {
     bands: { high: 0.85, medium: 0.6 },
     matrix: {
@@ -65,7 +66,7 @@ describe("App", () => {
   it("boots from /api/state, lights stations from the stream and shows default_deny + lab", async () => {
     render(<App />);
     await waitFor(() => expect(screen.getByTestId("default-deny")).toBeInTheDocument());
-    expect(screen.getByText(/nemotron/)).toBeInTheDocument();
+    expect(screen.getByTestId("model-stat")).toHaveTextContent("claude-sonnet-5 · anthropic");
     expect(screen.getByText(/1\.2\.0/)).toBeInTheDocument();
     expect(screen.getByTestId("lab-controls")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId(`finding-${finding.id}`)).toBeInTheDocument());

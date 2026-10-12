@@ -11,7 +11,7 @@ const receipt = receiptFx as Receipt;
 const ts = "2026-09-22T14:00:00Z";
 
 const state: ConsoleState = {
-  sable: { url: "http://127.0.0.1:8080", ok: true, provider: "claude", device: "cpu" },
+  sable: { url: "http://127.0.0.1:8080", ok: true, device: "cpu" },
   overlord: { socket: "/tmp/overlord.sock", ok: true, version: "0.9" },
   counts: { findings_open: 1, plans_pending: 1, receipts: 0 },
   policy: {
@@ -30,7 +30,7 @@ describe("store.apply", () => {
   it("hello/state events set the strip state", () => {
     const s = new Store();
     s.apply({ type: "hello", ts, state });
-    expect(s.get().state?.sable.provider).toBe("claude");
+    expect(s.get().state?.sable.device).toBe("cpu");
     expect(s.get().state?.policy.default_deny).toBe(true);
     s.apply({ type: "state", ts, state: { ...state, counts: { ...state.counts, receipts: 3 } } });
     expect(s.get().state?.counts.receipts).toBe(3);
@@ -119,6 +119,26 @@ describe("store.apply", () => {
     s.apply({ type: "approval", ts, plan_id: plan.id, approval: { actor: "op", decision: "hold", timestamp: ts } });
     s.apply({ type: "approval", ts, plan_id: plan.id, approval: { actor: "op", decision: "approve", timestamp: ts } });
     expect(s.get().approvals[plan.id].map((a) => a.decision)).toEqual(["hold", "approve"]);
+  });
+
+  it("an approval echoed by /ws after the POST is kept once", () => {
+    const s = new Store();
+    const approval = { actor: "op", decision: "reject" as const, timestamp: ts };
+    s.apply({ type: "approval", ts, plan_id: plan.id, approval });
+    s.apply({ type: "approval", ts, plan_id: plan.id, approval: { ...approval } });
+    expect(s.get().approvals[plan.id]).toHaveLength(1);
+  });
+
+  it("tracks plan status from plan and plan_status events, and clears a finished countdown", () => {
+    const s = new Store();
+    s.apply({ type: "plan", ts, plan, status: "countdown" });
+    s.apply({ type: "countdown", ts, plan_id: plan.id, remaining_s: 30 });
+    expect(s.get().planStatus[plan.id]).toBe("countdown");
+    s.apply({ type: "plan_status", ts, plan_id: plan.id, finding_id: plan.finding_id, status: "executing" });
+    expect(s.get().planStatus[plan.id]).toBe("executing");
+    expect(s.get().countdowns[plan.id]).toBeUndefined();
+    s.setPlan({ ...plan, _status: "done" });
+    expect(s.get().planStatus[plan.id]).toBe("done");
   });
 
   it("log events fill a ring buffer", () => {
