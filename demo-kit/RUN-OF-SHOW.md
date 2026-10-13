@@ -21,10 +21,15 @@
 3. **Ticks 10–20 — it names a root cause.** "Now it's calling the root cause —
    gateway, DNS, WAN router — and the affected set grows to a dozen-plus nodes.
    This is the cascade mapped before anyone finishes the first ticket."
-4. **Expert routing panel** — "It's not one model. Three pillars — a graph net
-   for topology, a belief tracker for partial monitoring, a temporal model for
-   how it evolves — and a router that picks per node. The routed answer beats
-   any single pillar."
+4. **Pillar verdicts panel (03)** — "This is the whole point on one panel. Each
+   row is a node where the pillars *disagree*: what partial monitoring believes
+   (`monitor`), what structural reasoning independently concludes (`struct` —
+   the graph net), and the answer SABLE fused (`SABLE`). Watch how many read
+   `monitor: healthy → SABLE: failed` — those are failures monitoring can't see,
+   inferred through the dependency graph. The gold `▲ inferred` tag marks the
+   ones where SABLE sided with the graph over the monitoring belief. The hero
+   stat up top — **blind-spot calls** — is just that count: hidden failures
+   SABLE caught that monitoring's own belief still reads as healthy."
 
 ## The close
 > "Feed it your topology and your existing alerts — it tells you what's breaking
@@ -53,6 +58,32 @@
 
 That paragraph is worth more than the demo. It shows judgment most people never
 demonstrate: finding that the good number was a lie and rebuilding it honest.
+
+## The optional closer — `network_discovery` scenario
+Pick **network_discovery** from the dropdown if you want to show the on-ramp.
+
+> "This one starts from a real network. SABLE ran an actual nmap/SNMP scan of a
+> live /24, inferred each device's role from its service fingerprint, and built
+> this topology itself — no CMDB, no manual entry. Then watch: monitoring is
+> only watching the gateway. When the gateway drops, SABLE infers the blast
+> radius on three hosts it *can't* see — calls them all unreachable the instant
+> the uplink dies, and holds them down until it confirms the path is back. It
+> doesn't assume recovery just because the gateway came back — that's the honest
+> behavior you want, not optimism."
+
+**Be straight about two things:**
+- The **topology is a real scan** (sanitized — no real IPs, MACs, or device
+  names ship in this kit). The **incident is a labelled simulation** on top of
+  that real graph — I knock the gateway to show the inference.
+- Watch the tail: after the gateway recovers, SABLE keeps the hidden hosts
+  "unreachable" for ~3 ticks before it catches up. That's a real limitation of
+  the temporal model (recovery hysteresis) — I'm showing it, not hiding it. On a
+  5-node graph it's exact through the whole outage and a beat slow to recover.
+
+The point of this scenario is the **on-ramp**: point SABLE at a network and it
+maps and reasons over it on its own. It is a small consumer /24, not an
+enterprise estate — sell the *mechanism*, and use the big synthetic scenarios
+(monday_morning et al.) for the scale story.
 
 ## Also in the kit
 - `topology-view.html` — a single **snapshot** view (observed alerts vs

@@ -5,7 +5,13 @@ SABLE — Demo Kit
 
 This is the real SABLE engine dashboard, playing back honest (de-leaked) runs.
   - Pick a scenario (top): monday_morning, silent_killer, slow_poison,
-    cascade_whiplash.
+    cascade_whiplash, network_discovery.
+  - network_discovery is the on-ramp: SABLE ran a REAL nmap/SNMP scan of a live
+    /24 (sanitized — no real IPs/MACs/names), built the topology itself, then
+    infers a hidden-host blast radius from an observed gateway failure. The
+    topology is real; the incident is a labelled simulation. It holds the hidden
+    hosts down ~3 ticks after the gateway recovers — a real recovery-lag limit,
+    shown not hidden.
   - Hit ▶ play (or step) to watch the incident unfold tick by tick.
   - The node grid, class distribution, expert routing, confidence and the
     live ACCURACY readout are all real model output — nothing inflated.
